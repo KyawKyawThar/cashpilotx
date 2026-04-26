@@ -319,30 +319,3 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           VERSION=${{ github.ref_name }}
-    # Uncomment when Dockerfile_worker is ready:
-    # - name: Build and push Worker image
-    #   uses: docker/build-push-action@v6
-    #   with:
-    #     context: .
-    #     file: ./deploy/Dockerfile.worker
-    #     push: true
-    #     platforms: linux/amd64,linux/arm64
-    #     tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:${{ github.ref_name }}
-    #     labels: ${{ steps.meta.outputs.labels }}
-    #     cache-from: type=gha
-    #     cache-to: type=gha,mode=max
-    #   continue-on-error: true
-
-    - name: Build and push Agent image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: ./deploy/Dockerfile_agent
-        push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-agent:${{ github.ref_name }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    # GitHub Releases for tags are handled by release-agent.yml
