@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" \
-    -o /bin/server ./cmd/server
+    -o /bin/cashpilotx ./cmd
 
 # ─────────────────────────────────────────────
 # Stage 2: Runtime
@@ -29,7 +29,7 @@ RUN addgroup -S cashpilotx && adduser -S cashpilotx -G cashpilotx
 
 WORKDIR /app
 
-COPY --from=builder /bin/server .
+COPY --from=builder /bin/cashpilotx .
 COPY --from=builder /app/db/migrations ./migrations
 
 USER cashpilotx
@@ -39,4 +39,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8080/api/v1/health || exit 1
 
-ENTRYPOINT ["./server"]
+ENTRYPOINT ["./cashpilotx"]
