@@ -1,7 +1,8 @@
+// Package main is the entry point for the cashpilotx application.
 package main
 
-import "fmt"
+import "log"
 
 func main() {
-	fmt.Println("welcome from cashpilotx")
+	log.Println("welcome from cashpilotx")
 }

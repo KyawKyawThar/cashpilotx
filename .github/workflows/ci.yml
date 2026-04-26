@@ -112,10 +112,11 @@ jobs:
 
     - name: Upload unit test coverage
       uses: actions/upload-artifact@v4
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       with:
         name: coverage-unit
         path: coverage-unit.out
-        retention-days: 3
+        retention-days: 1
 
   # ─────────────────────────────────────────────────────────────────
   # Integration Tests (with PostgreSQL & Redis)
@@ -266,11 +267,11 @@ jobs:
 
     - name: Upload binaries
       uses: actions/upload-artifact@v4
-      if: github.event_name == 'push'
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
         path: bin/
-        retention-days: 7
+        retention-days: 1
 
   # ─────────────────────────────────────────────────────────────────
   # Build & Push Docker Images
