@@ -13,6 +13,7 @@ RUN go mod download
 
 # Copy source and build
 COPY . .
+RUN mkdir -p db/migrations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" \
     -o /bin/cashpilotx ./cmd
