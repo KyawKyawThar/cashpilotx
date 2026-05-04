@@ -53,6 +53,12 @@ migrate_up:
 migrate_down:
 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose down $(steps)
 
+# migrate_up_all:
+# 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose up
+
+# migrate_down_all:
+# 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose down
+
 migrate_goto:
 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose goto $(version)
 
