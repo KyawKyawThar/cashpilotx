@@ -1,6 +1,9 @@
 package db
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // RotateSessionTx atomically creates a new session and enforces the max-5
 // active-sessions-per-user cap (oldest deleted first). Used on every login
@@ -16,6 +19,10 @@ type RotateSessionTxResult struct {
 
 func (s *SQLStore) RotateSessionTx(ctx context.Context, arg RotateSessionTxParams) (RotateSessionTxResult, error) {
 	var result RotateSessionTxResult
+
+	if arg.Session.RefreshToken == "" {
+		return result, fmt.Errorf("session.refresh_token is required")
+	}
 
 	err := s.execTx(ctx, func(q *Queries) error {
 		var err error
