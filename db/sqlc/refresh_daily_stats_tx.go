@@ -42,7 +42,10 @@ func (s *SQLStore) RefreshDailyStatsTx(ctx context.Context, arg RefreshDailyStat
 func computeDailyStats(ctx context.Context, q *Queries, userID uuid.UUID, date time.Time) (UpsertDailyStatsParams, error) {
 	var p UpsertDailyStatsParams
 	p.UserID = userID
-	p.Date = date
+	// Normalize to UTC midnight so the date is unambiguous regardless of
+	// whether pgx sends the value as timestamptz or timestamp-without-tz.
+	utc := date.UTC()
+	p.Date = time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Current outstanding balance across all active invoices (global snapshot).
 	const sqlOutstanding = `
@@ -60,9 +63,9 @@ func computeDailyStats(ctx context.Context, q *Queries, userID uuid.UUID, date t
 		SELECT COALESCE(SUM(amount), 0)::BIGINT
 		FROM payments
 		WHERE user_id = $1
-		  AND created_at::date = $2`
+		  AND created_at::date = $2::date`
 
-	if err := q.db.QueryRow(ctx, sqlCollected, userID, date).Scan(&p.TotalCollected); err != nil {
+	if err := q.db.QueryRow(ctx, sqlCollected, userID, p.Date).Scan(&p.TotalCollected); err != nil {
 		return p, err
 	}
 
@@ -83,9 +86,9 @@ func computeDailyStats(ctx context.Context, q *Queries, userID uuid.UUID, date t
 		FROM invoices
 		WHERE user_id = $1
 		  AND status = 'paid'
-		  AND paid_at::date = $2`
+		  AND paid_at::date = $2::date`
 
-	if err := q.db.QueryRow(ctx, sqlPaid, userID, date).Scan(&p.InvoicesPaid); err != nil {
+	if err := q.db.QueryRow(ctx, sqlPaid, userID, p.Date).Scan(&p.InvoicesPaid); err != nil {
 		return p, err
 	}
 
@@ -95,9 +98,9 @@ func computeDailyStats(ctx context.Context, q *Queries, userID uuid.UUID, date t
 		FROM messages
 		WHERE user_id = $1
 		  AND status = 'sent'
-		  AND sent_at::date = $2`
+		  AND sent_at::date = $2::date`
 
-	if err := q.db.QueryRow(ctx, sqlMessages, userID, date).Scan(&p.MessagesSent); err != nil {
+	if err := q.db.QueryRow(ctx, sqlMessages, userID, p.Date).Scan(&p.MessagesSent); err != nil {
 		return p, err
 	}
 

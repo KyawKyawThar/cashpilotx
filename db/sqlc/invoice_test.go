@@ -268,7 +268,7 @@ func TestListOverdueInvoices(t *testing.T) {
 		CustomerID: customer.ID,
 		Amount:     100,
 		Currency:   "USD",
-		DueDate:    time.Now().Add(-24 * time.Hour), // past
+		DueDate:    time.Now().UTC().AddDate(0, 0, -1), // past — use UTC so stored date is unambiguously before CURRENT_DATE
 		Column10:   json.RawMessage("[]"),
 	})
 

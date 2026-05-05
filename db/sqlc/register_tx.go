@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -23,6 +24,10 @@ type RegisterUserTxResult struct {
 
 func (s *SQLStore) RegisterUserTx(ctx context.Context, arg RegisterUserTxParams) (RegisterUserTxResult, error) {
 	var result RegisterUserTxResult
+
+	if arg.Session.RefreshToken == "" {
+		return result, fmt.Errorf("session.refresh_token is required")
+	}
 
 	err := s.execTx(ctx, func(q *Queries) error {
 		var err error

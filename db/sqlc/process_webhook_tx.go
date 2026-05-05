@@ -48,8 +48,8 @@ func (s *SQLStore) ProcessWebhookTx(ctx context.Context, arg ProcessWebhookTxPar
 			return err
 		}
 
-		// 4. Mark webhook processed
-		return q.MarkWebhookProcessed(ctx, result.WebhookEvent.ID)
+		// 4. Mark webhook processed (sync path — event never enters the queue)
+		return q.MarkWebhookProcessedImmediate(ctx, result.WebhookEvent.ID)
 	})
 
 	return result, err
