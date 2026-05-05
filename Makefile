@@ -53,6 +53,12 @@ migrate_up:
 migrate_down:
 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose down $(steps)
 
+# migrate_up_all:
+# 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose up
+
+# migrate_down_all:
+# 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose down
+
 migrate_goto:
 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" -verbose goto $(version)
 
@@ -108,11 +114,11 @@ lint-new: ## Only lint uncommitted changes (fast iteration)
 ## ── Test ─────────────────────────────────────────────────────────
 
 .PHONY: test
-test: ## Run unit tests (short mode, no external deps)
+test: ## Run short tests only (no DB/Redis required; mirrors CI unit-tests job)
 	go test -v -race -short ./...
 
 .PHONY: test-integration
-test-integration: ## Run all tests including integration
+test-integration: ## Run all tests including DB integration (requires running DB)
 	go test -v -race -coverprofile=coverage.out ./...
 
 ## ── Dev (live reload) ────────────────────────────────────────────
@@ -149,10 +155,18 @@ fmt: ## Format code
 tidy: ## Tidy go.mod
 	go mod tidy
 
-## ── Pre-push check (everything CI checks) ───────────────────────
+## ── Pre-push check ───────────────────────────────────────────────
 
 .PHONY: check
-check: tidy fmt lint test build ## Full pre-push check (mirrors CI)
+check: tidy fmt lint test build ## Quick pre-push check: lint + short tests + build (no DB required)
+	@echo ""
+	@echo "════════════════════════════════════════"
+	@echo "  ✅ Quick checks passed"
+	@echo "  Run 'make check-full' to also run DB integration tests"
+	@echo "════════════════════════════════════════"
+
+.PHONY: check-full
+check-full: tidy fmt lint test-integration build ## Full pre-push check: mirrors CI integration-tests job (requires running DB)
 	@echo ""
 	@echo "════════════════════════════════════════"
 	@echo "  ✅ All checks passed — safe to push"
@@ -167,5 +181,5 @@ help: ## Show this help
 
 .DEFAULT_GOAL := help
 
-.PHONY: sqlc new_migration migrate_up migrate_down migrate_goto migrate_force swagger generate lint-new lint-fix check hooks tools up down down-v restart ps logs logs-f db-shell redis-shell dev dev-server dev-agent
+.PHONY: sqlc new_migration migrate_up migrate_down migrate_goto migrate_force swagger generate lint-new lint-fix check check-full hooks tools up down down-v restart ps logs logs-f db-shell redis-shell dev dev-server dev-agent
 

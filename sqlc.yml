@@ -29,6 +29,16 @@ sql:
         go_type:
           type: "time.Time"
           pointer: true
+        # ── timestamptz ───────────────────────────────────────────
+      - db_type: "date"
+        nullable: false
+        go_type: "time.Time"
+
+      - db_type: "date"
+        nullable: true
+        go_type:
+          type: "time.Time"
+          pointer: true
 
       # ── UUID ─────────────────────────────────────────────────
       - db_type: "uuid"
@@ -58,19 +68,28 @@ sql:
           type: "RawMessage"
           pointer: true
 
-      # ── INET ─────────────────────────────────────────────────
-      - db_type: "inet"
-        nullable: false
-        go_type:
-          import: "net/netip"
-          type: "Addr"
-
-      - db_type: "inet"
+      - db_type: "pg_catalog.bpchar"
         nullable: true
         go_type:
-          import: "net/netip"
-          type: "Addr"
+          type: "string"
           pointer: true
+
+      # ── TEXT (non-nullable → string) ────────────────────
+      - db_type: "text"
+        nullable: false
+        go_type: "string"
+
+      - db_type: "pg_catalog.char"
+        nullable: false
+        go_type: "string"
+
+      - db_type: "char(2)"
+        nullable: false
+        go_type: "string"
+
+      - db_type: "char(3)"
+        nullable: false
+        go_type: "string"
 
       # ── TEXT (nullable → *string) ─────────────────────────────
       - db_type: "text"
@@ -89,17 +108,6 @@ sql:
         nullable: true
         go_type:
           type: "[]string"
-
-      # ── INT[] ────────────────────────────────────────────────
-      - db_type: "int4[]"
-        nullable: false
-        go_type:
-          type: "[]int32"
-
-      - db_type: "int4[]"
-        nullable: true
-        go_type:
-          type: "[]int32"
 
       # ── INT4 ─────────────────────────────────────────────────
       - db_type: "int4"
@@ -120,6 +128,17 @@ sql:
         nullable: true
         go_type:
           type: "int32"
+          pointer: true
+
+      # ── FLOAT ────────────────────────────────────────────────
+      - db_type: "pg_catalog.float8"
+        nullable: false
+        go_type: "float64"
+
+      - db_type: "pg_catalog.float8"
+        nullable: true
+        go_type:
+          type: "float64"
           pointer: true
 
       # ── NUMERIC (plain) ──────────────────────────────────────
@@ -143,3 +162,53 @@ sql:
         go_type:
           type: "string"
           pointer: true
+
+      # ── INT8 ─────────────────────────────────────────────────
+      - db_type: "int8"
+        nullable: false
+        go_type: "int64"
+
+      - db_type: "int8"
+        nullable: true
+        go_type:
+          type: "int64"
+          pointer: true
+
+      - db_type: "pg_catalog.int8"
+        nullable: false
+        go_type: "int64"
+
+      - db_type: "pg_catalog.int8"
+        nullable: true
+        go_type:
+          type: "int64"
+          pointer: true
+
+      # ── BOOL ─────────────────────────────────────────────────
+      - db_type: "bool"
+        nullable: false
+        go_type: "bool"
+
+      - db_type: "bool"
+        nullable: true
+        go_type:
+          type: "bool"
+          pointer: true
+
+      - db_type: "channel_type"
+        go_type: "string"
+
+      - db_type: "message_status"
+        go_type: "string"
+
+      - db_type: "message_channel"
+        go_type: "string"
+
+      - db_type: "message_direction"
+        go_type: "string"
+
+      - db_type: "message_source"
+        go_type: "string"
+
+      - db_type: "message_tone"
+        go_type: "string"
