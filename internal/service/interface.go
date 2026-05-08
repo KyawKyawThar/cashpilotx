@@ -16,4 +16,6 @@ type AuthServicer interface {
 	ValidateAccessToken(ctx context.Context, tokenStr string) (*token.Payload, error)
 	GetUserSessions(ctx context.Context, userID uuid.UUID) ([]*dto.SessionResponse, error)
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID string) error
+	ForgotPIN(ctx context.Context, req *dto.ForgotPINRequest) error
+	ResetPIN(ctx context.Context, req *dto.ResetPINRequest) error
 }

@@ -3,6 +3,7 @@ package service
 import (
 	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/cache"
+	"cashpilotx/internal/email"
 	"cashpilotx/internal/token"
 	"time"
 
@@ -14,10 +15,11 @@ type Services struct {
 }
 
 type AuthService struct {
-	store      db.Store
-	cache      *cache.RedisClient
-	tokenMaker token.Maker
-	config     *AuthConfig
+	store       db.Store
+	cache       *cache.RedisClient
+	tokenMaker  token.Maker
+	config      *AuthConfig
+	emailSender email.Sender
 }
 
 type AuthConfig struct {
@@ -48,23 +50,24 @@ func DefaultConfig() *Config {
 	}
 }
 
-func NewAuthService(store db.Store, redisCache *cache.RedisClient, tokenMaker token.Maker, cfg *AuthConfig) *AuthService {
+func NewAuthService(store db.Store, redisCache *cache.RedisClient, tokenMaker token.Maker, cfg *AuthConfig, emailSender email.Sender) *AuthService {
 	if cfg == nil {
 		cfg = DefaultAuthConfig()
 	}
 	return &AuthService{
-		store:      store,
-		cache:      redisCache,
-		tokenMaker: tokenMaker,
-		config:     cfg,
+		store:       store,
+		cache:       redisCache,
+		tokenMaker:  tokenMaker,
+		config:      cfg,
+		emailSender: emailSender,
 	}
 }
 
-func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token.Maker, cfg *Config) *Services {
+func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token.Maker, cfg *Config, emailSender email.Sender) *Services {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}
-	authSvc := NewAuthService(store, redisCache, tokenMaker, &cfg.Auth)
+	authSvc := NewAuthService(store, redisCache, tokenMaker, &cfg.Auth, emailSender)
 	return &Services{
 		Auth: authSvc,
 	}

@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS uniq_active_email;
+ALTER TABLE users DROP COLUMN IF EXISTS email;

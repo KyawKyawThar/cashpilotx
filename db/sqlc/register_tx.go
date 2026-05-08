@@ -15,6 +15,7 @@ type RegisterUserTxParams struct {
 	User         CreateUserParams
 	Session      CreateSessionParams
 	DefaultRates []CreateExchangeRateParams
+	Email        *string
 }
 
 type RegisterUserTxResult struct {

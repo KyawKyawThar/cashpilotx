@@ -161,6 +161,58 @@ func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, sessions)
 }
 
+// ForgotPIN godoc
+//
+//	@Summary      Request PIN reset OTP
+//	@Description  Send a 6-digit OTP to the user's registered email. Accepts phone or email as identifier.
+//	@Tags         auth
+//	@Accept       json
+//	@Produce      json
+//	@Param        body  body      dto.ForgotPINRequest  true  "Phone or email"
+//	@Success      200   {object}  dto.MessageResponse
+//	@Failure      400   {object}  api.Error
+//	@Failure      500   {object}  api.Error
+//	@Router       /auth/forgot-pin [post]
+func (h *AuthHandler) ForgotPIN(w http.ResponseWriter, r *http.Request) {
+	var req dto.ForgotPINRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	if err := h.svc.ForgotPIN(r.Context(), &req); err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteMessage(w, r, "If an account exists for that identifier, an OTP has been sent to the registered email.")
+}
+
+// ResetPIN godoc
+//
+//	@Summary      Reset PIN using OTP
+//	@Description  Verify the OTP and set a new PIN. All existing sessions are revoked on success.
+//	@Tags         auth
+//	@Accept       json
+//	@Produce      json
+//	@Param        body  body      dto.ResetPINRequest  true  "OTP + new PIN"
+//	@Success      200   {object}  dto.MessageResponse
+//	@Failure      400   {object}  api.Error
+//	@Failure      500   {object}  api.Error
+//	@Router       /auth/reset-pin [post]
+func (h *AuthHandler) ResetPIN(w http.ResponseWriter, r *http.Request) {
+	var req dto.ResetPINRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	if err := h.svc.ResetPIN(r.Context(), &req); err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteMessage(w, r, "PIN reset successful. Please log in with your new PIN.")
+}
+
 // RevokeSession godoc
 //
 //	@Summary      Revoke a session
