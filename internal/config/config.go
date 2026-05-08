@@ -72,6 +72,13 @@ type Config struct {
 	CORSAllowedOrigins   string   `mapstructure:"CORS_ALLOWED_ORIGINS"`
 	CORSAllowCredentials bool     `mapstructure:"CORS_ALLOW_CREDENTIALS"`
 	AllowedOrigins       []string // parsed from CORSAllowedOrigins
+
+	// ── Email (SMTP — MailHog in dev, smtp.resend.com in prod) ────
+	EmailFrom    string `mapstructure:"EMAIL_FROM"`
+	SMTPHost     string `mapstructure:"SMTP_HOST"`
+	SMTPPort     int    `mapstructure:"SMTP_PORT"`
+	SMTPUsername string `mapstructure:"SMTP_USERNAME"` // "resend" when using Resend relay
+	SMTPPassword string `mapstructure:"SMTP_PASSWORD"` // Resend API key
 }
 
 // LoadConfig loads the configuration from the given path.
@@ -107,6 +114,11 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("S3_ACCESS_KEY", "")
 	viper.SetDefault("S3_SECRET_KEY", "")
 	viper.SetDefault("S3_REGION", "")
+	viper.SetDefault("EMAIL_FROM", "noreply@cashpilotx.local")
+	viper.SetDefault("SMTP_HOST", "localhost")
+	viper.SetDefault("SMTP_PORT", 1025)
+	viper.SetDefault("SMTP_USERNAME", "")
+	viper.SetDefault("SMTP_PASSWORD", "")
 
 	err = viper.ReadInConfig()
 	if err != nil {

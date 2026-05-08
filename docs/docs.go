@@ -80,6 +80,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/forgot-pin": {
+            "post": {
+                "description": "Send a 6-digit OTP to the user's registered email. Accepts phone or email as identifier.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Request PIN reset OTP",
+                "parameters": [
+                    {
+                        "description": "Phone or email",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ForgotPINRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Authenticate with phone and PIN; returns access and refresh tokens.",
@@ -302,6 +348,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/reset-pin": {
+            "post": {
+                "description": "Verify the OTP and set a new PIN. All existing sessions are revoked on success.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Reset PIN using OTP",
+                "parameters": [
+                    {
+                        "description": "OTP + new PIN",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ResetPINRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/sessions": {
             "get": {
                 "security": [
@@ -441,6 +533,8 @@ const docTemplate = `{
                 "SESSION_EXPIRED",
                 "LOGIN_LOCKED",
                 "PHONE_ALREADY_EXISTS",
+                "EMAIL_ALREADY_EXISTS",
+                "INVALID_OTP",
                 "INVALID_STATE_TRANSITION",
                 "INVOICE_OVERPAID",
                 "ACTIVE_REMINDER_EXISTS"
@@ -470,6 +564,8 @@ const docTemplate = `{
                 "",
                 "",
                 "",
+                "",
+                "",
                 ""
             ],
             "x-enum-varnames": [
@@ -492,6 +588,8 @@ const docTemplate = `{
                 "ErrCodeSessionExpired",
                 "ErrCodeLoginLocked",
                 "ErrCodePhoneAlreadyExists",
+                "ErrCodeEmailAlreadyExists",
+                "ErrCodeInvalidOTP",
                 "ErrCodeInvalidStateTransition",
                 "ErrCodeInvoiceOverpaid",
                 "ErrCodeActiveReminderExists"
@@ -510,6 +608,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "dto.ForgotPINRequest": {
+            "type": "object",
+            "required": [
+                "identifier"
+            ],
+            "properties": {
+                "identifier": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "minLength": 3
+                }
             }
         },
         "dto.IngestBatchRequest": {
@@ -579,6 +690,14 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.RefreshTokenRequest": {
             "type": "object",
             "required": [
@@ -611,6 +730,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "confirm_pin",
+                "email",
                 "home_currency",
                 "name",
                 "phone",
@@ -623,6 +743,9 @@ const docTemplate = `{
                     "minLength": 2
                 },
                 "confirm_pin": {
+                    "type": "string"
+                },
+                "email": {
                     "type": "string"
                 },
                 "home_currency": {
@@ -658,6 +781,31 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/dto.UserResponse"
+                }
+            }
+        },
+        "dto.ResetPINRequest": {
+            "type": "object",
+            "required": [
+                "confirm_pin",
+                "identifier",
+                "new_pin",
+                "otp"
+            ],
+            "properties": {
+                "confirm_pin": {
+                    "type": "string"
+                },
+                "identifier": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "minLength": 3
+                },
+                "new_pin": {
+                    "type": "string"
+                },
+                "otp": {
+                    "type": "string"
                 }
             }
         },
@@ -715,12 +863,6 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
-            "description": "Type \"ApiKey\" followed by a space and your API key (e.g. \"ApiKey odt_xxx...\").",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        },
         "BearerAuth": {
             "description": "Type \"Bearer\" followed by a space and JWT token.",
             "type": "apiKey",

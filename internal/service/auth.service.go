@@ -4,6 +4,7 @@ package service
 import (
 	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/api"
+	"cashpilotx/internal/cache"
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/token"
 	"cashpilotx/utils"
@@ -12,6 +13,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,6 +53,7 @@ func (s *AuthService) Register(
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
+	email := req.Email
 	result, err := s.store.RegisterUserTx(dbCtx, db.RegisterUserTxParams{
 		User: db.CreateUserParams{
 			Phone:        req.Phone,
@@ -58,6 +62,7 @@ func (s *AuthService) Register(
 			BusinessName: req.BusinessName,
 			Plan:         "free",
 			HomeCurrency: req.HomeCurrency,
+			Email:        &email,
 		},
 		Session: db.CreateSessionParams{
 			RefreshToken: refreshToken,
@@ -68,6 +73,10 @@ func (s *AuthService) Register(
 	})
 	if err != nil {
 		if api.IsUniqueViolation(err) {
+			msg := err.Error()
+			if strings.Contains(msg, "email") {
+				return nil, api.ErrEmailAlreadyExists()
+			}
 			return nil, api.ErrPhoneAlreadyExists()
 		}
 		return nil, api.FromPgError(err)
@@ -335,5 +344,99 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID uuid.UUID, sessi
 		return api.FromPgError(err)
 	}
 	s.cache.DeleteSession(ctx, sessionID, userID.String()) //nolint:errcheck // best-effort cache eviction; DB deletion already succeeded
+	return nil
+}
+
+// generateOTP creates a cryptographically random 6-digit numeric code.
+func generateOTP() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+// lookupUserByIdentifier resolves a phone-or-email string to a DB user.
+func (s *AuthService) lookupUserByIdentifier(ctx context.Context, identifier string) (db.User, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if strings.Contains(identifier, "@") {
+		user, err := s.store.GetUserByEmail(dbCtx, identifier)
+		if err != nil {
+			if api.IsRecordNotFound(err) {
+				return db.User{}, api.ErrInvalidCredentials()
+			}
+			return db.User{}, api.FromPgError(err)
+		}
+		return user, nil
+	}
+
+	user, err := s.store.GetUserByPhone(dbCtx, identifier)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return db.User{}, api.ErrInvalidCredentials()
+		}
+		return db.User{}, api.FromPgError(err)
+	}
+	return user, nil
+}
+
+func (s *AuthService) ForgotPIN(ctx context.Context, req *dto.ForgotPINRequest) error {
+	user, err := s.lookupUserByIdentifier(ctx, req.Identifier)
+	if err != nil {
+		// Return success even on not-found to prevent user enumeration.
+		return nil //nolint:nilerr
+	}
+
+	if user.Email == nil || *user.Email == "" {
+		return nil // no email registered — silently succeed to prevent enumeration
+	}
+
+	return s.sendPINResetEmail(ctx, user.ID.String(), *user.Email, user.Name)
+}
+
+func (s *AuthService) ResetPIN(ctx context.Context, req *dto.ResetPINRequest) error {
+	if req.NewPIN != req.ConfirmPIN {
+		return api.ErrValidation("new PIN and confirm PIN do not match")
+	}
+
+	user, err := s.lookupUserByIdentifier(ctx, req.Identifier)
+	if err != nil {
+		return err
+	}
+
+	storedOTP, err := s.cache.GetOTP(ctx, user.ID.String())
+	if err != nil {
+		if errors.Is(err, cache.ErrTokenNotFound) {
+			return api.ErrInvalidOTP()
+		}
+		return api.ErrInternal(fmt.Errorf("get OTP: %w", err))
+	}
+
+	if storedOTP != req.OTP {
+		return api.ErrInvalidOTP()
+	}
+
+	pinHash, err := utils.HashPassword(req.NewPIN)
+	if err != nil {
+		return api.ErrInternal(fmt.Errorf("hash PIN: %w", err))
+	}
+
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if err := s.store.UpdateUserPIN(dbCtx, db.UpdateUserPINParams{
+		ID:      user.ID,
+		PinHash: pinHash,
+	}); err != nil {
+		return api.FromPgError(err)
+	}
+
+	// Consume the OTP and evict all sessions so the user must log in fresh.
+	s.cache.DeleteOTP(ctx, user.ID.String())                    //nolint:errcheck
+	s.cache.DeleteAllUserSessions(ctx, user.ID.String())        //nolint:errcheck
+	s.store.DeleteAllUserSessions(dbCtx, user.ID)               //nolint:errcheck
+
 	return nil
 }

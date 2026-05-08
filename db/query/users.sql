@@ -6,9 +6,10 @@ INSERT INTO users (
     business_name,
     locale,
     plan,
-    home_currency
+    home_currency,
+    email
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetUserByID :one
@@ -24,6 +25,22 @@ FROM users
 WHERE phone = $1
   AND is_active = true
 LIMIT 1;
+
+-- name: GetUserByEmail :one
+SELECT *
+FROM users
+WHERE email = $1
+  AND is_active = true
+  AND email IS NOT NULL
+LIMIT 1;
+
+-- name: UpdateUserPIN :exec
+UPDATE users
+SET
+    pin_hash   = $2,
+    updated_at = now()
+WHERE id = $1
+  AND is_active = true;
 
 
 

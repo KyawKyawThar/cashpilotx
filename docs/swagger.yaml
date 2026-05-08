@@ -34,6 +34,8 @@ definitions:
     - SESSION_EXPIRED
     - LOGIN_LOCKED
     - PHONE_ALREADY_EXISTS
+    - EMAIL_ALREADY_EXISTS
+    - INVALID_OTP
     - INVALID_STATE_TRANSITION
     - INVOICE_OVERPAID
     - ACTIVE_REMINDER_EXISTS
@@ -63,6 +65,8 @@ definitions:
     - ""
     - ""
     - ""
+    - ""
+    - ""
     x-enum-varnames:
     - ErrCodeValidation
     - ErrCodeUnauthorized
@@ -83,6 +87,8 @@ definitions:
     - ErrCodeSessionExpired
     - ErrCodeLoginLocked
     - ErrCodePhoneAlreadyExists
+    - ErrCodeEmailAlreadyExists
+    - ErrCodeInvalidOTP
     - ErrCodeInvalidStateTransition
     - ErrCodeInvoiceOverpaid
     - ErrCodeActiveReminderExists
@@ -95,6 +101,15 @@ definitions:
       message:
         type: string
       value: {}
+    type: object
+  dto.ForgotPINRequest:
+    properties:
+      identifier:
+        maxLength: 254
+        minLength: 3
+        type: string
+    required:
+    - identifier
     type: object
   dto.IngestBatchRequest:
     properties:
@@ -141,6 +156,11 @@ definitions:
         description: specific session; empty = current token only
         type: string
     type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
   dto.RefreshTokenRequest:
     properties:
       refresh_token:
@@ -167,6 +187,8 @@ definitions:
         type: string
       confirm_pin:
         type: string
+      email:
+        type: string
       home_currency:
         type: string
       name:
@@ -179,6 +201,7 @@ definitions:
         type: string
     required:
     - confirm_pin
+    - email
     - home_currency
     - name
     - phone
@@ -196,6 +219,24 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.ResetPINRequest:
+    properties:
+      confirm_pin:
+        type: string
+      identifier:
+        maxLength: 254
+        minLength: 3
+        type: string
+      new_pin:
+        type: string
+      otp:
+        type: string
+    required:
+    - confirm_pin
+    - identifier
+    - new_pin
+    - otp
     type: object
   dto.SessionResponse:
     properties:
@@ -284,6 +325,37 @@ paths:
       summary: Ingest aggregated batch
       tags:
       - agent
+  /auth/forgot-pin:
+    post:
+      consumes:
+      - application/json
+      description: Send a 6-digit OTP to the user's registered email. Accepts phone
+        or email as identifier.
+      parameters:
+      - description: Phone or email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPINRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      summary: Request PIN reset OTP
+      tags:
+      - auth
   /auth/login:
     post:
       consumes:
@@ -428,6 +500,37 @@ paths:
       summary: Register new user
       tags:
       - auth
+  /auth/reset-pin:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP and set a new PIN. All existing sessions are revoked
+        on success.
+      parameters:
+      - description: OTP + new PIN
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPINRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      summary: Reset PIN using OTP
+      tags:
+      - auth
   /auth/sessions:
     get:
       description: Return all active sessions for the authenticated user.
@@ -492,12 +595,6 @@ schemes:
 - http
 - https
 securityDefinitions:
-  ApiKeyAuth:
-    description: Type "ApiKey" followed by a space and your API key (e.g. "ApiKey
-      odt_xxx...").
-    in: header
-    name: Authorization
-    type: apiKey
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.
     in: header

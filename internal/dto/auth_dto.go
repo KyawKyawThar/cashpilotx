@@ -17,9 +17,10 @@ func NewMessageResponse(msg string) *MessageResponse {
 	return &MessageResponse{Message: msg}
 }
 
-// RegisterRequest carries fields for new user registration (phone + PIN).
+// RegisterRequest carries fields for new user registration (phone + email + PIN).
 type RegisterRequest struct {
 	Phone        string  `json:"phone"         validate:"required,phone"`
+	Email        string  `json:"email"         validate:"required,email"`
 	PIN          string  `json:"pin"           validate:"required,pin"`
 	ConfirmPIN   string  `json:"confirm_pin"   validate:"required,pin"`
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`
@@ -62,6 +63,19 @@ type RefreshTokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
 	TokenType    string `json:"token_type"`
+}
+
+// ForgotPINRequest accepts either a phone number or email address to identify the user.
+type ForgotPINRequest struct {
+	Identifier string `json:"identifier" validate:"required,min=3,max=254"`
+}
+
+// ResetPINRequest carries the OTP and the new PIN chosen by the user.
+type ResetPINRequest struct {
+	Identifier string `json:"identifier"  validate:"required,min=3,max=254"`
+	OTP        string `json:"otp"         validate:"required,len=6"`
+	NewPIN     string `json:"new_pin"     validate:"required,pin"`
+	ConfirmPIN string `json:"confirm_pin" validate:"required,pin"`
 }
 
 // LogoutRequest optionally targets a specific session or all sessions.

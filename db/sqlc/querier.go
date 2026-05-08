@@ -114,6 +114,7 @@ type Querier interface {
 	GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRecoveryStatsRow, error)
 	GetReminder(ctx context.Context, id uuid.UUID) (Reminder, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (Session, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetWebhookEvent(ctx context.Context, arg GetWebhookEventParams) (WebhookEvent, error)
@@ -235,6 +236,7 @@ type Querier interface {
 	// Phase 1 flow: 0=new  1=currency set  2=channel set  3=complete
 	// (step 2 was "ai_key set" in arch doc — deferred to Phase 2 / BYOK)
 	UpdateOnboardingStep(ctx context.Context, arg UpdateOnboardingStepParams) (User, error)
+	UpdateUserPIN(ctx context.Context, arg UpdateUserPINParams) error
 	UpdateUserPlan(ctx context.Context, arg UpdateUserPlanParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpdateUserStreak(ctx context.Context, arg UpdateUserStreakParams) (User, error)

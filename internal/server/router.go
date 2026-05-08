@@ -101,6 +101,8 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 			r.Post("/register", s.handler.Auth.Register)
 			r.Post("/login", s.handler.Auth.Login)
 			r.Post("/refresh", s.handler.Auth.RefreshToken)
+			r.Post("/forgot-pin", s.handler.Auth.ForgotPIN)
+			r.Post("/reset-pin", s.handler.Auth.ResetPIN)
 
 			// Protected — JWT required
 			r.Group(func(r chi.Router) {

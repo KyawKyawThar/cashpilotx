@@ -2,8 +2,10 @@ package service
 
 import (
 	db "cashpilotx/db/sqlc"
+	"cashpilotx/internal/api"
 	"cashpilotx/internal/cache"
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -17,6 +19,24 @@ const dbQueryTimeout = 5 * time.Second
 // Call defer cancel() immediately after; all store calls in the method share this budget.
 func withDBTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(parent, dbQueryTimeout) //nolint:gosec // cancel func is returned to the caller; caller is responsible for deferring it
+}
+
+// sendPINResetEmail generates a one-time OTP, stores it in cache, and emails it to the user.
+func (s *AuthService) sendPINResetEmail(ctx context.Context, userID, email, name string) error {
+	otp, err := generateOTP()
+	if err != nil {
+		return api.ErrInternal(fmt.Errorf("generate OTP: %w", err))
+	}
+
+	if err := s.cache.StoreOTP(ctx, userID, otp); err != nil {
+		return api.ErrInternal(fmt.Errorf("store OTP: %w", err))
+	}
+
+	if err := s.emailSender.SendOTP(ctx, email, name, otp); err != nil {
+		return api.ErrInternal(fmt.Errorf("send PIN reset email: %w", err))
+	}
+
+	return nil
 }
 
 // cacheSession mirrors a DB session into Redis (best-effort; a cache miss falls back to DB).

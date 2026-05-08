@@ -44,6 +44,13 @@ const (
 	resetTokenTTL    = 1 * time.Hour
 
 	// =============================================================================
+	// PIN Reset OTP (keyed by userID)
+	// =============================================================================
+
+	otpResetPrefix = "otp:reset"
+	otpResetTTL    = 10 * time.Minute
+
+	// =============================================================================
 	// Email Verification Tokens
 	// =============================================================================
 
@@ -894,4 +901,34 @@ func (r *RedisClient) Subscribe(ctx context.Context, channels ...string) *redis.
 		prefixedChannels[i] = r.Key(ch)
 	}
 	return r.Client.Subscribe(ctx, prefixedChannels...)
+}
+
+// =============================================================================
+// PIN Reset OTP
+// =============================================================================
+
+// StoreOTP persists a 6-digit OTP for the given userID with a 10-minute TTL.
+// Calling this again before expiry overwrites the previous OTP.
+func (r *RedisClient) StoreOTP(ctx context.Context, userID, otp string) error {
+	key := r.Key(otpResetPrefix, userID)
+	return r.Client.Set(ctx, key, otp, otpResetTTL).Err()
+}
+
+// GetOTP retrieves the OTP stored for a userID. Returns ErrTokenNotFound when absent or expired.
+func (r *RedisClient) GetOTP(ctx context.Context, userID string) (string, error) {
+	key := r.Key(otpResetPrefix, userID)
+	val, err := r.Client.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", ErrTokenNotFound
+		}
+		return "", err
+	}
+	return val, nil
+}
+
+// DeleteOTP removes the OTP for a userID after it has been consumed.
+func (r *RedisClient) DeleteOTP(ctx context.Context, userID string) error {
+	key := r.Key(otpResetPrefix, userID)
+	return r.Client.Del(ctx, key).Err()
 }

@@ -4,6 +4,7 @@ import (
 	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/cache"
 	"cashpilotx/internal/config"
+	"cashpilotx/internal/email"
 	"cashpilotx/internal/handler"
 	"cashpilotx/internal/service"
 	"cashpilotx/internal/token"
@@ -52,6 +53,8 @@ func NewServer(store db.Store, redisCache *cache.RedisClient, cfg config.Config)
 	}
 	server.logger = &logger
 
+	emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.EmailFrom, cfg.SMTPUsername, cfg.SMTPPassword)
+
 	services := service.NewServices(server.store, server.cache, server.tokenMaker, &service.Config{
 		Auth: service.AuthConfig{
 			AccessTokenDuration:  cfg.AccessTokenDuration,
@@ -60,7 +63,7 @@ func NewServer(store db.Store, redisCache *cache.RedisClient, cfg config.Config)
 			JWTIssuer:            issuer,
 			Environment:          cfg.Environment,
 		},
-	})
+	}, emailSender)
 	server.services = services
 
 	deps := &handler.HandlerDeps{}

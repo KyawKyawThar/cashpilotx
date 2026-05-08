@@ -54,6 +54,8 @@ const (
 
 	// CashPilotX domain errors
 	ErrCodePhoneAlreadyExists     ErrorCode = "PHONE_ALREADY_EXISTS"
+	ErrCodeEmailAlreadyExists     ErrorCode = "EMAIL_ALREADY_EXISTS"
+	ErrCodeInvalidOTP             ErrorCode = "INVALID_OTP"
 	ErrCodeInvalidStateTransition ErrorCode = "INVALID_STATE_TRANSITION"
 	ErrCodeInvoiceOverpaid        ErrorCode = "INVOICE_OVERPAID"
 	ErrCodeActiveReminderExists   ErrorCode = "ACTIVE_REMINDER_EXISTS"
@@ -363,6 +365,18 @@ func ErrConflict(message string) *Error {
 func ErrPhoneAlreadyExists() *Error {
 	return NewError(ErrCodePhoneAlreadyExists, "Phone number is already registered", http.StatusConflict).
 		WithDetail("phone", "already exists")
+}
+
+// ErrEmailAlreadyExists creates a new 409 Email Already Exists error.
+func ErrEmailAlreadyExists() *Error {
+	return NewError(ErrCodeEmailAlreadyExists, "Email address is already registered", http.StatusConflict).
+		WithDetail("email", "already exists")
+}
+
+// ErrInvalidOTP creates a new 400 Invalid OTP error.
+func ErrInvalidOTP() *Error {
+	return NewError(ErrCodeInvalidOTP, "Invalid or expired OTP code", http.StatusBadRequest).
+		WithDetail("otp", "invalid or expired")
 }
 
 // ErrActiveReminderExists creates a new 409 Active Reminder Exists error.
