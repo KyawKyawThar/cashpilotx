@@ -6,6 +6,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -19,13 +20,26 @@ type Querier interface {
 	CancelReminder(ctx context.Context, id uuid.UUID) error
 	CancelRemindersForInvoice(ctx context.Context, invoiceID uuid.UUID) error
 	CloseCurrentExchangeRate(ctx context.Context, arg CloseCurrentExchangeRateParams) error
+	CloseCurrentInsight(ctx context.Context, arg CloseCurrentInsightParams) error
 	CloseExchangeRateByID(ctx context.Context, id uuid.UUID) error
 	CountEventsByType(ctx context.Context, arg CountEventsByTypeParams) ([]CountEventsByTypeRow, error)
+	// ═══════════════════════════════════════════════════════
+	// ANALYTICS
+	// ═══════════════════════════════════════════════════════
+	CountOperatorAuditLogs(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountOperatorAuditLogsByActionType(ctx context.Context, arg CountOperatorAuditLogsByActionTypeParams) (int64, error)
+	CountOperatorAuditLogsByInvoice(ctx context.Context, invoiceID *uuid.UUID) (int64, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateCustomerEvent(ctx context.Context, arg CreateCustomerEventParams) (CustomerEvent, error)
+	CreateCustomerInsight(ctx context.Context, arg CreateCustomerInsightParams) (CustomerInsight, error)
 	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
+	CreateIdempotencyKey(ctx context.Context, arg CreateIdempotencyKeyParams) (IdempotencyKey, error)
 	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
+	// ═══════════════════════════════════════════════════════
+	// CREATE
+	// ═══════════════════════════════════════════════════════
+	CreateOperatorAuditLog(ctx context.Context, arg CreateOperatorAuditLogParams) (OperatorAuditLog, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
 	CreateReminder(ctx context.Context, arg CreateReminderParams) (Reminder, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
@@ -40,7 +54,10 @@ type Querier interface {
 	// OPTIONAL: hard delete (use carefully)
 	// =========================================
 	DeleteCustomerRiskProfile(ctx context.Context, arg DeleteCustomerRiskProfileParams) error
+	DeleteExpiredIdempotencyKeys(ctx context.Context, createdAt time.Time) (int64, error)
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteIdempotencyKey(ctx context.Context, arg DeleteIdempotencyKeyParams) error
+	DeleteInsightByID(ctx context.Context, id uuid.UUID) error
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	DeleteOldProcessedWebhookEvents(ctx context.Context) error
 	DeleteSessionByID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
@@ -49,11 +66,14 @@ type Querier interface {
 	FetchApprovedMessages(ctx context.Context, limit int32) ([]Message, error)
 	GetActiveChannelConfig(ctx context.Context, arg GetActiveChannelConfigParams) (ChannelConfig, error)
 	GetActiveExchangeRate(ctx context.Context, arg GetActiveExchangeRateParams) (ExchangeRate, error)
+	GetActiveInsightsByUser(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	// Used by FireReminderTx to check for an already-active reminder before creating a new one.
 	GetActiveReminderByInvoice(ctx context.Context, invoiceID uuid.UUID) (Reminder, error)
 	GetContactByPlatform(ctx context.Context, arg GetContactByPlatformParams) (CustomerContact, error)
+	GetCurrentInsight(ctx context.Context, arg GetCurrentInsightParams) (CustomerInsight, error)
 	GetCustomerByID(ctx context.Context, arg GetCustomerByIDParams) (Customer, error)
 	GetCustomerByPhone(ctx context.Context, arg GetCustomerByPhoneParams) (Customer, error)
+	GetCustomerInsightByID(ctx context.Context, id uuid.UUID) (CustomerInsight, error)
 	// =========================================
 	// READ: single profile
 	// =========================================
@@ -64,6 +84,9 @@ type Querier interface {
 	GetCustomerRiskProfileForUpdate(ctx context.Context, arg GetCustomerRiskProfileForUpdateParams) (CustomerRiskProfile, error)
 	GetDailyStats(ctx context.Context, arg GetDailyStatsParams) (DailyStat, error)
 	GetExchangeRateAtTime(ctx context.Context, arg GetExchangeRateAtTimeParams) (ExchangeRate, error)
+	GetIdempotencyKey(ctx context.Context, arg GetIdempotencyKeyParams) (IdempotencyKey, error)
+	GetIdempotencyKeyForUpdate(ctx context.Context, arg GetIdempotencyKeyForUpdateParams) (IdempotencyKey, error)
+	GetInsightsExpiringSoon(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	GetInvoiceByID(ctx context.Context, arg GetInvoiceByIDParams) (Invoice, error)
 	// Powers GET /api/v1/invoices/{id}/timeline — History modal in v3.
 	// Returns all events for a specific invoice, newest first.
@@ -73,6 +96,15 @@ type Querier interface {
 	GetMessageByID(ctx context.Context, id uuid.UUID) (Message, error)
 	// Powers the "Recovered this month" card in the v3 stats strip.
 	GetMonthlyStats(ctx context.Context, userID uuid.UUID) (GetMonthlyStatsRow, error)
+	// ═══════════════════════════════════════════════════════
+	// READ SINGLE
+	// ═══════════════════════════════════════════════════════
+	GetOperatorAuditLog(ctx context.Context, id uuid.UUID) (OperatorAuditLog, error)
+	// ═══════════════════════════════════════════════════════
+	// IDEMPOTENCY
+	// ═══════════════════════════════════════════════════════
+	GetOperatorAuditLogByRequestID(ctx context.Context, arg GetOperatorAuditLogByRequestIDParams) (OperatorAuditLog, error)
+	GetOperatorAuditSummary(ctx context.Context, userID uuid.UUID) (GetOperatorAuditSummaryRow, error)
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (Payment, error)
 	// Powers GET /api/v1/recovery-queue — open invoices ranked by AI confidence score.
 	// Returns invoice + joined customer name/phone so the handler needs no second query.
@@ -93,6 +125,7 @@ type Querier interface {
 	ListChannelConfigs(ctx context.Context, userID uuid.UUID) ([]ChannelConfig, error)
 	ListContactsByCustomer(ctx context.Context, customerID uuid.UUID) ([]CustomerContact, error)
 	ListContactsByPlatform(ctx context.Context, arg ListContactsByPlatformParams) ([]CustomerContact, error)
+	ListCurrentInsightsByCustomer(ctx context.Context, arg ListCurrentInsightsByCustomerParams) ([]CustomerInsight, error)
 	ListCustomerEvents(ctx context.Context, arg ListCustomerEventsParams) ([]CustomerEvent, error)
 	// =========================================
 	// READ: list all (paginated)
@@ -107,17 +140,27 @@ type Querier interface {
 	// READ: high risk customers
 	// =========================================
 	ListHighRiskCustomers(ctx context.Context, arg ListHighRiskCustomersParams) ([]CustomerRiskProfile, error)
+	ListInsightsHistory(ctx context.Context, arg ListInsightsHistoryParams) ([]CustomerInsight, error)
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]Invoice, error)
 	ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesByCustomerParams) ([]Invoice, error)
 	ListInvoicesByStatus(ctx context.Context, arg ListInvoicesByStatusParams) ([]Invoice, error)
 	ListMessagesByCustomer(ctx context.Context, arg ListMessagesByCustomerParams) ([]Message, error)
 	ListMessagesByInvoice(ctx context.Context, invoiceID *uuid.UUID) ([]Message, error)
+	// ═══════════════════════════════════════════════════════
+	// LIST
+	// ═══════════════════════════════════════════════════════
+	ListOperatorAuditLogs(ctx context.Context, arg ListOperatorAuditLogsParams) ([]OperatorAuditLog, error)
+	ListOperatorAuditLogsByActionType(ctx context.Context, arg ListOperatorAuditLogsByActionTypeParams) ([]OperatorAuditLog, error)
+	ListOperatorAuditLogsByCustomer(ctx context.Context, customerID *uuid.UUID) ([]OperatorAuditLog, error)
+	ListOperatorAuditLogsByInvoice(ctx context.Context, invoiceID *uuid.UUID) ([]OperatorAuditLog, error)
+	ListOperatorAuditLogsCursor(ctx context.Context, arg ListOperatorAuditLogsCursorParams) ([]OperatorAuditLog, error)
 	ListOverdueInvoices(ctx context.Context, arg ListOverdueInvoicesParams) ([]Invoice, error)
 	ListPayments(ctx context.Context, arg ListPaymentsParams) ([]Payment, error)
 	ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsByCustomerParams) ([]Payment, error)
 	ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByInvoiceParams) ([]Payment, error)
 	ListRemindersByInvoice(ctx context.Context, invoiceID uuid.UUID) ([]Reminder, error)
 	ListRemindersByUser(ctx context.Context, arg ListRemindersByUserParams) ([]Reminder, error)
+	ListRevertedOperatorAuditLogs(ctx context.Context, arg ListRevertedOperatorAuditLogsParams) ([]OperatorAuditLog, error)
 	// Used by RefreshRecoveryQueueTx to find invoices that have never been scored
 	// or whose score is stale (not computed in the last 30 minutes).
 	ListUnscored(ctx context.Context, limit int32) ([]ListUnscoredRow, error)
@@ -129,6 +172,10 @@ type Querier interface {
 	MarkMessageFailed(ctx context.Context, id uuid.UUID) (Message, error)
 	MarkMessageRead(ctx context.Context, arg MarkMessageReadParams) (Message, error)
 	MarkMessageSent(ctx context.Context, arg MarkMessageSentParams) (Message, error)
+	// ═══════════════════════════════════════════════════════
+	// REVERT
+	// ═══════════════════════════════════════════════════════
+	MarkOperatorAuditLogReverted(ctx context.Context, arg MarkOperatorAuditLogRevertedParams) (OperatorAuditLog, error)
 	MarkReminderFailed(ctx context.Context, arg MarkReminderFailedParams) error
 	MarkReminderSent(ctx context.Context, arg MarkReminderSentParams) error
 	MarkWebhookDead(ctx context.Context, arg MarkWebhookDeadParams) error
@@ -143,9 +190,14 @@ type Querier interface {
 	PickWebhookEvents(ctx context.Context, limit int32) ([]WebhookEvent, error)
 	ReassignContact(ctx context.Context, arg ReassignContactParams) (CustomerContact, error)
 	RecomputeInvoiceStatus(ctx context.Context, arg RecomputeInvoiceStatusParams) (Invoice, error)
+	ReplaceInsightAtomic(ctx context.Context, arg ReplaceInsightAtomicParams) (ReplaceInsightAtomicRow, error)
 	RequeueWebhookEvent(ctx context.Context, id uuid.UUID) error
 	RescheduleReminder(ctx context.Context, arg RescheduleReminderParams) error
 	SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]Customer, error)
+	// ═══════════════════════════════════════════════════════
+	// SEARCH
+	// ═══════════════════════════════════════════════════════
+	SearchOperatorAuditLogs(ctx context.Context, arg SearchOperatorAuditLogsParams) ([]OperatorAuditLog, error)
 	SetChannelActive(ctx context.Context, arg SetChannelActiveParams) error
 	SetCustomerStatus(ctx context.Context, arg SetCustomerStatusParams) error
 	// Called by FireReminderTx after a reminder is sent.

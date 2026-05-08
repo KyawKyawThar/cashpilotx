@@ -43,7 +43,8 @@ CREATE TYPE contact_platform AS ENUM (
   'WECHAT',
   'VIBER',
   'MESSENGER',
-  'TELEGRAM'
+  'TELEGRAM',
+  'WHATSAPP'
 );
 
 

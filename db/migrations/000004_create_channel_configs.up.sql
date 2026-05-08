@@ -1,4 +1,4 @@
-CREATE TYPE channel_type AS ENUM ('whatsapp', 'line', 'messenger', 'wechat', 'telegram');
+CREATE TYPE channel_type AS ENUM ('whatsapp', 'line', 'messenger', 'wechat', 'telegram', 'viper');
 
 CREATE TABLE channel_configs (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),

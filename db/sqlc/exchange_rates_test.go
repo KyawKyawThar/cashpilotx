@@ -41,11 +41,11 @@ func TestCreateExchangeRate_OK(t *testing.T) {
 
 	now := time.Now()
 
-	rate := createTestExchangeRate(t, store, user.ID, "USD", "THB", "35.5", now)
+	rate := createTestExchangeRate(t, store, user.ID, "THB", "USD", "35.5", now)
 
 	require.NotZero(t, rate.ID)
-	require.Equal(t, "USD", rate.FromCurrency)
-	require.Equal(t, "THB", rate.ToCurrency)
+	require.Equal(t, "THB", rate.FromCurrency)
+	require.Equal(t, "USD", rate.ToCurrency)
 	require.Nil(t, rate.ValidTo)
 }
 func TestGetActiveExchangeRate_OK(t *testing.T) {
@@ -55,12 +55,12 @@ func TestGetActiveExchangeRate_OK(t *testing.T) {
 	user := createTestUser(t, store)
 
 	now := time.Now()
-	expected := createTestExchangeRate(t, store, user.ID, "USD", "THB", "35", now)
+	expected := createTestExchangeRate(t, store, user.ID, "THB", "USD", "35", now)
 
 	result, err := store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 
 	require.NoError(t, err)
@@ -75,8 +75,8 @@ func TestGetActiveExchangeRate_NotFound(t *testing.T) {
 
 	_, err := store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 
 	require.Error(t, err)
@@ -88,22 +88,22 @@ func TestCloseCurrentExchangeRate(t *testing.T) {
 	user := createTestUser(t, store)
 
 	now := time.Now()
-	createTestExchangeRate(t, store, user.ID, "USD", "THB", "35", now)
+	createTestExchangeRate(t, store, user.ID, "THB", "USD", "35", now)
 
 	closeTime := now.Add(time.Hour)
 
 	err := store.CloseCurrentExchangeRate(context.Background(), CloseCurrentExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidTo:      &closeTime,
 	})
 	require.NoError(t, err)
 
 	_, err = store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 	require.Error(t, err)
 }
@@ -113,7 +113,7 @@ func TestCloseExchangeRateByID_Idempotent(t *testing.T) {
 	store := newTestStore(t)
 	user := createTestUser(t, store)
 
-	rate := createTestExchangeRate(t, store, user.ID, "USD", "THB", "35", time.Now().Add(-time.Second))
+	rate := createTestExchangeRate(t, store, user.ID, "THB", "USD", "35", time.Now().Add(-time.Second))
 
 	err := store.CloseExchangeRateByID(context.Background(), rate.ID)
 	require.NoError(t, err)
@@ -131,26 +131,26 @@ func TestGetExchangeRateAtTime_History(t *testing.T) {
 	base := time.Now()
 
 	// rate 1
-	r1 := createTestExchangeRate(t, store, user.ID, "USD", "THB", "34", base)
+	r1 := createTestExchangeRate(t, store, user.ID, "THB", "USD", "34", base)
 
 	// close r1
 	closeTime := base.Add(1 * time.Hour)
 	err := store.CloseCurrentExchangeRate(context.Background(), CloseCurrentExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidTo:      &closeTime,
 	})
 	require.NoError(t, err)
 
 	// rate 2
-	r2 := createTestExchangeRate(t, store, user.ID, "USD", "THB", "36", closeTime)
+	r2 := createTestExchangeRate(t, store, user.ID, "THB", "USD", "36", closeTime)
 
 	// query before switch
 	res1, err := store.GetExchangeRateAtTime(context.Background(), GetExchangeRateAtTimeParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidFrom:    base.Add(30 * time.Minute),
 	})
 	require.NoError(t, err)
@@ -159,8 +159,8 @@ func TestGetExchangeRateAtTime_History(t *testing.T) {
 	// query after switch
 	res2, err := store.GetExchangeRateAtTime(context.Background(), GetExchangeRateAtTimeParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidFrom:    closeTime.Add(30 * time.Minute),
 	})
 	require.NoError(t, err)
@@ -174,8 +174,8 @@ func TestGetExchangeRateAtTime_NoMatch(t *testing.T) {
 
 	_, err := store.GetExchangeRateAtTime(context.Background(), GetExchangeRateAtTimeParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidFrom:    time.Now(),
 	})
 
@@ -191,7 +191,7 @@ func TestListExchangeRates_Pagination(t *testing.T) {
 
 	for i := range 10 {
 		// Create a rate that is currently active
-		createTestExchangeRate(t, store, user.ID, "USD", "THB", "35", now.Add(time.Duration(i)*time.Minute))
+		createTestExchangeRate(t, store, user.ID, "THB", "USD", "35", now.Add(time.Duration(i)*time.Minute))
 
 		// If this isn't the last rate we're creating, close it.
 		// The close time will be the start time of the next rate.
@@ -199,8 +199,8 @@ func TestListExchangeRates_Pagination(t *testing.T) {
 			closeTime := now.Add(time.Duration(i+1) * time.Minute)
 			err := store.CloseCurrentExchangeRate(context.Background(), CloseCurrentExchangeRateParams{
 				UserID:       user.ID,
-				FromCurrency: "USD",
-				ToCurrency:   "THB",
+				FromCurrency: "THB",
+				ToCurrency:   "USD",
 				ValidTo:      &closeTime,
 			})
 			require.NoError(t, err)
@@ -209,8 +209,8 @@ func TestListExchangeRates_Pagination(t *testing.T) {
 
 	first, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        5,
 		Offset:       0,
 	})
@@ -219,8 +219,8 @@ func TestListExchangeRates_Pagination(t *testing.T) {
 
 	second, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        5,
 		Offset:       5,
 	})
@@ -237,12 +237,12 @@ func TestListExchangeRates_UserIsolation(t *testing.T) {
 	user := createTestUser(t, store)
 	otherUser := createTestUser(t, store)
 
-	createTestExchangeRate(t, store, user.ID, "USD", "THB", "35", time.Now())
+	createTestExchangeRate(t, store, user.ID, "THB", "USD", "35", time.Now())
 
 	result, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       otherUser.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        10,
 	})
 
@@ -257,8 +257,8 @@ func TestListExchangeRates_ZeroLimit(t *testing.T) {
 
 	result, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        0,
 	})
 

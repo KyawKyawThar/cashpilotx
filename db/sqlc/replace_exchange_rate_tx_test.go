@@ -36,18 +36,18 @@ func TestReplaceExchangeRateTx(t *testing.T) {
 	cleanupUser(t, user.ID)
 	cleanupUser(t, user.ID)
 
-	r1 := createRateTx(t, store, user.ID, "USD", "THB", "35.50")
+	r1 := createRateTx(t, store, user.ID, "THB", "USD", "35.50")
 	require.Nil(t, r1.ValidTo)
 
 	time.Sleep(time.Millisecond * 5)
 
-	r2 := createRateTx(t, store, user.ID, "USD", "THB", "36.00")
+	r2 := createRateTx(t, store, user.ID, "THB", "USD", "36.00")
 
 	// old should be closed
 	old, err := store.GetExchangeRateAtTime(context.Background(), GetExchangeRateAtTimeParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		ValidFrom:    r1.ValidFrom.Add(time.Millisecond),
 	})
 	require.NoError(t, err)
@@ -57,8 +57,8 @@ func TestReplaceExchangeRateTx(t *testing.T) {
 	// new active
 	active, err := store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 	require.NoError(t, err)
 	require.Equal(t, r2.ID, active.ID)
@@ -75,8 +75,8 @@ func TestExchangeRate_ConcurrentReplace(t *testing.T) {
 		go func(i int) {
 			_, err := store.ReplaceExchangeRateTx(context.Background(), CreateExchangeRateParams{
 				UserID:       user.ID,
-				FromCurrency: "USD",
-				ToCurrency:   "THB",
+				FromCurrency: "THB",
+				ToCurrency:   "USD",
 				Rate:         fmt.Sprintf("%d", 30+i),
 				Source:       RateSourceManual,
 			})
@@ -91,8 +91,8 @@ func TestExchangeRate_ConcurrentReplace(t *testing.T) {
 	// only one active must exist
 	list, _ := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        100,
 		Offset:       0,
 	})
@@ -112,14 +112,14 @@ func TestExchangeRate_TimeBoundary(t *testing.T) {
 	cleanupUser(t, user.ID)
 	cleanupUser(t, user.ID)
 
-	createRateTx(t, store, user.ID, "USD", "MMK", "2000")
+	createRateTx(t, store, user.ID, "THB", "MMK", "2000")
 	time.Sleep(time.Millisecond * 5)
-	r2 := createRateTx(t, store, user.ID, "USD", "MMK", "2100")
+	r2 := createRateTx(t, store, user.ID, "THB", "MMK", "2100")
 
 	// exact boundary
 	got, err := store.GetExchangeRateAtTime(context.Background(), GetExchangeRateAtTimeParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "MMK",
 		ValidFrom:    r2.ValidFrom,
 	})
@@ -136,7 +136,7 @@ func TestExchangeRate_NoOverlapConstraint(t *testing.T) {
 	// first insert
 	_, err := store.CreateExchangeRate(context.Background(), CreateExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "EUR",
 		Rate:         "1.10",
 		Source:       RateSourceManual,
@@ -147,7 +147,7 @@ func TestExchangeRate_NoOverlapConstraint(t *testing.T) {
 	// overlapping insert (should fail)
 	_, err = store.CreateExchangeRate(context.Background(), CreateExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "EUR",
 		Rate:         "1.20",
 		Source:       RateSourceManual,
@@ -162,8 +162,8 @@ func TestExchangeRate_InvalidRate(t *testing.T) {
 
 	_, err := store.CreateExchangeRate(context.Background(), CreateExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "0",
 		Source:       RateSourceManual,
 		ValidFrom:    time.Now(),
@@ -192,8 +192,8 @@ func TestExchangeRate_SameCurrency(t *testing.T) {
 	cleanupUser(t, user.ID)
 	_, err := store.CreateExchangeRate(context.Background(), CreateExchangeRateParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "USD",
+		FromCurrency: "THB",
+		ToCurrency:   "THB",
 		Rate:         "1.0",
 		Source:       RateSourceManual,
 		ValidFrom:    time.Now(),
@@ -208,19 +208,19 @@ func TestExchangeRate_UserIsolation(t *testing.T) {
 	user2 := createTestUser(t, store)
 	cleanupUser(t, user1.ID)
 	cleanupUser(t, user2.ID)
-	createRateTx(t, store, user1.ID, "USD", "THB", "35")
-	createRateTx(t, store, user2.ID, "USD", "THB", "40")
+	createRateTx(t, store, user1.ID, "THB", "USD", "35")
+	createRateTx(t, store, user2.ID, "THB", "USD", "40")
 
 	r1, _ := store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user1.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 
 	r2, _ := store.GetActiveExchangeRate(context.Background(), GetActiveExchangeRateParams{
 		UserID:       user2.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 	})
 
 	require.NotEqual(t, r1.Rate, r2.Rate)

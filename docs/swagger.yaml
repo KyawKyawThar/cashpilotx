@@ -1,0 +1,506 @@
+basePath: /api/v1
+definitions:
+  api.Error:
+    properties:
+      code:
+        $ref: '#/definitions/api.ErrorCode'
+      details:
+        items:
+          $ref: '#/definitions/api.ErrorDetail'
+        type: array
+      message:
+        type: string
+      request_id:
+        type: string
+    type: object
+  api.ErrorCode:
+    enum:
+    - VALIDATION_ERROR
+    - UNAUTHORIZED
+    - FORBIDDEN
+    - NOT_FOUND
+    - CONFLICT
+    - UNPROCESSABLE_ENTITY
+    - RATE_LIMITED
+    - BAD_REQUEST
+    - PAYLOAD_TOO_LARGE
+    - INTERNAL_ERROR
+    - SERVICE_UNAVAILABLE
+    - TIMEOUT
+    - DATABASE_ERROR
+    - INVALID_TOKEN
+    - EXPIRED_TOKEN
+    - INVALID_CREDENTIALS
+    - SESSION_EXPIRED
+    - LOGIN_LOCKED
+    - PHONE_ALREADY_EXISTS
+    - INVALID_STATE_TRANSITION
+    - INVOICE_OVERPAID
+    - ACTIVE_REMINDER_EXISTS
+    type: string
+    x-enum-comments:
+      ErrCodeInvalidCredentials: nolint:gosec // not a credential
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - nolint:gosec // not a credential
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    x-enum-varnames:
+    - ErrCodeValidation
+    - ErrCodeUnauthorized
+    - ErrCodeForbidden
+    - ErrCodeNotFound
+    - ErrCodeConflict
+    - ErrCodeUnprocessable
+    - ErrCodeRateLimited
+    - ErrCodeBadRequest
+    - ErrCodePayloadTooLarge
+    - ErrCodeInternal
+    - ErrCodeUnavailable
+    - ErrCodeTimeout
+    - ErrCodeDatabase
+    - ErrCodeInvalidToken
+    - ErrCodeExpiredToken
+    - ErrCodeInvalidCredentials
+    - ErrCodeSessionExpired
+    - ErrCodeLoginLocked
+    - ErrCodePhoneAlreadyExists
+    - ErrCodeInvalidStateTransition
+    - ErrCodeInvoiceOverpaid
+    - ErrCodeActiveReminderExists
+  api.ErrorDetail:
+    properties:
+      code:
+        type: string
+      field:
+        type: string
+      message:
+        type: string
+      value: {}
+    type: object
+  dto.IngestBatchRequest:
+    properties:
+      data: {}
+      env_id:
+        example: env_abc123
+        type: string
+    type: object
+  dto.IngestBatchResponse:
+    properties:
+      status:
+        example: queued
+        type: string
+    type: object
+  dto.LoginRequest:
+    properties:
+      phone:
+        type: string
+      pin:
+        type: string
+    required:
+    - phone
+    - pin
+    type: object
+  dto.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.LogoutRequest:
+    properties:
+      logout_all:
+        description: true = revoke all sessions
+        type: boolean
+      session_id:
+        description: specific session; empty = current token only
+        type: string
+    type: object
+  dto.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  dto.RefreshTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      business_name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      confirm_pin:
+        type: string
+      home_currency:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      phone:
+        type: string
+      pin:
+        type: string
+    required:
+    - confirm_pin
+    - home_currency
+    - name
+    - phone
+    - pin
+    type: object
+  dto.RegisterResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.SessionResponse:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      last_active_at:
+        type: string
+      user_agent:
+        type: string
+    type: object
+  dto.UserResponse:
+    properties:
+      business_name:
+        type: string
+      created_at:
+        type: string
+      home_currency:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      phone:
+        type: string
+      plan:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: API Support
+    url: http://example.com/support
+  description: A comprehensive development toolkit for CashpilotX environments with
+    profiling, monitoring, and optimization features.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: CashpilotX API
+  version: 1.0.0
+paths:
+  /agent/batch:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Agent endpoint: receive an aggregated batch of ORM stats and critical events.
+        The batch is pushed onto a Redis stream for asynchronous processing by the ingest worker.
+        Supports gzip-compressed bodies (Content-Encoding: gzip). Max body size: 5 MB.
+      parameters:
+      - description: Aggregated batch payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.IngestBatchRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/dto.IngestBatchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      security:
+      - ApiKeyAuth: []
+      summary: Ingest aggregated batch
+      tags:
+      - agent
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate with phone and PIN; returns access and refresh tokens.
+      parameters:
+      - description: Login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "423":
+          description: Locked
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke the current session or all sessions. Requires Bearer token.
+      parameters:
+      - description: Logout options
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access/refresh token pair.
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RefreshTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new CashPilotX account with phone number and PIN.
+      parameters:
+      - description: Registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.Error'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      summary: Register new user
+      tags:
+      - auth
+  /auth/sessions:
+    get:
+      description: Return all active sessions for the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.SessionResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      security:
+      - BearerAuth: []
+      summary: List active sessions
+      tags:
+      - auth
+  /auth/sessions/{session_id}:
+    delete:
+      description: Revoke a specific session by ID for the authenticated user.
+      parameters:
+      - description: Session UUID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Error'
+      security:
+      - BearerAuth: []
+      summary: Revoke a session
+      tags:
+      - auth
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    description: Type "ApiKey" followed by a space and your API key (e.g. "ApiKey
+      odt_xxx...").
+    in: header
+    name: Authorization
+    type: apiKey
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

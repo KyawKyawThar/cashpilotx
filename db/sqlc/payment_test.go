@@ -24,13 +24,13 @@ func createTestPayment(
 		InvoiceID: invoiceID,
 		UserID:    userID,
 		Amount:    amount,
-		Currency:  "USD",
+		Currency:  "THB",
 		Method:    method,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, amount, p.Amount)
-	require.Equal(t, "USD", p.Currency)
+	require.Equal(t, "THB", p.Currency)
 
 	return p
 }
@@ -56,7 +56,7 @@ func TestCreatePayment_Fail_InvalidInvoice(t *testing.T) {
 		InvoiceID: uuid.New(), // invalid FK
 		UserID:    user.ID,
 		Amount:    50,
-		Currency:  "USD",
+		Currency:  "THB",
 		Method:    "cash",
 	})
 
@@ -76,7 +76,7 @@ func TestCreatePayment_Fail_WrongUserInvoice(t *testing.T) {
 			InvoiceID: invoice.ID,
 			UserID:    other.ID, // mismatch
 			Amount:    50,
-			Currency:  "USD",
+			Currency:  "THB",
 			Method:    "cash",
 		},
 		CustomerID: customer.ID,

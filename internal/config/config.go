@@ -28,9 +28,6 @@ const (
 type Config struct {
 	// ── App ──────────────────────────────────────────────────────
 	Environment string `mapstructure:"APP_ENV"`
-	AppVersion  string `mapstructure:"APP_VERSION"`
-	LogLevel    string `mapstructure:"LOG_LEVEL"`
-	LogFormat   string `mapstructure:"LOG_FORMAT"`
 
 	// ── Server ───────────────────────────────────────────────────
 	ServerPort         string        `mapstructure:"SERVER_PORT"`
@@ -50,10 +47,9 @@ type Config struct {
 	RedisURL            string `mapstructure:"REDIS_URL"`
 	RedisPassword       string `mapstructure:"REDIS_PASSWORD"`
 	RedisDB             int    `mapstructure:"REDIS_DB"`
-	RedisMaxMemory      string `mapstructure:"REDIS_MAXMEMORY"`
+	RedisPort           int    `mapstructure:"REDIS_PORT"`
+	RedisHost           string `mapstructure:"REDIS_HOST"`
 	RedisStreamGenerate string `mapstructure:"REDIS_STREAM_GENERATE"`
-	RedisStreamDeliver  string `mapstructure:"REDIS_STREAM_DELIVER"`
-	RedisStreamReply    string `mapstructure:"REDIS_STREAM_REPLY"`
 
 	// ── S3 / MinIO ───────────────────────────────────────────────
 	S3Endpoint       string `mapstructure:"S3_ENDPOINT"`
@@ -63,14 +59,6 @@ type Config struct {
 	S3SecretKey      string `mapstructure:"S3_SECRET_KEY"`
 	S3ForcePathStyle bool   `mapstructure:"S3_FORCE_PATH_STYLE"`
 
-	// ── SMTP ─────────────────────────────────────────────────────
-	SMTPHost     string `mapstructure:"SMTP_HOST"`
-	SMTPPort     int    `mapstructure:"SMTP_PORT"`
-	SMTPUsername string `mapstructure:"SMTP_USERNAME"`
-	SMTPPassword string `mapstructure:"SMTP_PASSWORD"`
-	EmailFrom    string `mapstructure:"EMAIL_FROM"`
-	ClientAppURL string `mapstructure:"CLIENT_APP_URL"`
-
 	// ── JWT Auth ─────────────────────────────────────────────────
 	JWTSecret            string        `mapstructure:"JWT_SECRET"`
 	AccessTokenDuration  time.Duration `mapstructure:"JWT_ACCESS_TOKEN_TTL"`
@@ -79,34 +67,6 @@ type Config struct {
 
 	// ── Encryption ───────────────────────────────────────────────
 	EncryptionKey string `mapstructure:"ENCRYPTION_KEY"`
-
-	// ── API Keys ─────────────────────────────────────────────────
-	APIKeyPrefix     string `mapstructure:"API_KEY_PREFIX"`
-	APIKeyHashPepper string `mapstructure:"API_KEY_HASH_PEPPER"`
-
-	// ── Workers ──────────────────────────────────────────────────
-	WorkerReplicas    int `mapstructure:"WORKER_REPLICAS"`
-	WorkerConcurrency int `mapstructure:"WORKER_CONCURRENCY"`
-	WorkerBatchSize   int `mapstructure:"WORKER_BATCH_SIZE"`
-	WorkerMaxRetries  int `mapstructure:"WORKER_MAX_RETRIES"`
-
-	// ── Rate Limiting ────────────────────────────────────────────
-	RateLimitBasic    int `mapstructure:"RATE_LIMIT_BASIC"`
-	RateLimitPro      int `mapstructure:"RATE_LIMIT_PRO"`
-	RateLimitBusiness int `mapstructure:"RATE_LIMIT_BUSINESS"`
-
-	// ── Feature Flags ────────────────────────────────────────────
-	FeatureTradeModule      bool `mapstructure:"FEATURE_TRADE_MODULE"`
-	FeatureTeams            bool `mapstructure:"FEATURE_TEAMS"`
-	FeatureWeChat           bool `mapstructure:"FEATURE_WECHAT"`
-	FeatureRiskIntelligence bool `mapstructure:"FEATURE_RISK_INTELLIGENCE"`
-
-	// ── Stripe ───────────────────────────────────────────────────
-	StripeSecretKey     string `mapstructure:"STRIPE_SECRET_KEY"`
-	StripeWebhookSecret string `mapstructure:"STRIPE_WEBHOOK_SECRET"`
-	StripePriceBasic    string `mapstructure:"STRIPE_PRICE_BASIC"`
-	StripePricePro      string `mapstructure:"STRIPE_PRICE_PRO"`
-	StripePriceBusiness string `mapstructure:"STRIPE_PRICE_BUSINESS"`
 
 	// ── CORS ─────────────────────────────────────────────────────
 	CORSAllowedOrigins   string   `mapstructure:"CORS_ALLOWED_ORIGINS"`
@@ -124,8 +84,6 @@ func LoadConfig(path string) (config Config, err error) {
 
 	mustBindEnv(
 		"APP_ENV", "DATABASE_URL", "REDIS_URL",
-		"SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD",
-		"EMAIL_FROM", "CLIENT_APP_URL",
 		"S3_BUCKET", "S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_REGION",
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_TTL", "JWT_REFRESH_TOKEN_TTL",
 		"CORS_ALLOWED_ORIGINS",
@@ -134,9 +92,13 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("APP_ENV", EnvironmentDevelopment)
 	viper.SetDefault("SERVER_HOST", "0.0.0.0")
 	viper.SetDefault("SERVER_PORT", "8080")
+	viper.SetDefault("SERVER_READ_TIMEOUT", "15s")
+	viper.SetDefault("SERVER_WRITE_TIMEOUT", "15s")
+	viper.SetDefault("SERVER_IDLE_TIMEOUT", "60s")
 	viper.SetDefault("JWT_ACCESS_TOKEN_TTL", "15m")
 	viper.SetDefault("JWT_REFRESH_TOKEN_TTL", "168h")
 	viper.SetDefault("REDIS_DB", 0)
+	viper.SetDefault("REDIS_PORT", 6379)
 	viper.SetDefault("JWT_SECRET", utils.RandomString(32))
 	viper.SetDefault("DATABASE_URL", "")
 	viper.SetDefault("REDIS_URL", "")
@@ -145,13 +107,6 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("S3_ACCESS_KEY", "")
 	viper.SetDefault("S3_SECRET_KEY", "")
 	viper.SetDefault("S3_REGION", "")
-	viper.SetDefault("RATE_LIMIT_BASIC", 60)
-	viper.SetDefault("RATE_LIMIT_PRO", 180)
-	viper.SetDefault("RATE_LIMIT_BUSINESS", 600)
-	viper.SetDefault("WORKER_REPLICAS", 2)
-	viper.SetDefault("WORKER_CONCURRENCY", 4)
-	viper.SetDefault("WORKER_BATCH_SIZE", 50)
-	viper.SetDefault("WORKER_MAX_RETRIES", 3)
 
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -169,8 +124,6 @@ func LoadConfig(path string) (config Config, err error) {
 	// Trim string fields used for equality comparisons — Makefile `include .env`
 	// can add trailing whitespace when lines have inline comments.
 	config.Environment = strings.TrimSpace(config.Environment)
-	config.LogLevel = strings.TrimSpace(config.LogLevel)
-	config.LogFormat = strings.TrimSpace(config.LogFormat)
 
 	// Parse CORS_ALLOWED_ORIGINS into AllowedOrigins slice.
 	if config.CORSAllowedOrigins != "" {

@@ -26,7 +26,7 @@ func createTestUser(t *testing.T, store *SQLStore) User {
 		BusinessName: &bn,
 		Locale:       &local,
 		Plan:         "pro",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.NoError(t, err)
 	require.NotZero(t, user.ID)
@@ -41,7 +41,7 @@ func TestCreateUser_Success(t *testing.T) {
 	require.NotZero(t, user.ID)
 	require.NotEmpty(t, user.Phone)
 	require.Equal(t, "pro", user.Plan)
-	require.Equal(t, "USD", user.HomeCurrency)
+	require.Equal(t, "THB", user.HomeCurrency)
 
 	require.Equal(t, int32(0), user.StreakDays)
 	require.Equal(t, int32(0), user.StreakBest)
@@ -66,7 +66,7 @@ func TestCreateUser_DuplicatePhone_Fails(t *testing.T) {
 		BusinessName: &bn,
 		Locale:       &local,
 		Plan:         "pro",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestCreateUser_DuplicatePhone_Fails(t *testing.T) {
 		BusinessName: &bn,
 		Locale:       &local,
 		Plan:         "pro",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.Error(t, err, "duplicate phone must be rejected")
 }
@@ -248,7 +248,7 @@ func TestCreateUser_InvalidPhone_Fails(t *testing.T) {
 		PinHash:      "hash",
 		Name:         "test",
 		Plan:         "basic",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 
 	require.Error(t, err)
@@ -264,7 +264,7 @@ func TestCreateUser_PhoneBoundary(t *testing.T) {
 		PinHash:      "hash",
 		Name:         "min",
 		Plan:         "free",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.NoError(t, err)
 	require.NotZero(t, u1.ID)
@@ -275,7 +275,7 @@ func TestCreateUser_PhoneBoundary(t *testing.T) {
 		PinHash:      "hash",
 		Name:         "max",
 		Plan:         "free",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.NoError(t, err)
 	require.NotZero(t, u2.ID)
@@ -286,7 +286,7 @@ func TestCreateUser_PhoneBoundary(t *testing.T) {
 		PinHash:      "hash",
 		Name:         "fail",
 		Plan:         "free",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.Error(t, err)
 
@@ -296,7 +296,7 @@ func TestCreateUser_PhoneBoundary(t *testing.T) {
 		PinHash:      "hash",
 		Name:         "fail",
 		Plan:         "free",
-		HomeCurrency: "USD",
+		HomeCurrency: "THB",
 	})
 	require.Error(t, err)
 }

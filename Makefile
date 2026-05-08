@@ -71,7 +71,7 @@ generate:
 	go generate
 
 swagger:
-	swag init --parseDependency -g cmd/main.go
+	swag init -g cmd/api/main.go --output docs --parseInternal
 
 GOLANGCI_LINT_VERSION := v2.11.1
 
@@ -140,7 +140,7 @@ dev-agent: ## Run agent only with live reload
 
 .PHONY: build
 build: ## Build server binary
-	go build -o bin/cashpilotx ./cmd
+	go build -o bin/cashpilotx ./cmd/api
 
 
 

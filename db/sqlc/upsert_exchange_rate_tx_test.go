@@ -15,18 +15,18 @@ func TestUpsertExchangeRateTx_Success(t *testing.T) {
 
 	res, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "35.0",
 		Source:       string(RateSourceManual),
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "USD", res.Forward.FromCurrency)
-	require.Equal(t, "THB", res.Forward.ToCurrency)
+	require.Equal(t, "THB", res.Forward.FromCurrency)
+	require.Equal(t, "USD", res.Forward.ToCurrency)
 
-	require.Equal(t, "THB", res.Inverse.FromCurrency)
-	require.Equal(t, "USD", res.Inverse.ToCurrency)
+	require.Equal(t, "USD", res.Inverse.FromCurrency)
+	require.Equal(t, "THB", res.Inverse.ToCurrency)
 }
 
 func TestUpsertExchangeRateTx_InverseCorrectness(t *testing.T) {
@@ -37,7 +37,7 @@ func TestUpsertExchangeRateTx_InverseCorrectness(t *testing.T) {
 
 	res, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "EUR",
 		Rate:         "2.0",
 		Source:       string(RateSourceManual),
@@ -55,16 +55,16 @@ func TestUpsertExchangeRateTx_Replace(t *testing.T) {
 
 	_, _ = testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "35",
 		Source:       string(RateSourceManual),
 	})
 
 	res, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "36",
 		Source:       string(RateSourceManual),
 	})
@@ -81,8 +81,8 @@ func TestUpsertExchangeRateTx_InvalidRate(t *testing.T) {
 
 	_, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "abc",
 		Source:       string(RateSourceManual),
 	})
@@ -98,8 +98,8 @@ func TestUpsertExchangeRateTx_ZeroRate(t *testing.T) {
 
 	_, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "0",
 		Source:       string(RateSourceManual),
 	})
@@ -114,8 +114,8 @@ func TestUpsertExchangeRateTx_NegativeRate(t *testing.T) {
 
 	_, err := store.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "-10",
 		Source:       string(RateSourceManual),
 	})
@@ -131,7 +131,7 @@ func TestUpsertExchangeRateTx_RollbackOnInverseFail(t *testing.T) {
 	// simulate failure by invalid currency (inverse step fails)
 	_, err := store.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "", // invalid → inverse insert fails
 		Rate:         "35",
 		Source:       string(RateSourceManual),
@@ -157,7 +157,7 @@ func TestUpsertExchangeRateTx_HighPrecision(t *testing.T) {
 
 	res, err := testStore.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "BTC",
 		Rate:         "0.00000001",
 		Source:       string(RateSourceManual),
@@ -175,8 +175,8 @@ func TestUpsertExchangeRateTx_UserIsolation(t *testing.T) {
 
 	_, _ = store.UpsertExchangeRateTx(context.Background(), UpsertExchangeRateTxParams{
 		UserID:       user.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Rate:         "35",
 		Source:       string(RateSourceManual),
 	})
