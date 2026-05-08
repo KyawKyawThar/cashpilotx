@@ -69,6 +69,7 @@ type Querier interface {
 	GetActiveInsightsByUser(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	// Used by FireReminderTx to check for an already-active reminder before creating a new one.
 	GetActiveReminderByInvoice(ctx context.Context, invoiceID uuid.UUID) (Reminder, error)
+	GetChannelConfig(ctx context.Context, arg GetChannelConfigParams) (ChannelConfig, error)
 	GetContactByPlatform(ctx context.Context, arg GetContactByPlatformParams) (CustomerContact, error)
 	GetCurrentInsight(ctx context.Context, arg GetCurrentInsightParams) (CustomerInsight, error)
 	GetCustomerByID(ctx context.Context, arg GetCustomerByIDParams) (Customer, error)
@@ -114,7 +115,7 @@ type Querier interface {
 	GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRecoveryStatsRow, error)
 	GetReminder(ctx context.Context, id uuid.UUID) (Reminder, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (Session, error)
-	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserByEmail(ctx context.Context, email *string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetWebhookEvent(ctx context.Context, arg GetWebhookEventParams) (WebhookEvent, error)

@@ -23,8 +23,9 @@ import (
 
 // Handlers is the main container for all HTTP handlers.
 type Handlers struct {
-	Auth  *AuthHandler
-	Batch *BatchHandler
+	Auth     *AuthHandler
+	Customer *CustomerHandler
+	Batch    *BatchHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -83,9 +84,11 @@ func NewHandlers(
 	}
 
 	authSvc := mustCast[service.AuthService](services.Auth, "auth")
+	customerSvc := mustCast[service.CustomerService](services.Customer, "customer")
 
 	h := &Handlers{
-		Auth: NewAuthHandler(authSvc, base),
+		Auth:     NewAuthHandler(authSvc, base),
+		Customer: NewCustomerHandler(customerSvc, base),
 	}
 
 	if deps != nil && deps.RedisClient != nil {

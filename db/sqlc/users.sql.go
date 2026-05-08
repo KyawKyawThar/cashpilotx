@@ -84,6 +84,40 @@ func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+FROM users
+WHERE email = $1
+  AND is_active = true
+  AND email IS NOT NULL
+LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
 FROM users
@@ -150,59 +184,6 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 	return i, err
 }
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
-FROM users
-WHERE email = $1
-  AND is_active = true
-  AND email IS NOT NULL
-LIMIT 1
-`
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Phone,
-		&i.PinHash,
-		&i.Name,
-		&i.BusinessName,
-		&i.Locale,
-		&i.Plan,
-		&i.HomeCurrency,
-		&i.StreakDays,
-		&i.StreakBest,
-		&i.InvoiceSequence,
-		&i.OnboardingStep,
-		&i.OnboardingDoneAt,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Email,
-	)
-	return i, err
-}
-
-const updateUserPIN = `-- name: UpdateUserPIN :exec
-UPDATE users
-SET
-    pin_hash   = $2,
-    updated_at = now()
-WHERE id = $1
-  AND is_active = true
-`
-
-type UpdateUserPINParams struct {
-	ID      uuid.UUID `db:"id" json:"id"`
-	PinHash string    `db:"pin_hash" json:"pin_hash"`
-}
-
-func (q *Queries) UpdateUserPIN(ctx context.Context, arg UpdateUserPINParams) error {
-	_, err := q.db.Exec(ctx, updateUserPIN, arg.ID, arg.PinHash)
-	return err
-}
-
 const nextInvoiceSequence = `-- name: NextInvoiceSequence :one
 UPDATE users
 SET
@@ -264,6 +245,25 @@ func (q *Queries) UpdateOnboardingStep(ctx context.Context, arg UpdateOnboarding
 		&i.Email,
 	)
 	return i, err
+}
+
+const updateUserPIN = `-- name: UpdateUserPIN :exec
+UPDATE users
+SET
+    pin_hash   = $2,
+    updated_at = now()
+WHERE id = $1
+  AND is_active = true
+`
+
+type UpdateUserPINParams struct {
+	ID      uuid.UUID `db:"id" json:"id"`
+	PinHash string    `db:"pin_hash" json:"pin_hash"`
+}
+
+func (q *Queries) UpdateUserPIN(ctx context.Context, arg UpdateUserPINParams) error {
+	_, err := q.db.Exec(ctx, updateUserPIN, arg.ID, arg.PinHash)
+	return err
 }
 
 const updateUserPlan = `-- name: UpdateUserPlan :one
