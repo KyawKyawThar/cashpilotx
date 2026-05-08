@@ -31,6 +31,13 @@ WHERE user_id = $1
   AND is_active = TRUE
   AND deleted_at IS NULL;
 
+-- name: GetChannelConfig :one
+SELECT *
+FROM channel_configs
+WHERE user_id = $1
+  AND channel = $2
+  AND deleted_at IS NULL;
+
 
 -- name: ListChannelConfigs :many
 SELECT *

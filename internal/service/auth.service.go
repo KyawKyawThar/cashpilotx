@@ -362,7 +362,7 @@ func (s *AuthService) lookupUserByIdentifier(ctx context.Context, identifier str
 	defer cancel()
 
 	if strings.Contains(identifier, "@") {
-		user, err := s.store.GetUserByEmail(dbCtx, identifier)
+		user, err := s.store.GetUserByEmail(dbCtx, &identifier)
 		if err != nil {
 			if api.IsRecordNotFound(err) {
 				return db.User{}, api.ErrInvalidCredentials()

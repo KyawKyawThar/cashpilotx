@@ -121,8 +121,22 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 		r.Use(mw.MaxBodySize(1 << 20)) // 1 MB
 		r.Use(mw.JWTAuthWithService(s.services.Auth))
 
-		// Add future protected routes here (invoices, payments, customers, etc.)
-		// Do NOT add /api/v1/auth here — it is already mounted above.
+		r.Route("/api/v1/customers", func(r chi.Router) {
+			r.Post("/", s.handler.Customer.CreateCustomer)
+			r.Get("/", s.handler.Customer.ListCustomers)
+			r.Get("/search", s.handler.Customer.SearchCustomers)
+			r.Get("/{customer_id}", s.handler.Customer.GetCustomer)
+			r.Patch("/{customer_id}", s.handler.Customer.UpdateCustomer)
+			r.Delete("/{customer_id}", s.handler.Customer.ArchiveCustomer)
+		})
+
+		r.Route("/api/v1/channel-configs", func(r chi.Router) {
+			r.Post("/", s.handler.Customer.UpsertChannelConfig)
+			r.Get("/", s.handler.Customer.ListChannelConfigs)
+			r.Get("/{channel}", s.handler.Customer.GetChannelConfig)
+			r.Delete("/{channel}", s.handler.Customer.DeleteChannelConfig)
+			r.Patch("/{channel}/active", s.handler.Customer.SetChannelActive)
+		})
 	})
 }
 

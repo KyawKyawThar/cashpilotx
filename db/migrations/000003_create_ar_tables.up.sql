@@ -269,7 +269,7 @@ CREATE TABLE webhook_events (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     provider        TEXT NOT NULL
-                    CHECK (provider IN ('line','whatsapp','stripe','wechat','telegram','viper')),
+                    CHECK (provider IN ('line','whatsapp','stripe','wechat','telegram','viber')),
 
     event_id        TEXT NOT NULL,
 

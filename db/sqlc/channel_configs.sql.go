@@ -60,6 +60,42 @@ func (q *Queries) GetActiveChannelConfig(ctx context.Context, arg GetActiveChann
 	return i, err
 }
 
+const getChannelConfig = `-- name: GetChannelConfig :one
+SELECT id, user_id, channel, config_encrypted, config_nonce, config_tag, key_id, config_version, is_active, status, last_connected_at, last_error, created_at, updated_at, deleted_at
+FROM channel_configs
+WHERE user_id = $1
+  AND channel = $2
+  AND deleted_at IS NULL
+`
+
+type GetChannelConfigParams struct {
+	UserID  uuid.UUID `db:"user_id" json:"user_id"`
+	Channel string    `db:"channel" json:"channel"`
+}
+
+func (q *Queries) GetChannelConfig(ctx context.Context, arg GetChannelConfigParams) (ChannelConfig, error) {
+	row := q.db.QueryRow(ctx, getChannelConfig, arg.UserID, arg.Channel)
+	var i ChannelConfig
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Channel,
+		&i.ConfigEncrypted,
+		&i.ConfigNonce,
+		&i.ConfigTag,
+		&i.KeyID,
+		&i.ConfigVersion,
+		&i.IsActive,
+		&i.Status,
+		&i.LastConnectedAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const listChannelConfigs = `-- name: ListChannelConfigs :many
 SELECT id, user_id, channel, config_encrypted, config_nonce, config_tag, key_id, config_version, is_active, status, last_connected_at, last_error, created_at, updated_at, deleted_at
 FROM channel_configs

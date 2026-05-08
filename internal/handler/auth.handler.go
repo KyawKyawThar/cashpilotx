@@ -15,10 +15,10 @@ import (
 //	@Produce      json
 //	@Param        body  body      dto.RegisterRequest  true  "Registration payload"
 //	@Success      201   {object}  dto.RegisterResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      409   {object}  api.Error
-//	@Failure      422   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      409   {object}  dto.ErrorResponse
+//	@Failure      422   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
@@ -47,10 +47,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        body  body      dto.LoginRequest  true  "Login payload"
 //	@Success      200   {object}  dto.LoginResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      401   {object}  api.Error
-//	@Failure      423   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      423   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
@@ -79,9 +79,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        body  body      dto.RefreshTokenRequest  true  "Refresh token payload"
 //	@Success      200   {object}  dto.RefreshTokenResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      401   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req dto.RefreshTokenRequest
@@ -110,9 +110,9 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        body  body  dto.LogoutRequest  true  "Logout options"
 //	@Success      204   "No Content"
-//	@Failure      400   {object}  api.Error
-//	@Failure      401   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/logout [post]
 //	@Security     BearerAuth
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -142,8 +142,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 //	@Tags         auth
 //	@Produce      json
 //	@Success      200  {array}   dto.SessionResponse
-//	@Failure      401  {object}  api.Error
-//	@Failure      500  {object}  api.Error
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
 //	@Router       /auth/sessions [get]
 //	@Security     BearerAuth
 func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
@@ -170,8 +170,8 @@ func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        body  body      dto.ForgotPINRequest  true  "Phone or email"
 //	@Success      200   {object}  dto.MessageResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/forgot-pin [post]
 func (h *AuthHandler) ForgotPIN(w http.ResponseWriter, r *http.Request) {
 	var req dto.ForgotPINRequest
@@ -196,8 +196,8 @@ func (h *AuthHandler) ForgotPIN(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        body  body      dto.ResetPINRequest  true  "OTP + new PIN"
 //	@Success      200   {object}  dto.MessageResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /auth/reset-pin [post]
 func (h *AuthHandler) ResetPIN(w http.ResponseWriter, r *http.Request) {
 	var req dto.ResetPINRequest
@@ -221,10 +221,10 @@ func (h *AuthHandler) ResetPIN(w http.ResponseWriter, r *http.Request) {
 //	@Produce      json
 //	@Param        session_id  path  string  true  "Session UUID"
 //	@Success      204  "No Content"
-//	@Failure      400  {object}  api.Error
-//	@Failure      401  {object}  api.Error
-//	@Failure      404  {object}  api.Error
-//	@Failure      500  {object}  api.Error
+//	@Failure      400  {object}  dto.ErrorResponse
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      404  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
 //	@Router       /auth/sessions/{session_id} [delete]
 //	@Security     BearerAuth
 func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {

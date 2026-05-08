@@ -69,6 +69,16 @@ func (p *Pagination) Offset() int {
 	return (p.Page - 1) * p.PerPage
 }
 
+// Limit32 returns PerPage as int32 for sqlc query params (safe: clamped to 100 by NewPagination).
+func (p *Pagination) Limit32() int32 {
+	return int32(p.PerPage) //nolint:gosec // PerPage is clamped to max 100 by NewPagination, well within int32 range
+}
+
+// Offset32 returns Offset as int32 for sqlc query params (safe: PerPage ≤ 100, Page bounded by caller).
+func (p *Pagination) Offset32() int32 {
+	return int32(p.Offset()) //nolint:gosec // PerPage ≤ 100 and Page is user-supplied but practically bounded; overflow is not reachable
+}
+
 // TotalPages returns the number of pages needed to cover all records.
 func (p *Pagination) TotalPages() int {
 	if p.Total == 0 {

@@ -11,7 +11,8 @@ import (
 )
 
 type Services struct {
-	Auth AuthServicer
+	Auth     AuthServicer
+	Customer CustomerServicer
 }
 
 type AuthService struct {
@@ -30,8 +31,19 @@ type AuthConfig struct {
 	Environment          string // "development" | "staging" | "production"
 }
 
+type CustomerService struct {
+	store  db.Store
+	encKey []byte // 32-byte AES-256-GCM key for channel config encryption
+}
+
+type CustomerConfig struct {
+	// ChannelEncryptionKey must be exactly 32 bytes for AES-256-GCM.
+	ChannelEncryptionKey []byte
+}
+
 type Config struct {
-	Auth AuthConfig
+	Auth     AuthConfig
+	Customer CustomerConfig
 }
 
 func DefaultAuthConfig() *AuthConfig {
@@ -46,8 +58,17 @@ func DefaultAuthConfig() *AuthConfig {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Auth: *DefaultAuthConfig(),
+		Auth:     *DefaultAuthConfig(),
+		Customer: CustomerConfig{},
 	}
+}
+
+func NewCustomerService(store db.Store, cfg *CustomerConfig) *CustomerService {
+	var key []byte
+	if cfg != nil {
+		key = cfg.ChannelEncryptionKey
+	}
+	return &CustomerService{store: store, encKey: key}
 }
 
 func NewAuthService(store db.Store, redisCache *cache.RedisClient, tokenMaker token.Maker, cfg *AuthConfig, emailSender email.Sender) *AuthService {
@@ -68,7 +89,9 @@ func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token
 		cfg = DefaultConfig()
 	}
 	authSvc := NewAuthService(store, redisCache, tokenMaker, &cfg.Auth, emailSender)
+	customerSvc := NewCustomerService(store, &cfg.Customer)
 	return &Services{
-		Auth: authSvc,
+		Auth:     authSvc,
+		Customer: customerSvc,
 	}
 }

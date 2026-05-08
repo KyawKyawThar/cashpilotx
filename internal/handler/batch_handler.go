@@ -46,9 +46,9 @@ func NewBatchHandler(base *BaseHandler, redisClient *redis.Client, streamName st
 //	@Produce      json
 //	@Param        body  body      dto.IngestBatchRequest  true  "Aggregated batch payload"
 //	@Success      202   {object}  dto.IngestBatchResponse
-//	@Failure      400   {object}  api.Error
-//	@Failure      401   {object}  api.Error
-//	@Failure      500   {object}  api.Error
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
 //	@Router       /agent/batch [post]
 //	@Security     ApiKeyAuth
 func (h *BatchHandler) HandleIngestBatch(w http.ResponseWriter, r *http.Request) {

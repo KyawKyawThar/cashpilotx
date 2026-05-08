@@ -164,7 +164,7 @@ const (
 	ChannelTypeMessenger ChannelType = "messenger"
 	ChannelTypeWechat    ChannelType = "wechat"
 	ChannelTypeTelegram  ChannelType = "telegram"
-	ChannelTypeViper     ChannelType = "viper"
+	ChannelTypeViber     ChannelType = "viber"
 )
 
 func (e *ChannelType) Scan(src interface{}) error {
@@ -209,7 +209,7 @@ func (e ChannelType) Valid() bool {
 		ChannelTypeMessenger,
 		ChannelTypeWechat,
 		ChannelTypeTelegram,
-		ChannelTypeViper:
+		ChannelTypeViber:
 		return true
 	}
 	return false
@@ -222,7 +222,7 @@ func AllChannelTypeValues() []ChannelType {
 		ChannelTypeMessenger,
 		ChannelTypeWechat,
 		ChannelTypeTelegram,
-		ChannelTypeViper,
+		ChannelTypeViber,
 	}
 }
 

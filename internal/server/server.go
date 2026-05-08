@@ -9,6 +9,7 @@ import (
 	"cashpilotx/internal/service"
 	"cashpilotx/internal/token"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -55,6 +56,11 @@ func NewServer(store db.Store, redisCache *cache.RedisClient, cfg config.Config)
 
 	emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.EmailFrom, cfg.SMTPUsername, cfg.SMTPPassword)
 
+	encKey, err := base64.StdEncoding.DecodeString(cfg.EncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ENCRYPTION_KEY (must be base64-encoded 32-byte key): %w", err)
+	}
+
 	services := service.NewServices(server.store, server.cache, server.tokenMaker, &service.Config{
 		Auth: service.AuthConfig{
 			AccessTokenDuration:  cfg.AccessTokenDuration,
@@ -62,6 +68,9 @@ func NewServer(store db.Store, redisCache *cache.RedisClient, cfg config.Config)
 			BcryptCost:           10,
 			JWTIssuer:            issuer,
 			Environment:          cfg.Environment,
+		},
+		Customer: service.CustomerConfig{
+			ChannelEncryptionKey: encKey,
 		},
 	}, emailSender)
 	server.services = services
