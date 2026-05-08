@@ -386,7 +386,7 @@ func (s *AuthService) ForgotPIN(ctx context.Context, req *dto.ForgotPINRequest) 
 	user, err := s.lookupUserByIdentifier(ctx, req.Identifier)
 	if err != nil {
 		// Return success even on not-found to prevent user enumeration.
-		return nil //nolint:nilerr
+		return nil //nolint:nilerr // Return success even on not-found to prevent user enumeration.
 	}
 
 	if user.Email == nil || *user.Email == "" {
@@ -434,9 +434,9 @@ func (s *AuthService) ResetPIN(ctx context.Context, req *dto.ResetPINRequest) er
 	}
 
 	// Consume the OTP and evict all sessions so the user must log in fresh.
-	s.cache.DeleteOTP(ctx, user.ID.String())                    //nolint:errcheck
-	s.cache.DeleteAllUserSessions(ctx, user.ID.String())        //nolint:errcheck
-	s.store.DeleteAllUserSessions(dbCtx, user.ID)               //nolint:errcheck
+	s.cache.DeleteOTP(ctx, user.ID.String())             //nolint:errcheck // Best-effort cleanup; OTP is single-use and now invalid.
+	s.cache.DeleteAllUserSessions(ctx, user.ID.String()) //nolint:errcheck // Best-effort cleanup; user will log in fresh.
+	s.store.DeleteAllUserSessions(dbCtx, user.ID)        //nolint:errcheck // Best-effort cleanup; user will log in fresh.
 
 	return nil
 }
