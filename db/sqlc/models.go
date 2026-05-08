@@ -13,6 +13,149 @@ import (
 	"github.com/google/uuid"
 )
 
+type AuditActionType string
+
+const (
+	AuditActionTypeMessageCopied          AuditActionType = "message_copied"
+	AuditActionTypeMessageMarkedSent      AuditActionType = "message_marked_sent"
+	AuditActionTypePaymentRecorded        AuditActionType = "payment_recorded"
+	AuditActionTypeInvoiceCreated         AuditActionType = "invoice_created"
+	AuditActionTypeReminderScheduled      AuditActionType = "reminder_scheduled"
+	AuditActionTypeCollectionStateChanged AuditActionType = "collection_state_changed"
+	AuditActionTypeActionReverted         AuditActionType = "action_reverted"
+)
+
+func (e *AuditActionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AuditActionType(s)
+	case string:
+		*e = AuditActionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AuditActionType: %T", src)
+	}
+	return nil
+}
+
+type NullAuditActionType struct {
+	AuditActionType AuditActionType `json:"audit_action_type"`
+	Valid           bool            `json:"valid"` // Valid is true if AuditActionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAuditActionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AuditActionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AuditActionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAuditActionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AuditActionType), nil
+}
+
+func (e AuditActionType) Valid() bool {
+	switch e {
+	case AuditActionTypeMessageCopied,
+		AuditActionTypeMessageMarkedSent,
+		AuditActionTypePaymentRecorded,
+		AuditActionTypeInvoiceCreated,
+		AuditActionTypeReminderScheduled,
+		AuditActionTypeCollectionStateChanged,
+		AuditActionTypeActionReverted:
+		return true
+	}
+	return false
+}
+
+func AllAuditActionTypeValues() []AuditActionType {
+	return []AuditActionType{
+		AuditActionTypeMessageCopied,
+		AuditActionTypeMessageMarkedSent,
+		AuditActionTypePaymentRecorded,
+		AuditActionTypeInvoiceCreated,
+		AuditActionTypeReminderScheduled,
+		AuditActionTypeCollectionStateChanged,
+		AuditActionTypeActionReverted,
+	}
+}
+
+type AuditEntityType string
+
+const (
+	AuditEntityTypeInvoice  AuditEntityType = "invoice"
+	AuditEntityTypePayment  AuditEntityType = "payment"
+	AuditEntityTypeMessage  AuditEntityType = "message"
+	AuditEntityTypeReminder AuditEntityType = "reminder"
+	AuditEntityTypeCustomer AuditEntityType = "customer"
+	AuditEntityTypeSystem   AuditEntityType = "system"
+)
+
+func (e *AuditEntityType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AuditEntityType(s)
+	case string:
+		*e = AuditEntityType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AuditEntityType: %T", src)
+	}
+	return nil
+}
+
+type NullAuditEntityType struct {
+	AuditEntityType AuditEntityType `json:"audit_entity_type"`
+	Valid           bool            `json:"valid"` // Valid is true if AuditEntityType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAuditEntityType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AuditEntityType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AuditEntityType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAuditEntityType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AuditEntityType), nil
+}
+
+func (e AuditEntityType) Valid() bool {
+	switch e {
+	case AuditEntityTypeInvoice,
+		AuditEntityTypePayment,
+		AuditEntityTypeMessage,
+		AuditEntityTypeReminder,
+		AuditEntityTypeCustomer,
+		AuditEntityTypeSystem:
+		return true
+	}
+	return false
+}
+
+func AllAuditEntityTypeValues() []AuditEntityType {
+	return []AuditEntityType{
+		AuditEntityTypeInvoice,
+		AuditEntityTypePayment,
+		AuditEntityTypeMessage,
+		AuditEntityTypeReminder,
+		AuditEntityTypeCustomer,
+		AuditEntityTypeSystem,
+	}
+}
+
 type ChannelType string
 
 const (
@@ -21,6 +164,7 @@ const (
 	ChannelTypeMessenger ChannelType = "messenger"
 	ChannelTypeWechat    ChannelType = "wechat"
 	ChannelTypeTelegram  ChannelType = "telegram"
+	ChannelTypeViper     ChannelType = "viper"
 )
 
 func (e *ChannelType) Scan(src interface{}) error {
@@ -64,7 +208,8 @@ func (e ChannelType) Valid() bool {
 		ChannelTypeLine,
 		ChannelTypeMessenger,
 		ChannelTypeWechat,
-		ChannelTypeTelegram:
+		ChannelTypeTelegram,
+		ChannelTypeViper:
 		return true
 	}
 	return false
@@ -77,6 +222,7 @@ func AllChannelTypeValues() []ChannelType {
 		ChannelTypeMessenger,
 		ChannelTypeWechat,
 		ChannelTypeTelegram,
+		ChannelTypeViper,
 	}
 }
 
@@ -238,6 +384,67 @@ func AllCustomerEventTypeValues() []CustomerEventType {
 		CustomerEventTypeOverdueEscalated,
 		CustomerEventTypeRiskScoreChanged,
 		CustomerEventTypeChannelConnected,
+	}
+}
+
+type InsightTypeEnum string
+
+const (
+	InsightTypeEnumRisk            InsightTypeEnum = "risk"
+	InsightTypeEnumPaymentBehavior InsightTypeEnum = "payment_behavior"
+	InsightTypeEnumEngagement      InsightTypeEnum = "engagement"
+)
+
+func (e *InsightTypeEnum) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InsightTypeEnum(s)
+	case string:
+		*e = InsightTypeEnum(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InsightTypeEnum: %T", src)
+	}
+	return nil
+}
+
+type NullInsightTypeEnum struct {
+	InsightTypeEnum InsightTypeEnum `json:"insight_type_enum"`
+	Valid           bool            `json:"valid"` // Valid is true if InsightTypeEnum is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInsightTypeEnum) Scan(value interface{}) error {
+	if value == nil {
+		ns.InsightTypeEnum, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InsightTypeEnum.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInsightTypeEnum) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InsightTypeEnum), nil
+}
+
+func (e InsightTypeEnum) Valid() bool {
+	switch e {
+	case InsightTypeEnumRisk,
+		InsightTypeEnumPaymentBehavior,
+		InsightTypeEnumEngagement:
+		return true
+	}
+	return false
+}
+
+func AllInsightTypeEnumValues() []InsightTypeEnum {
+	return []InsightTypeEnum{
+		InsightTypeEnumRisk,
+		InsightTypeEnumPaymentBehavior,
+		InsightTypeEnumEngagement,
 	}
 }
 
@@ -743,6 +950,21 @@ type CustomerEvent struct {
 	CreatedAt  time.Time         `db:"created_at" json:"created_at"`
 }
 
+type CustomerInsight struct {
+	ID          uuid.UUID       `db:"id" json:"id"`
+	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
+	CustomerID  uuid.UUID       `db:"customer_id" json:"customer_id"`
+	InsightType InsightTypeEnum `db:"insight_type" json:"insight_type"`
+	InsightText string          `db:"insight_text" json:"insight_text"`
+	Score       *string         `db:"score" json:"score"`
+	DeltaScore  *string         `db:"delta_score" json:"delta_score"`
+	Metadata    json.RawMessage `db:"metadata" json:"metadata"`
+	ValidFrom   time.Time       `db:"valid_from" json:"valid_from"`
+	ValidTo     *time.Time      `db:"valid_to" json:"valid_to"`
+	IsCurrent   bool            `db:"is_current" json:"is_current"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+}
+
 type CustomerRiskProfile struct {
 	ID                uuid.UUID       `db:"id" json:"id"`
 	UserID            uuid.UUID       `db:"user_id" json:"user_id"`
@@ -763,12 +985,12 @@ type CustomerRiskProfile struct {
 	LateFeePct        string          `db:"late_fee_pct" json:"late_fee_pct"`
 	LateFeeType       LateFeeTypeEnum `db:"late_fee_type" json:"late_fee_type"`
 	TotalLateFees     int64           `db:"total_late_fees" json:"total_late_fees"`
-	LastCalculatedAt  time.Time       `db:"last_calculated_at" json:"last_calculated_at"`
-	CreatedAt         time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt         time.Time       `db:"updated_at" json:"updated_at"`
 	BestContactDay    *string         `db:"best_contact_day" json:"best_contact_day"`
 	BestContactTime   *string         `db:"best_contact_time" json:"best_contact_time"`
 	BestContactWindow *string         `db:"best_contact_window" json:"best_contact_window"`
+	LastCalculatedAt  time.Time       `db:"last_calculated_at" json:"last_calculated_at"`
+	CreatedAt         time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt         time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type DailyStat struct {
@@ -795,6 +1017,13 @@ type ExchangeRate struct {
 	ValidTo      *time.Time `db:"valid_to" json:"valid_to"`
 	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+type IdempotencyKey struct {
+	Key       string          `db:"key" json:"key"`
+	UserID    uuid.UUID       `db:"user_id" json:"user_id"`
+	Response  json.RawMessage `db:"response" json:"response"`
+	CreatedAt time.Time       `db:"created_at" json:"created_at"`
 }
 
 type Invoice struct {
@@ -846,6 +1075,28 @@ type Message struct {
 	CreatedAt         time.Time       `db:"created_at" json:"created_at"`
 }
 
+type OperatorAuditLog struct {
+	ID            uuid.UUID       `db:"id" json:"id"`
+	UserID        uuid.UUID       `db:"user_id" json:"user_id"`
+	PerformedBy   uuid.UUID       `db:"performed_by" json:"performed_by"`
+	ActionType    AuditActionType `db:"action_type" json:"action_type"`
+	EntityType    AuditEntityType `db:"entity_type" json:"entity_type"`
+	ActionLabel   string          `db:"action_label" json:"action_label"`
+	Detail        string          `db:"detail" json:"detail"`
+	InvoiceID     *uuid.UUID      `db:"invoice_id" json:"invoice_id"`
+	InvoiceNumber *string         `db:"invoice_number" json:"invoice_number"`
+	CustomerID    *uuid.UUID      `db:"customer_id" json:"customer_id"`
+	PaymentID     *uuid.UUID      `db:"payment_id" json:"payment_id"`
+	ReminderID    *uuid.UUID      `db:"reminder_id" json:"reminder_id"`
+	MessageID     *uuid.UUID      `db:"message_id" json:"message_id"`
+	IsReverted    bool            `db:"is_reverted" json:"is_reverted"`
+	RevertedBy    *uuid.UUID      `db:"reverted_by" json:"reverted_by"`
+	RevertedAt    *time.Time      `db:"reverted_at" json:"reverted_at"`
+	Metadata      json.RawMessage `db:"metadata" json:"metadata"`
+	RequestID     *string         `db:"request_id" json:"request_id"`
+	CreatedAt     time.Time       `db:"created_at" json:"created_at"`
+}
+
 type Payment struct {
 	ID           uuid.UUID `db:"id" json:"id"`
 	InvoiceID    uuid.UUID `db:"invoice_id" json:"invoice_id"`
@@ -858,6 +1109,7 @@ type Payment struct {
 	ProofUrl     *string   `db:"proof_url" json:"proof_url"`
 	Note         *string   `db:"note" json:"note"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type Reminder struct {
@@ -902,12 +1154,12 @@ type User struct {
 	HomeCurrency     string     `db:"home_currency" json:"home_currency"`
 	StreakDays       int32      `db:"streak_days" json:"streak_days"`
 	StreakBest       int32      `db:"streak_best" json:"streak_best"`
+	InvoiceSequence  int32      `db:"invoice_sequence" json:"invoice_sequence"`
 	OnboardingStep   int16      `db:"onboarding_step" json:"onboarding_step"`
 	OnboardingDoneAt *time.Time `db:"onboarding_done_at" json:"onboarding_done_at"`
 	IsActive         bool       `db:"is_active" json:"is_active"`
 	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
-	InvoiceSequence  int32      `db:"invoice_sequence" json:"invoice_sequence"`
 }
 
 type WebhookEvent struct {

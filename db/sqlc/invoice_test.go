@@ -24,7 +24,7 @@ func createTestInvoice(t *testing.T, store *SQLStore, userID, customerID uuid.UU
 		UserID:      userID,
 		CustomerID:  customerID,
 		Amount:      amount,
-		Currency:    "USD",
+		Currency:    "THB",
 		Description: &desc,
 		DueDate:     time.Now().Add(24 * time.Hour),
 		Source:      &source,
@@ -34,7 +34,7 @@ func createTestInvoice(t *testing.T, store *SQLStore, userID, customerID uuid.UU
 
 	require.Equal(t, amount, inv.Amount)
 	require.Equal(t, int64(0), inv.PaidAmount)
-	require.Equal(t, "USD", inv.Currency)
+	require.Equal(t, "THB", inv.Currency)
 	require.Equal(t, "unpaid", inv.Status)
 
 	return inv
@@ -62,7 +62,7 @@ func TestCreateInvoice_Fail_InvalidForeignKey(t *testing.T) {
 		UserID:     invalidUser,
 		CustomerID: invalidCustomer,
 		Amount:     100,
-		Currency:   "USD",
+		Currency:   "THB",
 		DueDate:    time.Now(),
 	})
 
@@ -267,7 +267,7 @@ func TestListOverdueInvoices(t *testing.T) {
 		UserID:     user.ID,
 		CustomerID: customer.ID,
 		Amount:     100,
-		Currency:   "USD",
+		Currency:   "THB",
 		DueDate:    time.Now().UTC().AddDate(0, 0, -1), // past — use UTC so stored date is unambiguously before CURRENT_DATE
 		Column10:   json.RawMessage("[]"),
 	})

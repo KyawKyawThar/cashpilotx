@@ -17,7 +17,7 @@ func committedInvoice(t *testing.T, userID, customerID uuid.UUID) Invoice {
 		UserID:     userID,
 		CustomerID: customerID,
 		Amount:     100,
-		Currency:   "USD",
+		Currency:   "THB",
 		DueDate:    time.Now().Add(24 * time.Hour),
 		Column10:   json.RawMessage("[]"),
 	})

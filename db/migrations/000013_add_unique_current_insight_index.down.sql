@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS customer_insights_unique_current_idx;

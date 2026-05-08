@@ -17,7 +17,7 @@ CREATE TABLE customer_risk_profiles (
     risk_level          TEXT NOT NULL
         CHECK (risk_level IN ('excellent','good','moderate','risky','bad')),
 
-    avg_days_to_pay     NUMERIC(10,2),
+    avg_days_to_pay     INT,
 
     -- Invoice counts (how many invoices fell into each bucket)
     invoices_on_time    INT NOT NULL DEFAULT 0,
@@ -34,7 +34,11 @@ CREATE TABLE customer_risk_profiles (
     late_fee_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
     late_fee_pct        NUMERIC(5,2) NOT NULL DEFAULT 0,
     late_fee_type       late_fee_type_enum NOT NULL DEFAULT 'flat',
-    total_late_fees     NUMERIC(14,2) NOT NULL DEFAULT 0,
+    total_late_fees     BIGINT NOT NULL DEFAULT 0,
+
+    best_contact_day    TEXT,   -- e.g. 'Friday'
+    best_contact_time   TEXT,   -- e.g. '16:00-18:00'
+    best_contact_window TEXT,   -- e.g. 'Friday 4–6 pm'
 
     last_calculated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),

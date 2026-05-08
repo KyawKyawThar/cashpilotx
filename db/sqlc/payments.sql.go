@@ -24,7 +24,7 @@ INSERT INTO payments (
     note
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-RETURNING id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at
+RETURNING id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
 `
 
 type CreatePaymentParams struct {
@@ -64,12 +64,13 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.ProofUrl,
 		&i.Note,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getPaymentByID = `-- name: GetPaymentByID :one
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at
+SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE id = $1
   AND user_id = $2
@@ -96,12 +97,13 @@ func (q *Queries) GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) 
 		&i.ProofUrl,
 		&i.Note,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listPayments = `-- name: ListPayments :many
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at
+SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -135,6 +137,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 			&i.ProofUrl,
 			&i.Note,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -147,7 +150,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 }
 
 const listPaymentsByCustomer = `-- name: ListPaymentsByCustomer :many
-SELECT p.id, p.invoice_id, p.user_id, p.amount, p.currency, p.exchange_rate, p.method, p.reference, p.proof_url, p.note, p.created_at
+SELECT p.id, p.invoice_id, p.user_id, p.amount, p.currency, p.exchange_rate, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at
 FROM payments p
 JOIN invoices i ON p.invoice_id = i.id
 WHERE p.user_id = $1
@@ -189,6 +192,7 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 			&i.ProofUrl,
 			&i.Note,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -201,7 +205,7 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 }
 
 const listPaymentsByInvoice = `-- name: ListPaymentsByInvoice :many
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at
+SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE user_id = $1
   AND invoice_id = $2
@@ -234,6 +238,7 @@ func (q *Queries) ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByI
 			&i.ProofUrl,
 			&i.Note,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

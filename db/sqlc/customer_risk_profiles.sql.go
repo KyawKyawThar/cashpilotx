@@ -31,7 +31,7 @@ func (q *Queries) DeleteCustomerRiskProfile(ctx context.Context, arg DeleteCusto
 }
 
 const getCustomerRiskProfile = `-- name: GetCustomerRiskProfile :one
-SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 FROM customer_risk_profiles
 WHERE user_id = $1
   AND customer_id = $2
@@ -68,18 +68,18 @@ func (q *Queries) GetCustomerRiskProfile(ctx context.Context, arg GetCustomerRis
 		&i.LateFeePct,
 		&i.LateFeeType,
 		&i.TotalLateFees,
-		&i.LastCalculatedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.BestContactDay,
 		&i.BestContactTime,
 		&i.BestContactWindow,
+		&i.LastCalculatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getCustomerRiskProfileForUpdate = `-- name: GetCustomerRiskProfileForUpdate :one
-SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 FROM customer_risk_profiles
 WHERE user_id = $1
   AND customer_id = $2
@@ -117,18 +117,18 @@ func (q *Queries) GetCustomerRiskProfileForUpdate(ctx context.Context, arg GetCu
 		&i.LateFeePct,
 		&i.LateFeeType,
 		&i.TotalLateFees,
-		&i.LastCalculatedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.BestContactDay,
 		&i.BestContactTime,
 		&i.BestContactWindow,
+		&i.LastCalculatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listBestCustomers = `-- name: ListBestCustomers :many
-SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 FROM customer_risk_profiles
 WHERE user_id = $1
   AND risk_level = 'excellent'
@@ -174,12 +174,12 @@ func (q *Queries) ListBestCustomers(ctx context.Context, arg ListBestCustomersPa
 			&i.LateFeePct,
 			&i.LateFeeType,
 			&i.TotalLateFees,
-			&i.LastCalculatedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.BestContactDay,
 			&i.BestContactTime,
 			&i.BestContactWindow,
+			&i.LastCalculatedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -192,7 +192,7 @@ func (q *Queries) ListBestCustomers(ctx context.Context, arg ListBestCustomersPa
 }
 
 const listCustomerRiskProfiles = `-- name: ListCustomerRiskProfiles :many
-SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 FROM customer_risk_profiles
 WHERE user_id = $1
 ORDER BY risk_score DESC
@@ -237,12 +237,12 @@ func (q *Queries) ListCustomerRiskProfiles(ctx context.Context, arg ListCustomer
 			&i.LateFeePct,
 			&i.LateFeeType,
 			&i.TotalLateFees,
-			&i.LastCalculatedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.BestContactDay,
 			&i.BestContactTime,
 			&i.BestContactWindow,
+			&i.LastCalculatedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +255,7 @@ func (q *Queries) ListCustomerRiskProfiles(ctx context.Context, arg ListCustomer
 }
 
 const listHighRiskCustomers = `-- name: ListHighRiskCustomers :many
-SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+SELECT id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 FROM customer_risk_profiles
 WHERE user_id = $1
   AND risk_level IN ('risky','bad')
@@ -301,12 +301,12 @@ func (q *Queries) ListHighRiskCustomers(ctx context.Context, arg ListHighRiskCus
 			&i.LateFeePct,
 			&i.LateFeeType,
 			&i.TotalLateFees,
-			&i.LastCalculatedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.BestContactDay,
 			&i.BestContactTime,
 			&i.BestContactWindow,
+			&i.LastCalculatedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -490,7 +490,7 @@ DO UPDATE SET
     best_contact_window = EXCLUDED.best_contact_window,
     last_calculated_at  = now(),
     updated_at          = now()
-RETURNING id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, last_calculated_at, created_at, updated_at, best_contact_day, best_contact_time, best_contact_window
+RETURNING id, user_id, customer_id, total_invoices, profile_confidence, risk_score, risk_level, avg_days_to_pay, invoices_on_time, invoices_late, invoices_unpaid, amount_on_time, amount_late, amount_unpaid, longest_overdue, late_fee_enabled, late_fee_pct, late_fee_type, total_late_fees, best_contact_day, best_contact_time, best_contact_window, last_calculated_at, created_at, updated_at
 `
 
 type UpsertCustomerRiskProfileParams struct {
@@ -561,12 +561,12 @@ func (q *Queries) UpsertCustomerRiskProfile(ctx context.Context, arg UpsertCusto
 		&i.LateFeePct,
 		&i.LateFeeType,
 		&i.TotalLateFees,
-		&i.LastCalculatedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.BestContactDay,
 		&i.BestContactTime,
 		&i.BestContactWindow,
+		&i.LastCalculatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

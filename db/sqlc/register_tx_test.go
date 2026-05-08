@@ -21,7 +21,7 @@ func newRegisterParams() RegisterUserTxParams {
 			PinHash:      "hash",
 			Name:         utils.RandomString(6),
 			Plan:         "pro",
-			HomeCurrency: "USD",
+			HomeCurrency: "THB",
 		},
 		Session: CreateSessionParams{
 			RefreshToken: utils.RandomString(32),
@@ -57,8 +57,8 @@ func TestRegisterUserTx_WithRates(t *testing.T) {
 	arg := newRegisterParams()
 	arg.DefaultRates = []CreateExchangeRateParams{
 		{
-			FromCurrency: "USD",
-			ToCurrency:   "THB",
+			FromCurrency: "THB",
+			ToCurrency:   "USD",
 			Rate:         "35.0",
 			Source:       RateSourceManual,
 			// UserID + ValidFrom set inside Tx
@@ -70,8 +70,8 @@ func TestRegisterUserTx_WithRates(t *testing.T) {
 
 	rates, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       res.User.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        10,
 	})
 	require.NoError(t, err)
@@ -88,13 +88,13 @@ func TestRegisterUserTx_MultipleRates(t *testing.T) {
 	arg := newRegisterParams()
 	arg.DefaultRates = []CreateExchangeRateParams{
 		{
-			FromCurrency: "USD",
-			ToCurrency:   "THB",
+			FromCurrency: "THB",
+			ToCurrency:   "USD",
 			Rate:         "35",
 			Source:       RateSourceManual,
 		},
 		{
-			FromCurrency: "USD",
+			FromCurrency: "THB",
 			ToCurrency:   "MMK",
 			Rate:         "2100",
 			Source:       RateSourceManual,
@@ -106,8 +106,8 @@ func TestRegisterUserTx_MultipleRates(t *testing.T) {
 
 	thb, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       res.User.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        10,
 	})
 	require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestRegisterUserTx_MultipleRates(t *testing.T) {
 
 	mmk, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       res.User.ID,
-		FromCurrency: "USD",
+		FromCurrency: "THB",
 		ToCurrency:   "MMK",
 		Limit:        10,
 	})
@@ -153,7 +153,7 @@ func TestRegisterUserTx_RollbackOnRateFail(t *testing.T) {
 	arg := newRegisterParams()
 	arg.DefaultRates = []CreateExchangeRateParams{
 		{
-			FromCurrency: "USD",
+			FromCurrency: "THB",
 			ToCurrency:   "", // invalid
 			Rate:         "35",
 			Source:       RateSourceManual,
@@ -209,8 +209,8 @@ func TestRegisterUserTx_ValidFromOverride(t *testing.T) {
 	arg := newRegisterParams()
 	arg.DefaultRates = []CreateExchangeRateParams{
 		{
-			FromCurrency: "USD",
-			ToCurrency:   "THB",
+			FromCurrency: "THB",
+			ToCurrency:   "USD",
 			Rate:         "35",
 			Source:       RateSourceManual,
 			ValidFrom:    time.Now().Add(-24 * time.Hour), // should be overridden
@@ -222,8 +222,8 @@ func TestRegisterUserTx_ValidFromOverride(t *testing.T) {
 
 	rates, err := store.ListExchangeRates(context.Background(), ListExchangeRatesParams{
 		UserID:       res.User.ID,
-		FromCurrency: "USD",
-		ToCurrency:   "THB",
+		FromCurrency: "THB",
+		ToCurrency:   "USD",
 		Limit:        1,
 	})
 	require.NoError(t, err)

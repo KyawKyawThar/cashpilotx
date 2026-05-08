@@ -22,7 +22,7 @@ INSERT INTO users (
     home_currency
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -57,12 +57,12 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
@@ -81,7 +81,7 @@ func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 FROM users
 WHERE id = $1
   AND is_active = true
@@ -102,18 +102,18 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 FROM users
 WHERE phone = $1
   AND is_active = true
@@ -134,12 +134,12 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
@@ -172,7 +172,7 @@ SET
     updated_at         = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 `
 
 type UpdateOnboardingStepParams struct {
@@ -196,12 +196,12 @@ func (q *Queries) UpdateOnboardingStep(ctx context.Context, arg UpdateOnboarding
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
@@ -213,7 +213,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 `
 
 type UpdateUserPlanParams struct {
@@ -235,12 +235,12 @@ func (q *Queries) UpdateUserPlan(ctx context.Context, arg UpdateUserPlanParams) 
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
@@ -254,7 +254,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 `
 
 type UpdateUserProfileParams struct {
@@ -283,12 +283,12 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
@@ -301,7 +301,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, invoice_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at
 `
 
 type UpdateUserStreakParams struct {
@@ -323,12 +323,12 @@ func (q *Queries) UpdateUserStreak(ctx context.Context, arg UpdateUserStreakPara
 		&i.HomeCurrency,
 		&i.StreakDays,
 		&i.StreakBest,
+		&i.InvoiceSequence,
 		&i.OnboardingStep,
 		&i.OnboardingDoneAt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InvoiceSequence,
 	)
 	return i, err
 }
