@@ -23,7 +23,7 @@ INSERT INTO users (
     email
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 `
 
 type CreateUserParams struct {
@@ -67,6 +67,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
@@ -85,7 +86,7 @@ func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 FROM users
 WHERE email = $1
   AND is_active = true
@@ -114,12 +115,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, erro
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 FROM users
 WHERE id = $1
   AND is_active = true
@@ -147,12 +149,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 FROM users
 WHERE phone = $1
   AND is_active = true
@@ -180,8 +183,28 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
+}
+
+const nextCustomerSequence = `-- name: NextCustomerSequence :one
+UPDATE users
+SET
+    customer_sequence = customer_sequence + 1,
+    updated_at        = now()
+WHERE id = $1
+  AND is_active = true
+RETURNING customer_sequence
+`
+
+// Atomically increments customer_sequence and returns the new value.
+// Used by CreateCustomerTx to assign "C-{seq:04d}" display numbers.
+func (q *Queries) NextCustomerSequence(ctx context.Context, id uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, nextCustomerSequence, id)
+	var customer_sequence int32
+	err := row.Scan(&customer_sequence)
+	return customer_sequence, err
 }
 
 const nextInvoiceSequence = `-- name: NextInvoiceSequence :one
@@ -212,7 +235,7 @@ SET
     updated_at         = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 `
 
 type UpdateOnboardingStepParams struct {
@@ -243,6 +266,7 @@ func (q *Queries) UpdateOnboardingStep(ctx context.Context, arg UpdateOnboarding
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
@@ -273,7 +297,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 `
 
 type UpdateUserPlanParams struct {
@@ -302,6 +326,7 @@ func (q *Queries) UpdateUserPlan(ctx context.Context, arg UpdateUserPlanParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
@@ -315,7 +340,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 `
 
 type UpdateUserProfileParams struct {
@@ -351,6 +376,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }
@@ -363,7 +389,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 `
 
 type UpdateUserStreakParams struct {
@@ -392,6 +418,7 @@ func (q *Queries) UpdateUserStreak(ctx context.Context, arg UpdateUserStreakPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.CustomerSequence,
 	)
 	return i, err
 }

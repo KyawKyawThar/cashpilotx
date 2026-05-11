@@ -249,7 +249,15 @@ func TestFetchApprovedMessages(t *testing.T) {
 	list, err := store.FetchApprovedMessages(context.Background(), 10)
 
 	require.NoError(t, err)
-	require.Len(t, list, 1)
+	require.NotEmpty(t, list)
+	found := false
+	for _, m := range list {
+		if m.ID == msg.ID {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "approved message %s not found in worker queue", msg.ID)
 }
 func TestDeleteMessage(t *testing.T) {
 	t.Parallel()

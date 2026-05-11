@@ -46,7 +46,7 @@ func (h *CustomerHandler) mustChannelParam(w http.ResponseWriter, r *http.Reques
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      409   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /customers [post]
+//	@Router       /api/v1/customers [post]
 //	@Security     BearerAuth
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -80,7 +80,7 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Failure      401          {object}  dto.ErrorResponse
 //	@Failure      404          {object}  dto.ErrorResponse
 //	@Failure      500          {object}  dto.ErrorResponse
-//	@Router       /customers/{customer_id} [get]
+//	@Router       /api/v1/customers/{customer_id} [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -113,7 +113,7 @@ func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 //	@Success      200       {object}  dto.Response{data=[]dto.CustomerResponse}
 //	@Failure      401       {object}  dto.ErrorResponse
 //	@Failure      500       {object}  dto.ErrorResponse
-//	@Router       /customers [get]
+//	@Router       /api/v1/customers [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -143,7 +143,7 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 //	@Failure      400  {object}  dto.ErrorResponse
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /customers/search [get]
+//	@Router       /api/v1/customers/search [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -180,8 +180,10 @@ func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request
 //	@Failure      401          {object}  dto.ErrorResponse
 //	@Failure      404          {object}  dto.ErrorResponse
 //	@Failure      500          {object}  dto.ErrorResponse
-//	@Router       /customers/{customer_id} [patch]
+//	@Router       /api/v1/customers/{customer_id} [patch]
 //	@Security     BearerAuth
+//
+//nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
 	if !ok {
@@ -218,7 +220,7 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      404  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /customers/{customer_id} [delete]
+//	@Router       /api/v1/customers/{customer_id} [delete]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -255,7 +257,7 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /channel-configs [post]
+//	@Router       /api/v1/channel-configs [post]
 //	@Security     BearerAuth
 func (h *CustomerHandler) UpsertChannelConfig(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -286,7 +288,7 @@ func (h *CustomerHandler) UpsertChannelConfig(w http.ResponseWriter, r *http.Req
 //	@Success      200  {object}  dto.Response{data=[]dto.ChannelConfigResponse}
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /channel-configs [get]
+//	@Router       /api/v1/channel-configs [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListChannelConfigs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -314,7 +316,7 @@ func (h *CustomerHandler) ListChannelConfigs(w http.ResponseWriter, r *http.Requ
 //	@Failure      401      {object}  dto.ErrorResponse
 //	@Failure      404      {object}  dto.ErrorResponse
 //	@Failure      500      {object}  dto.ErrorResponse
-//	@Router       /channel-configs/{channel} [get]
+//	@Router       /api/v1/channel-configs/{channel} [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) GetChannelConfig(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -347,7 +349,7 @@ func (h *CustomerHandler) GetChannelConfig(w http.ResponseWriter, r *http.Reques
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      404  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /channel-configs/{channel} [delete]
+//	@Router       /api/v1/channel-configs/{channel} [delete]
 //	@Security     BearerAuth
 func (h *CustomerHandler) DeleteChannelConfig(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -382,7 +384,7 @@ func (h *CustomerHandler) DeleteChannelConfig(w http.ResponseWriter, r *http.Req
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      404  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /channel-configs/{channel}/active [patch]
+//	@Router       /api/v1/channel-configs/{channel}/active [patch]
 //	@Security     BearerAuth
 func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -406,4 +408,41 @@ func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.WriteNoContent(w)
+}
+
+// ListCustomerEvents godoc
+//
+//	@Summary      List customer events
+//	@Description  Returns a paginated timeline of all events for a specific customer (payments, state changes, messages sent, etc.).
+//	@Tags         customers
+//	@Produce      json
+//	@Param        customer_id  path      string  true   "Customer UUID"
+//	@Param        page         query     int     false  "Page number (default 1)"
+//	@Param        per_page     query     int     false  "Items per page (default 25, max 100)"
+//	@Success      200          {array}   dto.CustomerEventResponse
+//	@Failure      401          {object}  dto.ErrorResponse
+//	@Failure      404          {object}  dto.ErrorResponse
+//	@Failure      500          {object}  dto.ErrorResponse
+//	@Router       /api/v1/customers/{customer_id}/events [get]
+//	@Security     BearerAuth
+func (h *CustomerHandler) ListCustomerEvents(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	customerID, ok := h.MustUUIDParam(w, r, "customer_id")
+	if !ok {
+		return
+	}
+
+	pg := dto.GetPaginationFromRequest(r)
+
+	resp, err := h.svc.ListCustomerEvents(r.Context(), userID, customerID, pg)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
 }

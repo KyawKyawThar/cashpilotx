@@ -1,5 +1,42 @@
-basePath: /api/v1
+basePath: /
 definitions:
+  dto.AuditLogResponse:
+    properties:
+      action_label:
+        type: string
+      action_type:
+        type: string
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      detail:
+        type: string
+      entity_type:
+        type: string
+      id:
+        type: string
+      invoice_id:
+        type: string
+      invoice_number:
+        type: string
+      is_reverted:
+        type: boolean
+      message_id:
+        type: string
+      metadata:
+        type: object
+      payment_id:
+        type: string
+      performed_by:
+        type: string
+      reminder_id:
+        type: string
+      reverted_at:
+        type: string
+      reverted_by:
+        type: string
+    type: object
   dto.ChannelConfigResponse:
     properties:
       channel:
@@ -23,6 +60,42 @@ definitions:
       updated_at:
         type: string
     type: object
+  dto.ChatMessageResponse:
+    properties:
+      channel:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      direction:
+        type: string
+      external_message_id:
+        type: string
+      id:
+        type: string
+      invoice_id:
+        type: string
+      meta:
+        type: object
+      sent_at:
+        type: string
+      source:
+        type: string
+      status:
+        type: string
+      tone:
+        type: string
+    type: object
+  dto.CopyTextResponse:
+    properties:
+      content:
+        type: string
+      message_id:
+        type: string
+    type: object
   dto.CreateCustomerRequest:
     properties:
       country:
@@ -35,8 +108,6 @@ definitions:
         maxLength: 2000
         type: string
       phone:
-        maxLength: 30
-        minLength: 3
         type: string
       tags:
         items:
@@ -52,6 +123,150 @@ definitions:
     - name
     - type
     type: object
+  dto.CreateInvoiceRequest:
+    properties:
+      amount:
+        example: 150000
+        minimum: 1
+        type: integer
+      channel:
+        enum:
+        - line
+        - whatsapp
+        - messenger
+        - wechat
+        - telegram
+        example: whatsapp
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        type: string
+      description:
+        example: Web design services - May 2026
+        maxLength: 500
+        type: string
+      due_date:
+        example: "2026-06-01T00:00:00Z"
+        type: string
+      items:
+        items:
+          type: object
+        type: array
+      max_attempts:
+        example: 3
+        maximum: 10
+        minimum: 1
+        type: integer
+      photo_url:
+        example: https://example.com/invoice.jpg
+        type: string
+      scheduled_at:
+        example: "2026-05-20T09:00:00Z"
+        type: string
+      source:
+        example: manual
+        maxLength: 100
+        type: string
+      tone:
+        description: First reminder — all optional, defaults applied in service.
+        enum:
+        - polite
+        - firm
+        - urgent
+        example: polite
+        type: string
+    required:
+    - amount
+    - currency
+    - customer_id
+    - due_date
+    type: object
+  dto.CreateInvoiceResponse:
+    properties:
+      invoice:
+        $ref: '#/definitions/dto.InvoiceResponse'
+      reminder:
+        $ref: '#/definitions/dto.ReminderResponse'
+    type: object
+  dto.CreateManualMessageRequest:
+    properties:
+      channel:
+        enum:
+        - line
+        - whatsapp
+        - messenger
+        - wechat
+        - telegram
+        - external
+        type: string
+      content:
+        maxLength: 4000
+        minLength: 1
+        type: string
+      customer_id:
+        type: string
+      invoice_id:
+        type: string
+      tone:
+        enum:
+        - polite
+        - firm
+        - urgent
+        - final
+        type: string
+    required:
+    - channel
+    - content
+    - customer_id
+    - invoice_id
+    type: object
+  dto.CreateReminderRequest:
+    properties:
+      channel:
+        enum:
+        - line
+        - whatsapp
+        - messenger
+        - wechat
+        - telegram
+        type: string
+      customer_id:
+        type: string
+      max_attempts:
+        maximum: 10
+        minimum: 1
+        type: integer
+      scheduled_at:
+        type: string
+      tone:
+        enum:
+        - polite
+        - firm
+        - urgent
+        - final
+        type: string
+    required:
+    - customer_id
+    - scheduled_at
+    type: object
+  dto.CustomerEventResponse:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      event_type:
+        type: string
+      event_value:
+        type: object
+      id:
+        type: string
+      invoice_id:
+        type: string
+    type: object
   dto.CustomerResponse:
     properties:
       country:
@@ -60,6 +275,8 @@ definitions:
         type: string
       credit_limit:
         type: integer
+      customer_number:
+        type: string
       id:
         type: string
       last_activity:
@@ -84,6 +301,21 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  dto.DashboardResponse:
+    properties:
+      collected_this_month:
+        type: integer
+      open_actions:
+        type: integer
+      reminded_count:
+        type: integer
+      total_messages_sent:
+        type: integer
+      total_recoverable:
+        type: integer
+      waiting_for_reply:
+        type: integer
     type: object
   dto.ErrorBody:
     properties:
@@ -134,6 +366,61 @@ definitions:
         example: queued
         type: string
     type: object
+  dto.InvoiceResponse:
+    properties:
+      amount:
+        type: integer
+      collection_state:
+        type: string
+      confidence_factors:
+        type: object
+      confidence_score:
+        type: number
+      created_at:
+        type: string
+      currency:
+        type: string
+      customer_id:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      external_id:
+        type: string
+      follow_up_count:
+        type: integer
+      id:
+        type: string
+      issued_at:
+        type: string
+      items:
+        items:
+          type: object
+        type: array
+      last_contacted_at:
+        type: string
+      last_response_at:
+        type: string
+      outcome_text:
+        type: string
+      outcome_timeframe:
+        type: string
+      paid_amount:
+        type: integer
+      paid_at:
+        type: string
+      photo_url:
+        type: string
+      promised_at:
+        type: string
+      source:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
   dto.LoginRequest:
     properties:
       phone:
@@ -166,6 +453,18 @@ definitions:
         description: specific session; empty = current token only
         type: string
     type: object
+  dto.MarkMessageSentRequest:
+    properties:
+      external_message_id:
+        maxLength: 200
+        type: string
+    type: object
+  dto.MarkReminderSentRequest:
+    properties:
+      external_message_id:
+        maxLength: 200
+        type: string
+    type: object
   dto.MessageResponse:
     properties:
       message:
@@ -187,6 +486,163 @@ definitions:
         type: integer
       total_pages:
         type: integer
+    type: object
+  dto.MoveCollectionStateRequest:
+    properties:
+      note:
+        maxLength: 500
+        type: string
+      state:
+        enum:
+        - pending
+        - reminded
+        - no_response
+        - negotiating
+        - promised
+        - paid
+        - defaulted
+        type: string
+    required:
+    - state
+    type: object
+  dto.PaymentListItem:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      currency:
+        type: string
+      customer_name:
+        type: string
+      exchange_rate:
+        type: string
+      id:
+        type: string
+      invoice_id:
+        type: string
+      invoice_number:
+        type: string
+      is_full_payment:
+        description: invoice_status == "paid"
+        type: boolean
+      method:
+        type: string
+      note:
+        type: string
+      paid_on:
+        type: string
+      proof_url:
+        type: string
+      reference:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.PaymentResponse:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      currency:
+        type: string
+      exchange_rate:
+        type: string
+      id:
+        type: string
+      invoice_id:
+        type: string
+      method:
+        type: string
+      note:
+        type: string
+      paid_on:
+        type: string
+      proof_url:
+        type: string
+      reference:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.RecordPaymentRequest:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      currency:
+        type: string
+      customer_id:
+        type: string
+      exchange_rate:
+        type: string
+      invoice_id:
+        type: string
+      method:
+        type: string
+      note:
+        maxLength: 500
+        type: string
+      paid_on:
+        type: string
+      reference:
+        maxLength: 200
+        type: string
+    required:
+    - amount
+    - currency
+    - customer_id
+    - invoice_id
+    - method
+    type: object
+  dto.RecordPaymentResponse:
+    properties:
+      invoice:
+        $ref: '#/definitions/dto.InvoiceResponse'
+      payment:
+        $ref: '#/definitions/dto.PaymentResponse'
+    type: object
+  dto.RecoveryQueueItemResponse:
+    properties:
+      amount:
+        type: integer
+      collection_state:
+        type: string
+      confidence_score:
+        type: number
+      created_at:
+        type: string
+      currency:
+        type: string
+      customer_id:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        type: string
+      due_date:
+        type: string
+      external_id:
+        type: string
+      follow_up_count:
+        type: integer
+      id:
+        type: string
+      last_contacted_at:
+        type: string
+      outcome_text:
+        type: string
+      outcome_timeframe:
+        type: string
+      paid_amount:
+        type: integer
+      status:
+        type: string
     type: object
   dto.RefreshTokenRequest:
     properties:
@@ -247,6 +703,27 @@ definitions:
       user:
         $ref: '#/definitions/dto.UserResponse'
     type: object
+  dto.ReminderResponse:
+    properties:
+      channel:
+        type: string
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      id:
+        type: string
+      invoice_id:
+        type: string
+      max_attempts:
+        type: integer
+      scheduled_at:
+        type: string
+      status:
+        type: string
+      tone:
+        type: string
+    type: object
   dto.ResetPINRequest:
     properties:
       confirm_pin:
@@ -294,6 +771,8 @@ definitions:
     properties:
       is_active:
         type: boolean
+    required:
+    - is_active
     type: object
   dto.UpdateCustomerRequest:
     properties:
@@ -307,8 +786,6 @@ definitions:
         maxLength: 2000
         type: string
       phone:
-        maxLength: 30
-        minLength: 3
         type: string
       tags:
         items:
@@ -362,7 +839,7 @@ info:
   title: CashpilotX API
   version: 1.0.0
 paths:
-  /agent/batch:
+  /api/v1/agent/batch:
     post:
       consumes:
       - application/json
@@ -401,7 +878,80 @@ paths:
       summary: Ingest aggregated batch
       tags:
       - agent
-  /auth/forgot-pin:
+  /api/v1/audit-log:
+    get:
+      description: Returns a paginated list of operator audit log entries. Optionally
+        filter by action_type.
+      parameters:
+      - description: Filter by action type (e.g. payment_recorded, message_marked_sent)
+        in: query
+        name: action_type
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 25, max 100)
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.AuditLogResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List audit logs
+      tags:
+      - audit
+  /api/v1/audit-log/{log_id}/revert:
+    post:
+      description: Marks an audit log entry as reverted, recording who reverted it
+        and when.
+      parameters:
+      - description: Audit log UUID
+        in: path
+        name: log_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AuditLogResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revert audit log entry
+      tags:
+      - audit
+  /api/v1/auth/forgot-pin:
     post:
       consumes:
       - application/json
@@ -432,7 +982,7 @@ paths:
       summary: Request PIN reset OTP
       tags:
       - auth
-  /auth/login:
+  /api/v1/auth/login:
     post:
       consumes:
       - application/json
@@ -470,7 +1020,7 @@ paths:
       summary: Login
       tags:
       - auth
-  /auth/logout:
+  /api/v1/auth/logout:
     post:
       consumes:
       - application/json
@@ -504,7 +1054,7 @@ paths:
       summary: Logout
       tags:
       - auth
-  /auth/refresh:
+  /api/v1/auth/refresh:
     post:
       consumes:
       - application/json
@@ -538,7 +1088,7 @@ paths:
       summary: Refresh access token
       tags:
       - auth
-  /auth/register:
+  /api/v1/auth/register:
     post:
       consumes:
       - application/json
@@ -576,7 +1126,7 @@ paths:
       summary: Register new user
       tags:
       - auth
-  /auth/reset-pin:
+  /api/v1/auth/reset-pin:
     post:
       consumes:
       - application/json
@@ -607,7 +1157,7 @@ paths:
       summary: Reset PIN using OTP
       tags:
       - auth
-  /auth/sessions:
+  /api/v1/auth/sessions:
     get:
       description: Return all active sessions for the authenticated user.
       produces:
@@ -632,7 +1182,7 @@ paths:
       summary: List active sessions
       tags:
       - auth
-  /auth/sessions/{session_id}:
+  /api/v1/auth/sessions/{session_id}:
     delete:
       description: Revoke a specific session by ID for the authenticated user.
       parameters:
@@ -667,7 +1217,7 @@ paths:
       summary: Revoke a session
       tags:
       - auth
-  /channel-configs:
+  /api/v1/channel-configs:
     get:
       description: Return all channel configs for the authenticated user (config payload
         omitted — use GET /{channel} to decrypt).
@@ -734,7 +1284,7 @@ paths:
       summary: Upsert channel config
       tags:
       - channel-configs
-  /channel-configs/{channel}:
+  /api/v1/channel-configs/{channel}:
     delete:
       description: Soft-delete a channel config by channel name.
       parameters:
@@ -798,7 +1348,7 @@ paths:
       summary: Get channel config
       tags:
       - channel-configs
-  /channel-configs/{channel}/active:
+  /api/v1/channel-configs/{channel}/active:
     patch:
       consumes:
       - application/json
@@ -841,7 +1391,7 @@ paths:
       summary: Enable / disable channel
       tags:
       - channel-configs
-  /customers:
+  /api/v1/customers:
     get:
       description: Return a paginated list of active customers for the authenticated
         user.
@@ -920,7 +1470,7 @@ paths:
       summary: Create customer
       tags:
       - customers
-  /customers/{customer_id}:
+  /api/v1/customers/{customer_id}:
     delete:
       description: Soft-delete a customer by setting their status to inactive.
       parameters:
@@ -1031,7 +1581,51 @@ paths:
       summary: Update customer
       tags:
       - customers
-  /customers/search:
+  /api/v1/customers/{customer_id}/events:
+    get:
+      description: Returns a paginated timeline of all events for a specific customer
+        (payments, state changes, messages sent, etc.).
+      parameters:
+      - description: Customer UUID
+        in: path
+        name: customer_id
+        required: true
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 25, max 100)
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.CustomerEventResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List customer events
+      tags:
+      - customers
+  /api/v1/customers/search:
     get:
       description: Full-text search across customer name and phone (max 20 results).
       parameters:
@@ -1071,6 +1665,799 @@ paths:
       summary: Search customers
       tags:
       - customers
+  /api/v1/dashboard:
+    get:
+      description: 'Returns the stats strip: total recoverable, waiting for reply,
+        open actions, reminded count, collected this month, and messages sent this
+        month.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DashboardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Dashboard stats
+      tags:
+      - dashboard
+  /api/v1/invoices:
+    get:
+      description: Returns a paginated list of invoices with optional filters.
+      parameters:
+      - description: 'Filter by status: unpaid|partial|paid|cancelled'
+        in: query
+        name: status
+        type: string
+      - description: Only overdue invoices
+        in: query
+        name: overdue
+        type: boolean
+      - description: Filter by collection state
+        in: query
+        name: collection_state
+        type: string
+      - description: Filter by customer UUID
+        in: query
+        name: customer_id
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 25, max 100)
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.InvoiceResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List invoices
+      tags:
+      - invoices
+    post:
+      consumes:
+      - application/json
+      description: Atomically creates a new invoice and its initial reminder, generating
+        the external_id (INV-YYYY-NNN) via the user's atomic invoice_sequence counter.
+      parameters:
+      - description: Client-generated idempotency key (UUID)
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Invoice payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateInvoiceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CreateInvoiceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create invoice
+      tags:
+      - invoices
+  /api/v1/invoices/{invoice_id}:
+    get:
+      description: Returns a single invoice by ID, scoped to the authenticated user.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.InvoiceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get invoice
+      tags:
+      - invoices
+  /api/v1/invoices/{invoice_id}/cancel:
+    post:
+      description: Cancels an invoice, kills its pending reminders, and reverses the
+        unpaid balance from the customer's total_owed.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.InvoiceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel invoice
+      tags:
+      - invoices
+  /api/v1/invoices/{invoice_id}/collection-state:
+    patch:
+      consumes:
+      - application/json
+      description: Validates and applies a manual collection-state transition, emitting
+        a collection_state_changed event for the History timeline.
+      parameters:
+      - description: Client-generated idempotency key (UUID)
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      - description: State transition payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MoveCollectionStateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.InvoiceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Move collection state
+      tags:
+      - invoices
+  /api/v1/invoices/{invoice_id}/messages:
+    get:
+      description: Returns all messages (AI drafts and manual) for an invoice, newest
+        first.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ChatMessageResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List messages for an invoice
+      tags:
+      - messages
+  /api/v1/invoices/{invoice_id}/payments:
+    get:
+      description: Returns all payments recorded against a specific invoice, scoped
+        to the authenticated user.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PaymentResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List payments for an invoice
+      tags:
+      - payments
+  /api/v1/invoices/{invoice_id}/reminders:
+    get:
+      description: Returns all reminders for a specific invoice, newest first.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ReminderResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List reminders for an invoice
+      tags:
+      - reminders
+    post:
+      consumes:
+      - application/json
+      description: Schedules a new reminder for an invoice. Only one active reminder
+        (pending/processing) is allowed per invoice at a time.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      - description: Reminder payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateReminderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ReminderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create reminder
+      tags:
+      - reminders
+  /api/v1/invoices/{invoice_id}/write-off:
+    post:
+      description: Marks an invoice as defaulted and cancelled, cancels its pending
+        reminders, and emits an invoice_written_off event.
+      parameters:
+      - description: Invoice UUID
+        in: path
+        name: invoice_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.InvoiceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Write off invoice
+      tags:
+      - invoices
+  /api/v1/messages/{message_id}/approve:
+    post:
+      description: Moves a draft message to pending status, signalling the operator
+        has approved it for sending.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: message_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ChatMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve AI draft
+      tags:
+      - messages
+  /api/v1/messages/{message_id}/copy-text:
+    get:
+      description: Returns just the content of an approved message — the text the
+        operator copy-pastes into LINE/WhatsApp.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: message_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CopyTextResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get message copy text
+      tags:
+      - messages
+  /api/v1/messages/{message_id}/mark-sent:
+    post:
+      consumes:
+      - application/json
+      description: Records that the operator manually sent the message via LINE/WhatsApp.
+        Optionally stores the external message ID for delivery tracking.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: message_id
+        required: true
+        type: string
+      - description: Optional external message ID
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/dto.MarkMessageSentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ChatMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark message sent
+      tags:
+      - messages
+  /api/v1/messages/manual:
+    post:
+      consumes:
+      - application/json
+      description: Creates a message written by the operator (source=human, status=approved),
+        bypassing AI draft generation.
+      parameters:
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateManualMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ChatMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create manual message
+      tags:
+      - messages
+  /api/v1/messages/sse:
+    get:
+      description: Opens a persistent Server-Sent Events stream scoped to the authenticated
+        user. Emits a "draft_ready" event each time the AI Draft Worker finishes generating
+        a message draft. The client should call GET /api/v1/invoices/{id}/messages
+        after receiving the event to fetch the new draft.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'event: draft_ready\\ndata: {…}\\n\\n'
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: SSE — AI draft ready events
+      tags:
+      - messages
+  /api/v1/payments:
+    get:
+      description: Returns a paginated list of all payments for the authenticated
+        user.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PaymentListItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List payments
+      tags:
+      - payments
+    post:
+      consumes:
+      - application/json
+      description: Atomically inserts a payment, recomputes invoice status, and emits
+        a payment_received event. Returns the new payment and the updated invoice
+        snapshot.
+      parameters:
+      - description: Client-generated idempotency key (UUID)
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Payment payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RecordPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RecordPaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Record a payment
+      tags:
+      - payments
+  /api/v1/payments/{payment_id}:
+    get:
+      description: Returns a single payment by ID, scoped to the authenticated user.
+      parameters:
+      - description: Payment UUID
+        in: path
+        name: payment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaymentResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get payment
+      tags:
+      - payments
+  /api/v1/recovery-queue:
+    get:
+      description: Returns open invoices ranked by AI confidence score, with customer
+        name and phone pre-joined.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 25, max 100)
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.RecoveryQueueItemResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Recovery queue
+      tags:
+      - dashboard
+  /api/v1/reminders/{reminder_id}/mark-sent:
+    post:
+      consumes:
+      - application/json
+      description: Records that the reminder was successfully sent (status → sent).
+        Optionally stores the external message ID for tracking.
+      parameters:
+      - description: Reminder UUID
+        in: path
+        name: reminder_id
+        required: true
+        type: string
+      - description: Optional external message ID
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/dto.MarkReminderSentRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark reminder sent
+      tags:
+      - reminders
 schemes:
 - http
 - https

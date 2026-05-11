@@ -45,6 +45,9 @@ func (s *SQLStore) RecordPaymentTx(ctx context.Context, arg RecordPaymentTxParam
 			return err
 		}
 
+		// Inherit currency from the invoice — payments always settle in the invoice currency.
+		arg.Payment.Currency = invoice.Currency
+
 		remaining := invoice.Amount - invoice.PaidAmount
 		if arg.Payment.Amount <= 0 {
 			return ErrPaymentAmountInvalid

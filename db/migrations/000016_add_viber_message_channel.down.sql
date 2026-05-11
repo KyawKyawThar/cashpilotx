@@ -1,0 +1,2 @@
+-- Postgres does not support removing enum values; this migration is irreversible.
+-- To roll back, recreate the type without 'viber' and migrate all affected rows.

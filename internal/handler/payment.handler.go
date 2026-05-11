@@ -1,0 +1,151 @@
+package handler
+
+import (
+	"cashpilotx/internal/dto"
+	"cashpilotx/internal/service"
+	"net/http"
+)
+
+// PaymentHandler handles payment recording and listing endpoints.
+type PaymentHandler struct {
+	*BaseHandler
+	svc service.PaymentServicer
+}
+
+func NewPaymentHandler(svc service.PaymentServicer, base *BaseHandler) *PaymentHandler {
+	return &PaymentHandler{BaseHandler: base, svc: svc}
+}
+
+// RecordPayment godoc
+//
+//	@Summary      Record a payment
+//	@Description  Atomically inserts a payment, recomputes invoice status, and emits a payment_received event. Returns the new payment and the updated invoice snapshot.
+//	@Tags         payments
+//	@Accept       json
+//	@Produce      json
+//	@Param        Idempotency-Key  header    string                    false  "Client-generated idempotency key (UUID)"
+//	@Param        body             body      dto.RecordPaymentRequest  true   "Payment payload"
+//	@Success      201              {object}  dto.RecordPaymentResponse
+//	@Failure      400              {object}  dto.ErrorResponse
+//	@Failure      401              {object}  dto.ErrorResponse
+//	@Failure      404              {object}  dto.ErrorResponse
+//	@Failure      409              {object}  dto.ErrorResponse
+//	@Failure      422              {object}  dto.ErrorResponse
+//	@Failure      500              {object}  dto.ErrorResponse
+//	@Router       /api/v1/payments [post]
+//	@Security     BearerAuth
+func (h *PaymentHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req dto.RecordPaymentRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.RecordPayment(r.Context(), userID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteCreated(w, r, resp)
+}
+
+// ListPayments godoc
+//
+//	@Summary      List payments
+//	@Description  Returns a paginated list of all payments for the authenticated user.
+//	@Tags         payments
+//	@Produce      json
+//	@Param        page   query     int  false  "Page number (default 1)"
+//	@Param        limit  query     int  false  "Items per page (default 20, max 100)"
+//	@Success      200    {array}   dto.PaymentListItem
+//	@Failure      401    {object}  dto.ErrorResponse
+//	@Failure      500    {object}  dto.ErrorResponse
+//	@Router       /api/v1/payments [get]
+//	@Security     BearerAuth
+func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pg := dto.GetPaginationFromRequest(r)
+
+	resp, err := h.svc.ListPayments(r.Context(), userID, pg)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
+// GetPayment godoc
+//
+//	@Summary      Get payment
+//	@Description  Returns a single payment by ID, scoped to the authenticated user.
+//	@Tags         payments
+//	@Produce      json
+//	@Param        payment_id  path      string  true  "Payment UUID"
+//	@Success      200         {object}  dto.PaymentResponse
+//	@Failure      401         {object}  dto.ErrorResponse
+//	@Failure      404         {object}  dto.ErrorResponse
+//	@Failure      500         {object}  dto.ErrorResponse
+//	@Router       /api/v1/payments/{payment_id} [get]
+//	@Security     BearerAuth
+func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	paymentID, ok := h.MustUUIDParam(w, r, "payment_id")
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.GetPayment(r.Context(), userID, paymentID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
+// ListPaymentsByInvoice godoc
+//
+//	@Summary      List payments for an invoice
+//	@Description  Returns all payments recorded against a specific invoice, scoped to the authenticated user.
+//	@Tags         payments
+//	@Produce      json
+//	@Param        invoice_id  path      string  true  "Invoice UUID"
+//	@Success      200         {array}   dto.PaymentResponse
+//	@Failure      401         {object}  dto.ErrorResponse
+//	@Failure      404         {object}  dto.ErrorResponse
+//	@Failure      500         {object}  dto.ErrorResponse
+//	@Router       /api/v1/invoices/{invoice_id}/payments [get]
+//	@Security     BearerAuth
+func (h *PaymentHandler) ListPaymentsByInvoice(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	invoiceID, ok := h.MustUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.ListPaymentsByInvoice(r.Context(), userID, invoiceID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}

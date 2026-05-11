@@ -515,6 +515,7 @@ const (
 	MessageChannelTelegram  MessageChannel = "telegram"
 	MessageChannelWhatsapp  MessageChannel = "whatsapp"
 	MessageChannelExternal  MessageChannel = "external"
+	MessageChannelViber     MessageChannel = "viber"
 )
 
 func (e *MessageChannel) Scan(src interface{}) error {
@@ -559,7 +560,8 @@ func (e MessageChannel) Valid() bool {
 		MessageChannelWechat,
 		MessageChannelTelegram,
 		MessageChannelWhatsapp,
-		MessageChannelExternal:
+		MessageChannelExternal,
+		MessageChannelViber:
 		return true
 	}
 	return false
@@ -573,6 +575,7 @@ func AllMessageChannelValues() []MessageChannel {
 		MessageChannelTelegram,
 		MessageChannelWhatsapp,
 		MessageChannelExternal,
+		MessageChannelViber,
 	}
 }
 
@@ -926,6 +929,7 @@ type Customer struct {
 	Tags            []string   `db:"tags" json:"tags"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
+	CustomerNumber  *string    `db:"customer_number" json:"customer_number"`
 }
 
 type CustomerContact struct {
@@ -1098,18 +1102,18 @@ type OperatorAuditLog struct {
 }
 
 type Payment struct {
-	ID           uuid.UUID `db:"id" json:"id"`
-	InvoiceID    uuid.UUID `db:"invoice_id" json:"invoice_id"`
-	UserID       uuid.UUID `db:"user_id" json:"user_id"`
-	Amount       int64     `db:"amount" json:"amount"`
-	Currency     string    `db:"currency" json:"currency"`
-	ExchangeRate *string   `db:"exchange_rate" json:"exchange_rate"`
-	Method       string    `db:"method" json:"method"`
-	Reference    *string   `db:"reference" json:"reference"`
-	ProofUrl     *string   `db:"proof_url" json:"proof_url"`
-	Note         *string   `db:"note" json:"note"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID `db:"id" json:"id"`
+	InvoiceID uuid.UUID `db:"invoice_id" json:"invoice_id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	PaidOn    time.Time `db:"paid_on" json:"paid_on"`
+	Amount    int64     `db:"amount" json:"amount"`
+	Currency  string    `db:"currency" json:"currency"`
+	Method    string    `db:"method" json:"method"`
+	Reference *string   `db:"reference" json:"reference"`
+	ProofUrl  *string   `db:"proof_url" json:"proof_url"`
+	Note      *string   `db:"note" json:"note"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type Reminder struct {
@@ -1161,6 +1165,7 @@ type User struct {
 	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 	Email            *string    `db:"email" json:"email"`
+	CustomerSequence int32      `db:"customer_sequence" json:"customer_sequence"`
 }
 
 type WebhookEvent struct {

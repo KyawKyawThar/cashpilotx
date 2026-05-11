@@ -19,7 +19,7 @@ import (
 //	@Failure      409   {object}  dto.ErrorResponse
 //	@Failure      422   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/register [post]
+//	@Router       /api/v1/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
 	if !h.DecodeAndValidate(w, r, &req) {
@@ -51,7 +51,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      423   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/login [post]
+//	@Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
 	if !h.DecodeAndValidate(w, r, &req) {
@@ -82,7 +82,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/refresh [post]
+//	@Router       /api/v1/auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req dto.RefreshTokenRequest
 	if !h.DecodeAndValidate(w, r, &req) {
@@ -113,7 +113,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/logout [post]
+//	@Router       /api/v1/auth/logout [post]
 //	@Security     BearerAuth
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req dto.LogoutRequest
@@ -144,7 +144,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 //	@Success      200  {array}   dto.SessionResponse
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /auth/sessions [get]
+//	@Router       /api/v1/auth/sessions [get]
 //	@Security     BearerAuth
 func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)
@@ -172,7 +172,7 @@ func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 //	@Success      200   {object}  dto.MessageResponse
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/forgot-pin [post]
+//	@Router       /api/v1/auth/forgot-pin [post]
 func (h *AuthHandler) ForgotPIN(w http.ResponseWriter, r *http.Request) {
 	var req dto.ForgotPINRequest
 	if !h.DecodeAndValidate(w, r, &req) {
@@ -198,7 +198,7 @@ func (h *AuthHandler) ForgotPIN(w http.ResponseWriter, r *http.Request) {
 //	@Success      200   {object}  dto.MessageResponse
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /auth/reset-pin [post]
+//	@Router       /api/v1/auth/reset-pin [post]
 func (h *AuthHandler) ResetPIN(w http.ResponseWriter, r *http.Request) {
 	var req dto.ResetPINRequest
 	if !h.DecodeAndValidate(w, r, &req) {
@@ -225,7 +225,7 @@ func (h *AuthHandler) ResetPIN(w http.ResponseWriter, r *http.Request) {
 //	@Failure      401  {object}  dto.ErrorResponse
 //	@Failure      404  {object}  dto.ErrorResponse
 //	@Failure      500  {object}  dto.ErrorResponse
-//	@Router       /auth/sessions/{session_id} [delete]
+//	@Router       /api/v1/auth/sessions/{session_id} [delete]
 //	@Security     BearerAuth
 func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.MustUserID(w, r)

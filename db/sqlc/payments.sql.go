@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -17,26 +18,25 @@ INSERT INTO payments (
     user_id,
     amount,
     currency,
-    exchange_rate,
     method,
     reference,
     proof_url,
-    note
-)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-RETURNING id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
+    note,
+    paid_on
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+RETURNING id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
 `
 
 type CreatePaymentParams struct {
-	InvoiceID    uuid.UUID `db:"invoice_id" json:"invoice_id"`
-	UserID       uuid.UUID `db:"user_id" json:"user_id"`
-	Amount       int64     `db:"amount" json:"amount"`
-	Currency     string    `db:"currency" json:"currency"`
-	ExchangeRate *string   `db:"exchange_rate" json:"exchange_rate"`
-	Method       string    `db:"method" json:"method"`
-	Reference    *string   `db:"reference" json:"reference"`
-	ProofUrl     *string   `db:"proof_url" json:"proof_url"`
-	Note         *string   `db:"note" json:"note"`
+	InvoiceID uuid.UUID `db:"invoice_id" json:"invoice_id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	Amount    int64     `db:"amount" json:"amount"`
+	Currency  string    `db:"currency" json:"currency"`
+	Method    string    `db:"method" json:"method"`
+	Reference *string   `db:"reference" json:"reference"`
+	ProofUrl  *string   `db:"proof_url" json:"proof_url"`
+	Note      *string   `db:"note" json:"note"`
+	PaidOn    time.Time `db:"paid_on" json:"paid_on"`
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
@@ -45,20 +45,20 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		arg.UserID,
 		arg.Amount,
 		arg.Currency,
-		arg.ExchangeRate,
 		arg.Method,
 		arg.Reference,
 		arg.ProofUrl,
 		arg.Note,
+		arg.PaidOn,
 	)
 	var i Payment
 	err := row.Scan(
 		&i.ID,
 		&i.InvoiceID,
 		&i.UserID,
+		&i.PaidOn,
 		&i.Amount,
 		&i.Currency,
-		&i.ExchangeRate,
 		&i.Method,
 		&i.Reference,
 		&i.ProofUrl,
@@ -70,7 +70,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 }
 
 const getPaymentByID = `-- name: GetPaymentByID :one
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE id = $1
   AND user_id = $2
@@ -89,9 +89,9 @@ func (q *Queries) GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) 
 		&i.ID,
 		&i.InvoiceID,
 		&i.UserID,
+		&i.PaidOn,
 		&i.Amount,
 		&i.Currency,
-		&i.ExchangeRate,
 		&i.Method,
 		&i.Reference,
 		&i.ProofUrl,
@@ -103,7 +103,7 @@ func (q *Queries) GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) 
 }
 
 const listPayments = `-- name: ListPayments :many
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -129,9 +129,9 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 			&i.ID,
 			&i.InvoiceID,
 			&i.UserID,
+			&i.PaidOn,
 			&i.Amount,
 			&i.Currency,
-			&i.ExchangeRate,
 			&i.Method,
 			&i.Reference,
 			&i.ProofUrl,
@@ -150,7 +150,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 }
 
 const listPaymentsByCustomer = `-- name: ListPaymentsByCustomer :many
-SELECT p.id, p.invoice_id, p.user_id, p.amount, p.currency, p.exchange_rate, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at
+SELECT p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at
 FROM payments p
 JOIN invoices i ON p.invoice_id = i.id
 WHERE p.user_id = $1
@@ -184,9 +184,9 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 			&i.ID,
 			&i.InvoiceID,
 			&i.UserID,
+			&i.PaidOn,
 			&i.Amount,
 			&i.Currency,
-			&i.ExchangeRate,
 			&i.Method,
 			&i.Reference,
 			&i.ProofUrl,
@@ -205,7 +205,7 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 }
 
 const listPaymentsByInvoice = `-- name: ListPaymentsByInvoice :many
-SELECT id, invoice_id, user_id, amount, currency, exchange_rate, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
 FROM payments
 WHERE user_id = $1
   AND invoice_id = $2
@@ -230,15 +230,89 @@ func (q *Queries) ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByI
 			&i.ID,
 			&i.InvoiceID,
 			&i.UserID,
+			&i.PaidOn,
 			&i.Amount,
 			&i.Currency,
-			&i.ExchangeRate,
 			&i.Method,
 			&i.Reference,
 			&i.ProofUrl,
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPaymentsEnriched = `-- name: ListPaymentsEnriched :many
+SELECT
+  p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at,
+  c.name   AS customer_name,
+  i.external_id AS invoice_number,
+  i.status  AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListPaymentsEnrichedParams struct {
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+	Limit  int32     `db:"limit" json:"limit"`
+	Offset int32     `db:"offset" json:"offset"`
+}
+
+type ListPaymentsEnrichedRow struct {
+	ID            uuid.UUID `db:"id" json:"id"`
+	InvoiceID     uuid.UUID `db:"invoice_id" json:"invoice_id"`
+	UserID        uuid.UUID `db:"user_id" json:"user_id"`
+	PaidOn        time.Time `db:"paid_on" json:"paid_on"`
+	Amount        int64     `db:"amount" json:"amount"`
+	Currency      string    `db:"currency" json:"currency"`
+	Method        string    `db:"method" json:"method"`
+	Reference     *string   `db:"reference" json:"reference"`
+	ProofUrl      *string   `db:"proof_url" json:"proof_url"`
+	Note          *string   `db:"note" json:"note"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
+	CustomerName  string    `db:"customer_name" json:"customer_name"`
+	InvoiceNumber *string   `db:"invoice_number" json:"invoice_number"`
+	InvoiceStatus string    `db:"invoice_status" json:"invoice_status"`
+}
+
+func (q *Queries) ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error) {
+	rows, err := q.db.Query(ctx, listPaymentsEnriched, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPaymentsEnrichedRow{}
+	for rows.Next() {
+		var i ListPaymentsEnrichedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceID,
+			&i.UserID,
+			&i.PaidOn,
+			&i.Amount,
+			&i.Currency,
+			&i.Method,
+			&i.Reference,
+			&i.ProofUrl,
+			&i.Note,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerName,
+			&i.InvoiceNumber,
+			&i.InvoiceStatus,
 		); err != nil {
 			return nil, err
 		}

@@ -22,6 +22,7 @@ func (s *Server) setupRoutes() {
 	s.setupMiddleware(r)
 	s.setupSwagger(r)
 	s.setupPublicRoutes(r)
+	s.setupSSERoutes(r)
 	s.setupProtectedRoutes(r)
 
 	s.router = r
@@ -115,11 +116,31 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 	})
 }
 
+// setupSSERoutes mounts long-lived SSE endpoints under JWT auth but without
+// the request timeout middleware, because SSE connections must remain open
+// until the client disconnects (minutes to hours, not seconds).
+// Only mounted when a Redis client is available.
+func (s *Server) setupSSERoutes(r chi.Router) {
+	if s.handler.SSE == nil {
+		return
+	}
+	r.Group(func(r chi.Router) {
+		r.Use(mw.JWTAuthWithService(s.services.Auth))
+		r.Get("/api/v1/messages/sse", s.handler.SSE.ServeSSE)
+	})
+}
+
 func (s *Server) setupProtectedRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(mw.Timeout(s.requestTimeout()))
 		r.Use(mw.MaxBodySize(1 << 20)) // 1 MB
 		r.Use(mw.JWTAuthWithService(s.services.Auth))
+
+		r.Get("/api/v1/dashboard", s.handler.Dashboard.GetDashboardStats)
+		r.Get("/api/v1/recovery-queue", s.handler.Dashboard.GetRecoveryQueue)
+
+		r.Get("/api/v1/audit-log", s.handler.Audit.ListAuditLogs)
+		r.Post("/api/v1/audit-log/{log_id}/revert", s.handler.Audit.RevertAuditLog)
 
 		r.Route("/api/v1/customers", func(r chi.Router) {
 			r.Post("/", s.handler.Customer.CreateCustomer)
@@ -128,6 +149,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/{customer_id}", s.handler.Customer.GetCustomer)
 			r.Patch("/{customer_id}", s.handler.Customer.UpdateCustomer)
 			r.Delete("/{customer_id}", s.handler.Customer.ArchiveCustomer)
+			r.Get("/{customer_id}/events", s.handler.Customer.ListCustomerEvents)
 		})
 
 		r.Route("/api/v1/channel-configs", func(r chi.Router) {
@@ -137,12 +159,40 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Delete("/{channel}", s.handler.Customer.DeleteChannelConfig)
 			r.Patch("/{channel}/active", s.handler.Customer.SetChannelActive)
 		})
+
+		r.Route("/api/v1/invoices", func(r chi.Router) {
+			r.Post("/", s.handler.Invoice.CreateInvoice)
+			r.Get("/", s.handler.Invoice.ListInvoices)
+			r.Get("/{invoice_id}", s.handler.Invoice.GetInvoice)
+			r.Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
+			r.Post("/{invoice_id}/write-off", s.handler.Invoice.WriteOffInvoice)
+			r.With(mw.Idempotency(s.store)).Patch("/{invoice_id}/collection-state", s.handler.Invoice.MoveCollectionState)
+			r.Get("/{invoice_id}/payments", s.handler.Payment.ListPaymentsByInvoice)
+			r.Get("/{invoice_id}/messages", s.handler.Message.ListMessages)
+			r.Get("/{invoice_id}/reminders", s.handler.Reminder.ListReminders)
+			r.Post("/{invoice_id}/reminders", s.handler.Reminder.CreateReminder)
+		})
+
+		r.Route("/api/v1/messages", func(r chi.Router) {
+			r.Post("/manual", s.handler.Message.CreateManualMessage)
+			r.Post("/{message_id}/approve", s.handler.Message.ApproveMessage)
+			r.Post("/{message_id}/mark-sent", s.handler.Message.MarkMessageSent)
+			r.Get("/{message_id}/copy-text", s.handler.Message.GetCopyText)
+		})
+
+		r.Route("/api/v1/reminders", func(r chi.Router) {
+			r.Get("/", s.handler.Reminder.ListAllReminders)
+			r.Delete("/{reminder_id}", s.handler.Reminder.CancelReminder)
+			r.Post("/{reminder_id}/mark-sent", s.handler.Reminder.MarkReminderSent)
+		})
+
+		r.Route("/api/v1/payments", func(r chi.Router) {
+			r.With(mw.Idempotency(s.store)).Post("/", s.handler.Payment.RecordPayment)
+			r.Get("/", s.handler.Payment.ListPayments)
+			r.Get("/{payment_id}", s.handler.Payment.GetPayment)
+		})
 	})
 }
-
-// r.Route("/api/v1/invoices", func(r chi.Router) {
-//     r.With(mw.Idempotency(s.store)).Post("/", s.handler.Invoice.Create)
-// })
 
 // =============================================================================
 // Probe handlers

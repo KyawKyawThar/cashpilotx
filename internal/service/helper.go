@@ -15,6 +15,9 @@ import (
 // the connection mid-response.
 const dbQueryTimeout = 5 * time.Second
 
+// defaultTone is the reminder/message tone applied when the caller omits the field.
+const defaultTone = "polite"
+
 // withDBTimeout wraps parent with a 5 s deadline for DB calls.
 // Call defer cancel() immediately after; all store calls in the method share this budget.
 func withDBTimeout(parent context.Context) (context.Context, context.CancelFunc) {

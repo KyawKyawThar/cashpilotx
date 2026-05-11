@@ -8,9 +8,10 @@ INSERT INTO customers (
     country,
     type,
     notes,
-    tags
+    tags,
+    customer_number
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 RETURNING *;
 
 
@@ -47,6 +48,7 @@ WHERE user_id = $1
   AND (
     normalized_name ILIKE '%' || $2 || '%'
     OR normalized_phone ILIKE '%' || $2 || '%'
+    OR customer_number ILIKE '%' || $2 || '%'
   )
 ORDER BY last_activity DESC
 LIMIT 20;

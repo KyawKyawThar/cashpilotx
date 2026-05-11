@@ -19,7 +19,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 `
 
 type AddCustomerDebtParams struct {
@@ -49,6 +49,7 @@ func (q *Queries) AddCustomerDebt(ctx context.Context, arg AddCustomerDebtParams
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }
@@ -62,7 +63,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 `
 
 type AddCustomerPaymentParams struct {
@@ -92,6 +93,7 @@ func (q *Queries) AddCustomerPayment(ctx context.Context, arg AddCustomerPayment
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }
@@ -106,10 +108,11 @@ INSERT INTO customers (
     country,
     type,
     notes,
-    tags
+    tags,
+    customer_number
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 `
 
 type CreateCustomerParams struct {
@@ -122,6 +125,7 @@ type CreateCustomerParams struct {
 	Type            string    `db:"type" json:"type"`
 	Notes           *string   `db:"notes" json:"notes"`
 	Tags            []string  `db:"tags" json:"tags"`
+	CustomerNumber  *string   `db:"customer_number" json:"customer_number"`
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
@@ -135,6 +139,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.Type,
 		arg.Notes,
 		arg.Tags,
+		arg.CustomerNumber,
 	)
 	var i Customer
 	err := row.Scan(
@@ -155,12 +160,13 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }
 
 const getCustomerByID = `-- name: GetCustomerByID :one
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
 WHERE id = $1
   AND user_id = $2
@@ -193,12 +199,13 @@ func (q *Queries) GetCustomerByID(ctx context.Context, arg GetCustomerByIDParams
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }
 
 const getCustomerByPhone = `-- name: GetCustomerByPhone :one
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
 WHERE user_id = $1
   AND normalized_phone = $2
@@ -231,12 +238,13 @@ func (q *Queries) GetCustomerByPhone(ctx context.Context, arg GetCustomerByPhone
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
 WHERE user_id = $1
   AND status = 'active'
@@ -277,6 +285,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 			&i.Tags,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CustomerNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -289,13 +298,14 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 }
 
 const searchCustomers = `-- name: SearchCustomers :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
 WHERE user_id = $1
   AND status = 'active'
   AND (
     normalized_name ILIKE '%' || $2 || '%'
     OR normalized_phone ILIKE '%' || $2 || '%'
+    OR customer_number ILIKE '%' || $2 || '%'
   )
 ORDER BY last_activity DESC
 LIMIT 20
@@ -333,6 +343,7 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.Tags,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CustomerNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -365,7 +376,7 @@ func (q *Queries) SetCustomerStatus(ctx context.Context, arg SetCustomerStatusPa
 }
 
 const topDebtors = `-- name: TopDebtors :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
 WHERE user_id = $1
   AND total_owed > 0
@@ -405,6 +416,7 @@ func (q *Queries) TopDebtors(ctx context.Context, arg TopDebtorsParams) ([]Custo
 			&i.Tags,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CustomerNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -429,7 +441,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 `
 
 type UpdateCustomerParams struct {
@@ -475,6 +487,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerNumber,
 	)
 	return i, err
 }

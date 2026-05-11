@@ -137,6 +137,9 @@ CREATE TABLE payments (
     invoice_id    UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
+ 
+    paid_on      DATE NOT NULL,
+    
     amount        BIGINT NOT NULL CHECK (amount > 0),
 
     -- Track currency of each payment for multi-currency reconciliation
