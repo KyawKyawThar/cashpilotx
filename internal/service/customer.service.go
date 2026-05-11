@@ -61,16 +61,18 @@ func (s *CustomerService) CreateCustomer(
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
-	customer, err := s.store.CreateCustomer(dbCtx, db.CreateCustomerParams{
-		UserID:          userID,
-		Name:            req.Name,
-		NormalizedName:  normalizedName,
-		Phone:           req.Phone,
-		NormalizedPhone: normalizedPhone,
-		Country:         req.Country,
-		Type:            req.Type,
-		Notes:           req.Notes,
-		Tags:            tags,
+	result, err := s.store.CreateCustomerTx(dbCtx, db.CreateCustomerTxParams{
+		Customer: db.CreateCustomerParams{
+			UserID:          userID,
+			Name:            req.Name,
+			NormalizedName:  normalizedName,
+			Phone:           req.Phone,
+			NormalizedPhone: normalizedPhone,
+			Country:         req.Country,
+			Type:            req.Type,
+			Notes:           req.Notes,
+			Tags:            tags,
+		},
 	})
 	if err != nil {
 		if api.IsUniqueViolation(err) {
@@ -79,7 +81,7 @@ func (s *CustomerService) CreateCustomer(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToCustomerResponse(customer), nil
+	return dto.ToCustomerResponse(result.Customer), nil
 }
 
 func (s *CustomerService) GetCustomer(
@@ -103,6 +105,7 @@ func (s *CustomerService) GetCustomer(
 	return dto.ToCustomerResponse(customer), nil
 }
 
+//nolint:dupl // identical paginated-list pattern shared across services; abstraction adds no value
 func (s *CustomerService) ListCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -178,6 +181,11 @@ func (s *CustomerService) UpdateCustomer(
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
+	var tags []string
+	if req.Tags != nil {
+		tags = *req.Tags
+	}
+
 	customer, err := s.store.UpdateCustomer(dbCtx, db.UpdateCustomerParams{
 		ID:              customerID,
 		UserID:          userID,
@@ -187,7 +195,7 @@ func (s *CustomerService) UpdateCustomer(
 		NormalizedPhone: normalizedPhone,
 		Country:         req.Country,
 		Notes:           req.Notes,
-		Tags:            req.Tags,
+		Tags:            tags,
 	})
 	if err != nil {
 		if api.IsRecordNotFound(err) {
@@ -382,4 +390,29 @@ func (s *CustomerService) SetChannelActive(
 	}
 
 	return nil
+}
+
+func (s *CustomerService) ListCustomerEvents(
+	ctx context.Context,
+	userID, customerID uuid.UUID,
+	pg *dto.Pagination,
+) ([]*dto.CustomerEventResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	rows, err := s.store.ListCustomerEvents(dbCtx, db.ListCustomerEventsParams{
+		UserID:     userID,
+		CustomerID: customerID,
+		Limit:      pg.Limit32(),
+		Offset:     pg.Offset32(),
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	out := make([]*dto.CustomerEventResponse, 0, len(rows))
+	for _, e := range rows {
+		out = append(out, dto.ToCustomerEventResponse(e))
+	}
+	return out, nil
 }

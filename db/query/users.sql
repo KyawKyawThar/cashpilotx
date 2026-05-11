@@ -101,6 +101,17 @@ WHERE id = $1
   AND is_active = true
 RETURNING invoice_sequence;
 
+-- name: NextCustomerSequence :one
+-- Atomically increments customer_sequence and returns the new value.
+-- Used by CreateCustomerTx to assign "C-{seq:04d}" display numbers.
+UPDATE users
+SET
+    customer_sequence = customer_sequence + 1,
+    updated_at        = now()
+WHERE id = $1
+  AND is_active = true
+RETURNING customer_sequence;
+
 -- name: DeactivateUser :exec
 UPDATE users
 SET

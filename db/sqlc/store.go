@@ -14,6 +14,9 @@ type Store interface {
 	RegisterUserTx(ctx context.Context, arg RegisterUserTxParams) (RegisterUserTxResult, error)
 	RotateSessionTx(ctx context.Context, arg RotateSessionTxParams) (RotateSessionTxResult, error)
 
+	// Customers
+	CreateCustomerTx(ctx context.Context, arg CreateCustomerTxParams) (CreateCustomerTxResult, error)
+
 	// AR core
 	CreateInvoiceTx(ctx context.Context, arg CreateInvoiceTxParams) (CreateInvoiceTxResult, error)
 	RecordPaymentTx(ctx context.Context, arg RecordPaymentTxParams) (RecordPaymentTxResult, error)

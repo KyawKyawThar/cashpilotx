@@ -160,6 +160,7 @@ type Querier interface {
 	ListPayments(ctx context.Context, arg ListPaymentsParams) ([]Payment, error)
 	ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsByCustomerParams) ([]Payment, error)
 	ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByInvoiceParams) ([]Payment, error)
+	ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error)
 	ListRemindersByInvoice(ctx context.Context, invoiceID uuid.UUID) ([]Reminder, error)
 	ListRemindersByUser(ctx context.Context, arg ListRemindersByUserParams) ([]Reminder, error)
 	ListRevertedOperatorAuditLogs(ctx context.Context, arg ListRevertedOperatorAuditLogsParams) ([]OperatorAuditLog, error)
@@ -183,6 +184,9 @@ type Querier interface {
 	MarkWebhookDead(ctx context.Context, arg MarkWebhookDeadParams) error
 	MarkWebhookFailed(ctx context.Context, arg MarkWebhookFailedParams) error
 	MarkWebhookProcessed(ctx context.Context, id uuid.UUID) error
+	// Atomically increments customer_sequence and returns the new value.
+	// Used by CreateCustomerTx to assign "C-{seq:04d}" display numbers.
+	NextCustomerSequence(ctx context.Context, id uuid.UUID) (int32, error)
 	// Atomically increments invoice_sequence and returns the new value.
 	// Used by CreateInvoiceTx to generate "INV-{year}-{seq:03d}" when the
 	// caller does not supply an external_id.

@@ -49,7 +49,7 @@ func NewBatchHandler(base *BaseHandler, redisClient *redis.Client, streamName st
 //	@Failure      400   {object}  dto.ErrorResponse
 //	@Failure      401   {object}  dto.ErrorResponse
 //	@Failure      500   {object}  dto.ErrorResponse
-//	@Router       /agent/batch [post]
+//	@Router       /api/v1/agent/batch [post]
 //	@Security     ApiKeyAuth
 func (h *BatchHandler) HandleIngestBatch(w http.ResponseWriter, r *http.Request) {
 	userID := mw.GetUserID(r.Context())

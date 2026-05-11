@@ -23,9 +23,16 @@ import (
 
 // Handlers is the main container for all HTTP handlers.
 type Handlers struct {
-	Auth     *AuthHandler
-	Customer *CustomerHandler
-	Batch    *BatchHandler
+	Auth      *AuthHandler
+	Customer  *CustomerHandler
+	Invoice   *InvoiceHandler
+	Payment   *PaymentHandler
+	Dashboard *DashboardHandler
+	Message   *MessageHandler
+	Reminder  *ReminderHandler
+	Audit     *AuditHandler
+	SSE       *SSEHandler
+	Batch     *BatchHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -85,14 +92,28 @@ func NewHandlers(
 
 	authSvc := mustCast[service.AuthService](services.Auth, "auth")
 	customerSvc := mustCast[service.CustomerService](services.Customer, "customer")
+	invoiceSvc := mustCast[service.InvoiceService](services.Invoice, "invoice")
+	paymentSvc := mustCast[service.PaymentService](services.Payment, "payment")
+	messageSvc := mustCast[service.MessageService](services.Message, "message")
+	reminderSvc := mustCast[service.ReminderService](services.Reminder, "reminder")
+	auditSvc := mustCast[service.AuditService](services.Audit, "audit")
 
 	h := &Handlers{
-		Auth:     NewAuthHandler(authSvc, base),
-		Customer: NewCustomerHandler(customerSvc, base),
+		Auth:      NewAuthHandler(authSvc, base),
+		Customer:  NewCustomerHandler(customerSvc, base),
+		Invoice:   NewInvoiceHandler(invoiceSvc, base),
+		Payment:   NewPaymentHandler(paymentSvc, base),
+		Dashboard: NewDashboardHandler(invoiceSvc, base),
+		Message:   NewMessageHandler(messageSvc, base),
+		Reminder:  NewReminderHandler(reminderSvc, base),
+		Audit:     NewAuditHandler(auditSvc, base),
 	}
 
 	if deps != nil && deps.RedisClient != nil {
 		h.Batch = NewBatchHandler(base, deps.RedisClient, deps.IngestStreamName)
+	}
+	if deps != nil && deps.RedisCache != nil {
+		h.SSE = NewSSEHandler(base, deps.RedisCache)
 	}
 
 	_ = store // reserved for future handlers that need direct store access
@@ -256,6 +277,11 @@ func (h *BaseHandler) BearerToken(r *http.Request) string {
 		return after
 	}
 	return ""
+}
+
+// parseUUID parses a raw string into a uuid.UUID; used by query-param helpers.
+func parseUUID(raw string) (uuid.UUID, error) {
+	return uuid.Parse(raw)
 }
 
 func ParseQueryInt32(r *http.Request, key string, defaultVal int32) int32 {

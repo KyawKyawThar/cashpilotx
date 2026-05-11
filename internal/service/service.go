@@ -13,6 +13,11 @@ import (
 type Services struct {
 	Auth     AuthServicer
 	Customer CustomerServicer
+	Invoice  InvoiceServicer
+	Payment  PaymentServicer
+	Message  MessageServicer
+	Reminder ReminderServicer
+	Audit    AuditServicer
 }
 
 type AuthService struct {
@@ -29,6 +34,26 @@ type AuthConfig struct {
 	BcryptCost           int
 	JWTIssuer            string
 	Environment          string // "development" | "staging" | "production"
+}
+
+type InvoiceService struct {
+	store db.Store
+}
+
+type PaymentService struct {
+	store db.Store
+}
+
+type MessageService struct {
+	store db.Store
+}
+
+type ReminderService struct {
+	store db.Store
+}
+
+type AuditService struct {
+	store db.Store
 }
 
 type CustomerService struct {
@@ -63,6 +88,26 @@ func DefaultConfig() *Config {
 	}
 }
 
+func NewInvoiceService(store db.Store) *InvoiceService {
+	return &InvoiceService{store: store}
+}
+
+func NewPaymentService(store db.Store) *PaymentService {
+	return &PaymentService{store: store}
+}
+
+func NewMessageService(store db.Store) *MessageService {
+	return &MessageService{store: store}
+}
+
+func NewReminderService(store db.Store) *ReminderService {
+	return &ReminderService{store: store}
+}
+
+func NewAuditService(store db.Store) *AuditService {
+	return &AuditService{store: store}
+}
+
 func NewCustomerService(store db.Store, cfg *CustomerConfig) *CustomerService {
 	var key []byte
 	if cfg != nil {
@@ -90,8 +135,15 @@ func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token
 	}
 	authSvc := NewAuthService(store, redisCache, tokenMaker, &cfg.Auth, emailSender)
 	customerSvc := NewCustomerService(store, &cfg.Customer)
+	invoiceSvc := NewInvoiceService(store)
+	paymentSvc := NewPaymentService(store)
 	return &Services{
 		Auth:     authSvc,
 		Customer: customerSvc,
+		Invoice:  invoiceSvc,
+		Payment:  paymentSvc,
+		Message:  NewMessageService(store),
+		Reminder: NewReminderService(store),
+		Audit:    NewAuditService(store),
 	}
 }

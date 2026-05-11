@@ -36,6 +36,14 @@ func (s *SQLStore) CreateInvoiceTx(ctx context.Context, arg CreateInvoiceTxParam
 	err := s.execTx(ctx, func(q *Queries) error {
 		var err error
 		if arg.NewCustomer != nil {
+			var seq int32
+			seq, err = q.NextCustomerSequence(ctx, arg.NewCustomer.UserID)
+			if err != nil {
+				return err
+			}
+			num := fmt.Sprintf("C-%04d", seq)
+			arg.NewCustomer.CustomerNumber = &num
+
 			result.Customer, err = q.CreateCustomer(ctx, *arg.NewCustomer)
 			if err != nil {
 				return err
@@ -51,6 +59,7 @@ func (s *SQLStore) CreateInvoiceTx(ctx context.Context, arg CreateInvoiceTxParam
 		}
 
 		arg.Reminder.InvoiceID = result.Invoice.ID
+		arg.Reminder.CustomerID = result.Invoice.CustomerID
 		result.Reminder, err = q.CreateReminder(ctx, arg.Reminder)
 		if err != nil {
 			return err

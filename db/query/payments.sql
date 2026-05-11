@@ -4,14 +4,14 @@ INSERT INTO payments (
     user_id,
     amount,
     currency,
-    exchange_rate,
     method,
     reference,
     proof_url,
-    note
-)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    note,
+    paid_on
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 RETURNING *;
+
 
 
 -- name: GetPaymentByID :one
@@ -52,3 +52,17 @@ LIMIT $3 OFFSET $4;
 SELECT COALESCE(SUM(amount), 0)::BIGINT
 FROM payments
 WHERE invoice_id = $1;
+
+
+-- name: ListPaymentsEnriched :many
+SELECT
+  p.*,
+  c.name   AS customer_name,
+  i.external_id AS invoice_number,
+  i.status  AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
+LIMIT $2 OFFSET $3;
