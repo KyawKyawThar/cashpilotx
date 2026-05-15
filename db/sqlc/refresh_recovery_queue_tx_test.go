@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +19,7 @@ func TestRefreshRecoveryQueueTx_AllSuccess(t *testing.T) {
 		invoices[i] = committedInvoice(t, user.ID, customer.ID)
 	}
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		return InvoiceScore{
 			ConfidenceScore:   0.9,
 			ConfidenceFactors: json.RawMessage(`[{"label":"good","signal":"high"}]`),
@@ -50,7 +49,7 @@ func TestRefreshRecoveryQueueTx_PartialFailure(t *testing.T) {
 
 	callCount := 0
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		callCount++
 		if callCount == 2 {
 			return InvoiceScore{}, errors.New("AI failure")
@@ -80,8 +79,8 @@ func TestRefreshRecoveryQueueTx_UpdateFailure(t *testing.T) {
 
 	// Delete the invoice inside the scorer so ListUnscored still finds it,
 	// but UpdateInvoiceConfidence matches 0 rows and records an error.
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
-		_, _ = testDB.Exec(ctx, "DELETE FROM invoices WHERE id = $1", id)
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
+		_, _ = testDB.Exec(ctx, "DELETE FROM invoices WHERE id = $1", inv.ID)
 		return InvoiceScore{
 			ConfidenceScore:   0.7,
 			ConfidenceFactors: json.RawMessage(`[]`),
@@ -89,8 +88,6 @@ func TestRefreshRecoveryQueueTx_UpdateFailure(t *testing.T) {
 			OutcomeTimeframe:  "Today",
 		}, nil
 	}
-
-	_ = inv
 
 	res, err := testStore.RefreshRecoveryQueueTx(context.Background(), RefreshRecoveryQueueTxParams{
 		Limit:  10,
@@ -109,7 +106,7 @@ func TestRefreshRecoveryQueueTx_Limit(t *testing.T) {
 		committedInvoice(t, user.ID, customer.ID)
 	}
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		return InvoiceScore{
 			ConfidenceScore: 0.5,
 		}, nil
@@ -126,7 +123,7 @@ func TestRefreshRecoveryQueueTx_Limit(t *testing.T) {
 func TestRefreshRecoveryQueueTx_Empty(t *testing.T) {
 	committedUser(t)
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		return InvoiceScore{}, nil
 	}
 
@@ -145,7 +142,7 @@ func TestRefreshRecoveryQueueTx_Idempotent(t *testing.T) {
 
 	committedInvoice(t, user.ID, customer.ID)
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		return InvoiceScore{
 			ConfidenceScore: 0.6,
 		}, nil
@@ -176,7 +173,7 @@ func TestRefreshRecoveryQueueTx_MultipleErrors(t *testing.T) {
 		committedInvoice(t, user.ID, customer.ID)
 	}
 
-	scorer := func(ctx context.Context, id uuid.UUID) (InvoiceScore, error) {
+	scorer := func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error) {
 		return InvoiceScore{}, errors.New("fail")
 	}
 

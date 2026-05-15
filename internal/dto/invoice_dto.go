@@ -34,15 +34,16 @@ type CreateInvoiceRequest struct {
 
 // MoveCollectionStateRequest is the payload for PATCH /api/v1/invoices/{id}/collection-state.
 type MoveCollectionStateRequest struct {
-	State string  `json:"state" validate:"required,oneof=pending reminded no_response negotiating promised paid defaulted"`
-	Note  *string `json:"note"  validate:"omitempty,max=500"`
+	State      string     `json:"state"       validate:"required,oneof=pending reminded no_response negotiating promised verifying paid defaulted"`
+	Note       *string    `json:"note"        validate:"omitempty,max=500"`
+	PromisedAt *time.Time `json:"promised_at"` // only honored when State == "promised"
 }
 
 // ListInvoicesFilter holds optional filters for GET /api/v1/invoices.
 type ListInvoicesFilter struct {
 	Status          *string // unpaid | partial | paid | canceled
 	Overdue         bool
-	CollectionState *string // pending | reminded | no_response | negotiating | promised | paid | defaulted
+	CollectionState *string // pending | reminded | no_response | negotiating | promised | verifying | paid | defaulted
 	CustomerID      *uuid.UUID
 }
 

@@ -154,6 +154,40 @@ func (h *InvoiceHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, resp)
 }
 
+// ReactivateInvoice godoc
+//
+//	@Summary      Reactivate invoice
+//	@Description  Restores a canceled invoice to unpaid/partial status, resets collection_state to pending, and adds the unpaid balance back to the customer's total_owed.
+//	@Tags         invoices
+//	@Produce      json
+//	@Param        invoice_id  path      string  true  "Invoice UUID"
+//	@Success      200         {object}  dto.InvoiceResponse
+//	@Failure      401         {object}  dto.ErrorResponse
+//	@Failure      404         {object}  dto.ErrorResponse
+//	@Failure      409         {object}  dto.ErrorResponse
+//	@Failure      500         {object}  dto.ErrorResponse
+//	@Router       /api/v1/invoices/{invoice_id}/reactivate [post]
+//	@Security     BearerAuth
+func (h *InvoiceHandler) ReactivateInvoice(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	invoiceID, ok := h.MustUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.ReactivateInvoice(r.Context(), userID, invoiceID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // WriteOffInvoice godoc
 //
 //	@Summary      Write off invoice

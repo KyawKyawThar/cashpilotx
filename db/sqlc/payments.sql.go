@@ -24,7 +24,7 @@ INSERT INTO payments (
     note,
     paid_on
 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-RETURNING id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
+RETURNING id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at, voided_at
 `
 
 type CreatePaymentParams struct {
@@ -65,12 +65,13 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.Note,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VoidedAt,
 	)
 	return i, err
 }
 
 const getPaymentByID = `-- name: GetPaymentByID :one
-SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at, voided_at
 FROM payments
 WHERE id = $1
   AND user_id = $2
@@ -98,12 +99,13 @@ func (q *Queries) GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) 
 		&i.Note,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VoidedAt,
 	)
 	return i, err
 }
 
 const listPayments = `-- name: ListPayments :many
-SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at, voided_at
 FROM payments
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -138,6 +140,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VoidedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +153,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]P
 }
 
 const listPaymentsByCustomer = `-- name: ListPaymentsByCustomer :many
-SELECT p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at
+SELECT p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at, p.voided_at
 FROM payments p
 JOIN invoices i ON p.invoice_id = i.id
 WHERE p.user_id = $1
@@ -193,6 +196,7 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VoidedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -205,7 +209,7 @@ func (q *Queries) ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsBy
 }
 
 const listPaymentsByInvoice = `-- name: ListPaymentsByInvoice :many
-SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at
+SELECT id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at, voided_at
 FROM payments
 WHERE user_id = $1
   AND invoice_id = $2
@@ -239,6 +243,7 @@ func (q *Queries) ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByI
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VoidedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -252,7 +257,7 @@ func (q *Queries) ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByI
 
 const listPaymentsEnriched = `-- name: ListPaymentsEnriched :many
 SELECT
-  p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at,
+  p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at, p.voided_at,
   c.name   AS customer_name,
   i.external_id AS invoice_number,
   i.status  AS invoice_status
@@ -271,21 +276,22 @@ type ListPaymentsEnrichedParams struct {
 }
 
 type ListPaymentsEnrichedRow struct {
-	ID            uuid.UUID `db:"id" json:"id"`
-	InvoiceID     uuid.UUID `db:"invoice_id" json:"invoice_id"`
-	UserID        uuid.UUID `db:"user_id" json:"user_id"`
-	PaidOn        time.Time `db:"paid_on" json:"paid_on"`
-	Amount        int64     `db:"amount" json:"amount"`
-	Currency      string    `db:"currency" json:"currency"`
-	Method        string    `db:"method" json:"method"`
-	Reference     *string   `db:"reference" json:"reference"`
-	ProofUrl      *string   `db:"proof_url" json:"proof_url"`
-	Note          *string   `db:"note" json:"note"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
-	CustomerName  string    `db:"customer_name" json:"customer_name"`
-	InvoiceNumber *string   `db:"invoice_number" json:"invoice_number"`
-	InvoiceStatus string    `db:"invoice_status" json:"invoice_status"`
+	ID            uuid.UUID  `db:"id" json:"id"`
+	InvoiceID     uuid.UUID  `db:"invoice_id" json:"invoice_id"`
+	UserID        uuid.UUID  `db:"user_id" json:"user_id"`
+	PaidOn        time.Time  `db:"paid_on" json:"paid_on"`
+	Amount        int64      `db:"amount" json:"amount"`
+	Currency      string     `db:"currency" json:"currency"`
+	Method        string     `db:"method" json:"method"`
+	Reference     *string    `db:"reference" json:"reference"`
+	ProofUrl      *string    `db:"proof_url" json:"proof_url"`
+	Note          *string    `db:"note" json:"note"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at" json:"updated_at"`
+	VoidedAt      *time.Time `db:"voided_at" json:"voided_at"`
+	CustomerName  string     `db:"customer_name" json:"customer_name"`
+	InvoiceNumber *string    `db:"invoice_number" json:"invoice_number"`
+	InvoiceStatus string     `db:"invoice_status" json:"invoice_status"`
 }
 
 func (q *Queries) ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error) {
@@ -310,6 +316,7 @@ func (q *Queries) ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnri
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VoidedAt,
 			&i.CustomerName,
 			&i.InvoiceNumber,
 			&i.InvoiceStatus,
@@ -322,6 +329,85 @@ func (q *Queries) ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnri
 		return nil, err
 	}
 	return items, nil
+}
+
+const setPaymentVoided = `-- name: SetPaymentVoided :one
+UPDATE payments
+SET voided_at = now()
+WHERE id      = $1
+  AND user_id = $2
+  AND voided_at IS NULL
+RETURNING id, invoice_id, user_id, paid_on, amount, currency, method, reference, proof_url, note, created_at, updated_at, voided_at
+`
+
+type SetPaymentVoidedParams struct {
+	ID     uuid.UUID `db:"id" json:"id"`
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) SetPaymentVoided(ctx context.Context, arg SetPaymentVoidedParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, setPaymentVoided, arg.ID, arg.UserID)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceID,
+		&i.UserID,
+		&i.PaidOn,
+		&i.Amount,
+		&i.Currency,
+		&i.Method,
+		&i.Reference,
+		&i.ProofUrl,
+		&i.Note,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.VoidedAt,
+	)
+	return i, err
+}
+
+const sumCollectedBetween = `-- name: SumCollectedBetween :one
+SELECT
+  COALESCE(SUM(amount), 0)::BIGINT AS collected,
+  COUNT(*)::INT                     AS payment_count
+FROM payments
+WHERE user_id = $1
+  AND paid_on >= $2
+  AND paid_on <  $3
+`
+
+type SumCollectedBetweenParams struct {
+	UserID   uuid.UUID `db:"user_id" json:"user_id"`
+	PaidOn   time.Time `db:"paid_on" json:"paid_on"`
+	PaidOn_2 time.Time `db:"paid_on_2" json:"paid_on_2"`
+}
+
+type SumCollectedBetweenRow struct {
+	Collected    int64 `db:"collected" json:"collected"`
+	PaymentCount int32 `db:"payment_count" json:"payment_count"`
+}
+
+// Collected amount and payment count for a custom date range (to is exclusive).
+func (q *Queries) SumCollectedBetween(ctx context.Context, arg SumCollectedBetweenParams) (SumCollectedBetweenRow, error) {
+	row := q.db.QueryRow(ctx, sumCollectedBetween, arg.UserID, arg.PaidOn, arg.PaidOn_2)
+	var i SumCollectedBetweenRow
+	err := row.Scan(&i.Collected, &i.PaymentCount)
+	return i, err
+}
+
+const sumCollectedThisMonth = `-- name: SumCollectedThisMonth :one
+SELECT COALESCE(SUM(amount), 0)::BIGINT AS total_collected
+FROM payments
+WHERE user_id = $1
+  AND date_trunc('month', paid_on) = date_trunc('month', now())
+`
+
+// Real-time sum of payments recorded in the current calendar month.
+func (q *Queries) SumCollectedThisMonth(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, sumCollectedThisMonth, userID)
+	var total_collected int64
+	err := row.Scan(&total_collected)
+	return total_collected, err
 }
 
 const sumPaymentsForInvoice = `-- name: SumPaymentsForInvoice :one

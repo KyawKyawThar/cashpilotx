@@ -123,7 +123,15 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	customers, err := h.svc.ListCustomers(r.Context(), userID, pg)
+	var (
+		customers []*dto.CustomerResponse
+		err       error
+	)
+	if r.URL.Query().Get("all") == "true" {
+		customers, err = h.svc.ListAllCustomers(r.Context(), userID, pg)
+	} else {
+		customers, err = h.svc.ListCustomers(r.Context(), userID, pg)
+	}
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -234,6 +242,38 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.svc.ArchiveCustomer(r.Context(), userID, customerID); err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteNoContent(w)
+}
+
+// ReactivateCustomer godoc
+//
+//	@Summary      Reactivate customer
+//	@Description  Restores an inactive customer to active status.
+//	@Tags         customers
+//	@Produce      json
+//	@Param        customer_id  path  string  true  "Customer UUID"
+//	@Success      204  "No Content"
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      404  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
+//	@Router       /api/v1/customers/{customer_id}/reactivate [post]
+//	@Security     BearerAuth
+func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	customerID, ok := h.MustUUIDParam(w, r, "customer_id")
+	if !ok {
+		return
+	}
+
+	if err := h.svc.ReactivateCustomer(r.Context(), userID, customerID); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}

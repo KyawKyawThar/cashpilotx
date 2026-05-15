@@ -40,6 +40,14 @@ ORDER BY last_activity DESC NULLS LAST, created_at DESC
 LIMIT $2 OFFSET $3;
 
 
+-- name: ListAllCustomers :many
+SELECT *
+FROM customers
+WHERE user_id = $1
+ORDER BY status ASC, last_activity DESC NULLS LAST, created_at DESC
+LIMIT $2 OFFSET $3;
+
+
 -- name: SearchCustomers :many
 SELECT *
 FROM customers
@@ -85,6 +93,18 @@ UPDATE customers
 SET
     total_paid = total_paid + $3,
     total_owed = GREATEST(0, total_owed - $3),
+    last_activity = now(),
+    updated_at = now()
+WHERE id = $1
+  AND user_id = $2
+RETURNING *;
+
+
+-- name: SubtractCustomerPayment :one
+UPDATE customers
+SET
+    total_paid = GREATEST(0, total_paid - $3),
+    total_owed = total_owed + $3,
     last_activity = now(),
     updated_at = now()
 WHERE id = $1

@@ -19,6 +19,15 @@ type CreateReminderRequest struct {
 	MaxAttempts int32     `json:"max_attempts" validate:"omitempty,min=1,max=10"`
 }
 
+// UpdateReminderRequest is the payload for PATCH /api/v1/reminders/{id}.
+// Only pending reminders can be edited.
+type UpdateReminderRequest struct {
+	ScheduledAt time.Time `json:"scheduled_at" validate:"required"`
+	Tone        string    `json:"tone"         validate:"omitempty,oneof=polite firm urgent final"`
+	Channel     string    `json:"channel"      validate:"omitempty,oneof=line whatsapp messenger wechat telegram viber"`
+	MaxAttempts int32     `json:"max_attempts" validate:"omitempty,min=1,max=10"`
+}
+
 // MarkReminderSentRequest is the payload for POST /api/v1/reminders/{id}/mark-sent.
 type MarkReminderSentRequest struct {
 	ExternalMessageID *string `json:"external_message_id" validate:"omitempty,max=200"`

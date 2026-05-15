@@ -63,7 +63,7 @@ func TestProcessInboundReplyTx_Negotiating(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "negotiating", res.Invoice.CollectionState)
 }
-func TestProcessInboundReplyTx_PaidClaimMapsToPromised(t *testing.T) {
+func TestProcessInboundReplyTx_PaidClaimMapsToVerifying(t *testing.T) {
 	user := committedUser(t)
 	customer := committedCustomer(t, user.ID)
 	inv := committedInvoice(t, user.ID, customer.ID)
@@ -87,7 +87,7 @@ func TestProcessInboundReplyTx_PaidClaimMapsToPromised(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "promised", res.Invoice.CollectionState)
+	require.Equal(t, "verifying", res.Invoice.CollectionState)
 }
 func TestProcessInboundReplyTx_WrongUser(t *testing.T) {
 	user := committedUser(t)

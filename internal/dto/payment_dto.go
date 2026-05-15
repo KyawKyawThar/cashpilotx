@@ -23,24 +23,30 @@ type RecordPaymentRequest struct {
 	PaidOn     *time.Time `json:"paid_on"     validate:"omitempty"`
 }
 
+// VoidPaymentRequest is the payload for POST /api/v1/payments/{payment_id}/void.
+type VoidPaymentRequest struct {
+	CustomerID uuid.UUID `json:"customer_id" validate:"required"`
+}
+
 // =============================================================================
 // Payment response DTOs
 // =============================================================================
 
 // PaymentResponse is the public representation of a single payment.
 type PaymentResponse struct {
-	ID        uuid.UUID `json:"id"`
-	InvoiceID uuid.UUID `json:"invoice_id"`
-	UserID    uuid.UUID `json:"user_id"`
-	PaidOn    time.Time `json:"paid_on"`
-	Amount    int64     `json:"amount"`
-	Currency  string    `json:"currency"`
-	Method    string    `json:"method"`
-	Reference *string   `json:"reference,omitempty"`
-	ProofURL  *string   `json:"proof_url,omitempty"`
-	Note      *string   `json:"note,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uuid.UUID  `json:"id"`
+	InvoiceID uuid.UUID  `json:"invoice_id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	PaidOn    time.Time  `json:"paid_on"`
+	Amount    int64      `json:"amount"`
+	Currency  string     `json:"currency"`
+	Method    string     `json:"method"`
+	Reference *string    `json:"reference,omitempty"`
+	ProofURL  *string    `json:"proof_url,omitempty"`
+	Note      *string    `json:"note,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	VoidedAt  *time.Time `json:"voided_at,omitempty"`
 }
 
 // RecordPaymentResponse wraps the new payment together with the updated invoice
@@ -76,6 +82,7 @@ func ToPaymentResponse(p db.Payment) *PaymentResponse {
 		Note:      p.Note,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
+		VoidedAt:  p.VoidedAt,
 	}
 }
 
@@ -99,6 +106,7 @@ func ToPaymentListItem(row db.ListPaymentsEnrichedRow) *PaymentListItem {
 			Note:      row.Note,
 			CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt,
+			VoidedAt:  row.VoidedAt,
 		},
 		CustomerName:  row.CustomerName,
 		InvoiceNumber: invoiceNumber,

@@ -147,6 +147,7 @@ linters:
       linters:
       - dupl
       - gocritic
+      - misspell
       - staticcheck
       - revive
 

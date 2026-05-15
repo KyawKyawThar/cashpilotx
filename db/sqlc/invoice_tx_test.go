@@ -229,7 +229,7 @@ func TestCancelInvoiceTx_Success(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "cancelled", result.Invoice.Status) //nolint:misspell // DB constraint uses British spelling
+	require.Equal(t, "cancelled", result.Invoice.Status)
 }
 func TestCancelInvoiceTx_AlreadyCanceled(t *testing.T) {
 	user := committedUser(t)
@@ -339,7 +339,7 @@ func TestWriteOffInvoiceTx_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "defaulted", result.Invoice.CollectionState)
-	require.Equal(t, "cancelled", result.Invoice.Status) //nolint:misspell // DB constraint uses British spelling
+	require.Equal(t, "cancelled", result.Invoice.Status)
 }
 func TestWriteOffInvoiceTx_WrongUser(t *testing.T) {
 	user := committedUser(t)

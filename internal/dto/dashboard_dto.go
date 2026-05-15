@@ -19,6 +19,16 @@ type DashboardResponse struct {
 	RemindedCount      int32 `json:"reminded_count"`
 	CollectedThisMonth int64 `json:"collected_this_month"`
 	TotalMessagesSent  int32 `json:"total_messages_sent"`
+	OpenInvoicesCount  int32 `json:"open_invoices_count"`
+	CollectionRate     int32 `json:"collection_rate"` // 0–100, total_collected / total_invoiced
+}
+
+// CollectedSummaryResponse is returned by GET /api/v1/payments/summary.
+type CollectedSummaryResponse struct {
+	Collected    int64  `json:"collected"`
+	PaymentCount int32  `json:"payment_count"`
+	From         string `json:"from"`
+	To           string `json:"to"`
 }
 
 // =============================================================================

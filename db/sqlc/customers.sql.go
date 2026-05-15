@@ -243,6 +243,59 @@ func (q *Queries) GetCustomerByPhone(ctx context.Context, arg GetCustomerByPhone
 	return i, err
 }
 
+const listAllCustomers = `-- name: ListAllCustomers :many
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+FROM customers
+WHERE user_id = $1
+ORDER BY status ASC, last_activity DESC NULLS LAST, created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAllCustomersParams struct {
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+	Limit  int32     `db:"limit" json:"limit"`
+	Offset int32     `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListAllCustomers(ctx context.Context, arg ListAllCustomersParams) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listAllCustomers, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.NormalizedName,
+			&i.Phone,
+			&i.NormalizedPhone,
+			&i.Country,
+			&i.Type,
+			&i.Status,
+			&i.TotalOwed,
+			&i.TotalPaid,
+			&i.CreditLimit,
+			&i.LastActivity,
+			&i.Notes,
+			&i.Tags,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCustomers = `-- name: ListCustomers :many
 SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
 FROM customers
@@ -373,6 +426,50 @@ type SetCustomerStatusParams struct {
 func (q *Queries) SetCustomerStatus(ctx context.Context, arg SetCustomerStatusParams) error {
 	_, err := q.db.Exec(ctx, setCustomerStatus, arg.ID, arg.UserID, arg.Status)
 	return err
+}
+
+const subtractCustomerPayment = `-- name: SubtractCustomerPayment :one
+UPDATE customers
+SET
+    total_paid = GREATEST(0, total_paid - $3),
+    total_owed = total_owed + $3,
+    last_activity = now(),
+    updated_at = now()
+WHERE id = $1
+  AND user_id = $2
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+`
+
+type SubtractCustomerPaymentParams struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	TotalPaid int64     `db:"total_paid" json:"total_paid"`
+}
+
+func (q *Queries) SubtractCustomerPayment(ctx context.Context, arg SubtractCustomerPaymentParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, subtractCustomerPayment, arg.ID, arg.UserID, arg.TotalPaid)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.NormalizedName,
+		&i.Phone,
+		&i.NormalizedPhone,
+		&i.Country,
+		&i.Type,
+		&i.Status,
+		&i.TotalOwed,
+		&i.TotalPaid,
+		&i.CreditLimit,
+		&i.LastActivity,
+		&i.Notes,
+		&i.Tags,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CustomerNumber,
+	)
+	return i, err
 }
 
 const topDebtors = `-- name: TopDebtors :many

@@ -354,16 +354,23 @@ SELECT
         FILTER (WHERE status NOT IN ('paid','cancelled')
             AND collection_state NOT IN ('reminded','no_response','paid','defaulted'))::INT AS open_actions,
     COUNT(*)
-        FILTER (WHERE collection_state = 'reminded')::INT              AS reminded_count
+        FILTER (WHERE collection_state = 'reminded')::INT              AS reminded_count,
+    COUNT(*)
+        FILTER (WHERE status NOT IN ('paid','cancelled'))::INT         AS open_invoices_count,
+    COALESCE(SUM(amount)      FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_invoiced,
+    COALESCE(SUM(paid_amount) FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_collected
 FROM invoices
 WHERE user_id = $1
 `
 
 type GetRecoveryStatsRow struct {
-	TotalRecoverable int64 `db:"total_recoverable" json:"total_recoverable"`
-	WaitingForReply  int64 `db:"waiting_for_reply" json:"waiting_for_reply"`
-	OpenActions      int32 `db:"open_actions" json:"open_actions"`
-	RemindedCount    int32 `db:"reminded_count" json:"reminded_count"`
+	TotalRecoverable  int64 `db:"total_recoverable" json:"total_recoverable"`
+	WaitingForReply   int64 `db:"waiting_for_reply" json:"waiting_for_reply"`
+	OpenActions       int32 `db:"open_actions" json:"open_actions"`
+	RemindedCount     int32 `db:"reminded_count" json:"reminded_count"`
+	OpenInvoicesCount int32 `db:"open_invoices_count" json:"open_invoices_count"`
+	TotalInvoiced     int64 `db:"total_invoiced" json:"total_invoiced"`
+	TotalCollected    int64 `db:"total_collected" json:"total_collected"`
 }
 
 // Powers the v3 stats strip (Recoverable now / Waiting for reply / Open actions).
@@ -376,6 +383,9 @@ func (q *Queries) GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRe
 		&i.WaitingForReply,
 		&i.OpenActions,
 		&i.RemindedCount,
+		&i.OpenInvoicesCount,
+		&i.TotalInvoiced,
+		&i.TotalCollected,
 	)
 	return i, err
 }
@@ -689,6 +699,7 @@ WITH paid AS (
     SELECT COALESCE(SUM(amount), 0)::BIGINT AS total
     FROM payments
     WHERE invoice_id = $1
+      AND voided_at IS NULL
 )
 UPDATE invoices
 SET

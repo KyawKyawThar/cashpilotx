@@ -5,6 +5,7 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -19,7 +20,8 @@ var validTransitions = map[string][]string{
 	"reminded":    {"no_response", "negotiating", "paid", "defaulted"},
 	"no_response": {"reminded", "paid", "defaulted"},
 	"negotiating": {"promised", "paid", "defaulted"},
-	"promised":    {"paid", "defaulted"},
+	"promised":    {"verifying", "paid", "defaulted"},
+	"verifying":   {"paid", "promised", "defaulted"}, // confirmed → paid; not arrived → back to promised
 }
 
 func isValidTransition(from, to string) bool {
@@ -53,7 +55,7 @@ func (s *InvoiceService) CreateInvoice(
 	}
 	channel := req.Channel
 	if channel == "" {
-		channel = "line"
+		channel = defaultChannel
 	}
 	scheduledAt := req.DueDate
 	if req.ScheduledAt != nil {
@@ -252,6 +254,44 @@ func (s *InvoiceService) CancelInvoice(
 	return dto.ToInvoiceResponse(result.Invoice), nil
 }
 
+// ReactivateInvoice is the mirror of CancelInvoice — restores a canceled invoice
+// to unpaid/partial status, resets collection_state to 'pending', and adds the
+// unpaid balance back to the customer's total_owed.
+//
+//nolint:dupl // mirrors CancelInvoice structure
+func (s *InvoiceService) ReactivateInvoice(
+	ctx context.Context,
+	userID, invoiceID uuid.UUID,
+) (*dto.InvoiceResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	inv, err := s.store.GetInvoiceByID(dbCtx, db.GetInvoiceByIDParams{
+		ID:     invoiceID,
+		UserID: userID,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	result, err := s.store.ReactivateInvoiceTx(dbCtx, db.ReactivateInvoiceTxParams{
+		InvoiceID:  invoiceID,
+		UserID:     userID,
+		CustomerID: inv.CustomerID,
+	})
+	if err != nil {
+		if errors.Is(err, db.ErrInvoiceNotCanceled) {
+			return nil, api.ErrConflict("invoice is not canceled")
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	return dto.ToInvoiceResponse(result.Invoice), nil
+}
+
 // WriteOffInvoice marks an invoice as defaulted and canceled, cancels its
 // pending reminders, and emits an invoice_written_off event.
 //
@@ -324,6 +364,54 @@ func (s *InvoiceService) MoveCollectionState(
 	if err != nil {
 		return nil, api.FromPgError(err)
 	}
+
+	// Stamp promised_at when transitioning into the promised state.
+	if req.State == "promised" {
+		promisedAt := req.PromisedAt
+		if promisedAt == nil {
+			now := time.Now()
+			promisedAt = &now
+		}
+		if updated, setErr := s.store.SetInvoicePromised(dbCtx, db.SetInvoicePromisedParams{
+			ID:         invoiceID,
+			UserID:     userID,
+			PromisedAt: promisedAt,
+		}); setErr == nil {
+			result.Invoice = updated
+		}
+	}
+
+	// Write audit log asynchronously.
+	noteStr := ""
+	if req.Note != nil && *req.Note != "" {
+		noteStr = " Note: " + *req.Note
+	}
+	detail := fmt.Sprintf(
+		"Invoice moved to %q state from %q.%s",
+		req.State, inv.CollectionState, noteStr,
+	)
+	meta, err := json.Marshal(map[string]any{
+		"from": inv.CollectionState,
+		"to":   req.State,
+		"note": req.Note,
+	})
+	if err != nil {
+		meta = nil
+	}
+	invID := result.Invoice.ID
+	custID := result.Invoice.CustomerID
+	logAuditAsync(ctx, s.store, db.CreateOperatorAuditLogParams{
+		UserID:        userID,
+		PerformedBy:   userID,
+		ActionType:    db.AuditActionTypeCollectionStateChanged,
+		EntityType:    db.AuditEntityTypeInvoice,
+		ActionLabel:   "Collection State → " + req.State,
+		Detail:        detail,
+		InvoiceID:     &invID,
+		InvoiceNumber: result.Invoice.ExternalID,
+		CustomerID:    &custID,
+		Metadata:      meta,
+	})
 
 	return dto.ToInvoiceResponse(result.Invoice), nil
 }

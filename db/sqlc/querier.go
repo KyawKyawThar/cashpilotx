@@ -120,6 +120,7 @@ type Querier interface {
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetWebhookEvent(ctx context.Context, arg GetWebhookEventParams) (WebhookEvent, error)
 	IncrementMessagesSent(ctx context.Context, arg IncrementMessagesSentParams) error
+	ListAllCustomers(ctx context.Context, arg ListAllCustomersParams) ([]Customer, error)
 	// =========================================
 	// READ: best customers
 	// =========================================
@@ -216,6 +217,12 @@ type Querier interface {
 	// Called by ProcessInboundReplyTx after an inbound reply is classified.
 	// Advances collection_state and stamps last_response_at.
 	SetInvoiceReplied(ctx context.Context, arg SetInvoiceRepliedParams) (Invoice, error)
+	SetPaymentVoided(ctx context.Context, arg SetPaymentVoidedParams) (Payment, error)
+	SubtractCustomerPayment(ctx context.Context, arg SubtractCustomerPaymentParams) (Customer, error)
+	// Collected amount and payment count for a custom date range (to is exclusive).
+	SumCollectedBetween(ctx context.Context, arg SumCollectedBetweenParams) (SumCollectedBetweenRow, error)
+	// Real-time sum of payments recorded in the current calendar month.
+	SumCollectedThisMonth(ctx context.Context, userID uuid.UUID) (int64, error)
 	SumPaymentsForInvoice(ctx context.Context, invoiceID uuid.UUID) (int64, error)
 	TopDebtors(ctx context.Context, arg TopDebtorsParams) ([]Customer, error)
 	// =========================================
