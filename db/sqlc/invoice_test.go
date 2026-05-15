@@ -297,7 +297,7 @@ func TestCancelInvoice_Success(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "cancelled", res.Status) //nolint:misspell // DB constraint uses British spelling
+	require.Equal(t, "cancelled", res.Status)
 }
 
 func TestCancelInvoice_Fail_WrongUser(t *testing.T) {

@@ -440,3 +440,36 @@ func (s *AuthService) ResetPIN(ctx context.Context, req *dto.ResetPINRequest) er
 
 	return nil
 }
+
+// GetMe returns the authenticated user's profile.
+func (s *AuthService) GetMe(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	user, err := s.store.GetUserByID(dbCtx, userID)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrUserNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+	return dto.ToUserResponse(user), nil
+}
+
+// UpdateHomeCurrency persists the user's preferred home currency.
+func (s *AuthService) UpdateHomeCurrency(ctx context.Context, userID uuid.UUID, currency string) (*dto.UserResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	user, err := s.store.UpdateHomeCurrency(dbCtx, db.UpdateHomeCurrencyParams{
+		ID:           userID,
+		HomeCurrency: currency,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrUserNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+	return dto.ToUserResponse(user), nil
+}

@@ -5,6 +5,7 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,13 +27,50 @@ func (s *InvoiceService) GetDashboardStats(
 		return nil, api.FromPgError(err)
 	}
 
+	collected, err := s.store.SumCollectedThisMonth(dbCtx, userID)
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	var collectionRate int32
+	if stats.TotalInvoiced > 0 {
+		collectionRate = int32(stats.TotalCollected * 100 / stats.TotalInvoiced) //nolint:gosec // collection rate is a percentage (0–100), cannot overflow int32
+	}
+
 	return &dto.DashboardResponse{
 		TotalRecoverable:   stats.TotalRecoverable,
 		WaitingForReply:    stats.WaitingForReply,
 		OpenActions:        stats.OpenActions,
 		RemindedCount:      stats.RemindedCount,
-		CollectedThisMonth: monthly.TotalCollected,
+		CollectedThisMonth: collected,
 		TotalMessagesSent:  monthly.TotalMessagesSent,
+		OpenInvoicesCount:  stats.OpenInvoicesCount,
+		CollectionRate:     collectionRate,
+	}, nil
+}
+
+func (s *InvoiceService) GetCollectedSummary(
+	ctx context.Context,
+	userID uuid.UUID,
+	from, to time.Time,
+) (*dto.CollectedSummaryResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	row, err := s.store.SumCollectedBetween(dbCtx, db.SumCollectedBetweenParams{
+		UserID:   userID,
+		PaidOn:   from,
+		PaidOn_2: to,
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	return &dto.CollectedSummaryResponse{
+		Collected:    row.Collected,
+		PaymentCount: row.PaymentCount,
+		From:         from.Format("2006-01-02"),
+		To:           to.AddDate(0, 0, -1).Format("2006-01-02"), // display inclusive end
 	}, nil
 }
 

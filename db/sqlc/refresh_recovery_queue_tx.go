@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/google/uuid"
 )
 
 // InvoiceScore is the AI-computed confidence result for a single invoice.
@@ -18,9 +16,11 @@ type InvoiceScore struct {
 	OutcomeTimeframe  string          // "Today" | "This week" | "Next week"
 }
 
-// Scorer computes an AI confidence score for a single open invoice.
-// The background job injects the real AI client; tests can inject a stub.
-type Scorer func(ctx context.Context, invoiceID uuid.UUID) (InvoiceScore, error)
+// Scorer computes a confidence score for a single open invoice.
+// The background job injects the real scorer; tests can inject a stub.
+// The full ListUnscoredRow is passed so the scorer can load customer and
+// risk-profile data without an extra query to resolve the user_id.
+type Scorer func(ctx context.Context, row ListUnscoredRow) (InvoiceScore, error)
 
 // RefreshRecoveryQueueTx scores a batch of open invoices whose confidence is
 // stale or missing, writing the AI results back to the invoices table.
@@ -46,7 +46,7 @@ func (s *SQLStore) RefreshRecoveryQueueTx(ctx context.Context, arg RefreshRecove
 	}
 
 	for _, row := range rows {
-		score, scoreErr := arg.Scorer(ctx, row.ID)
+		score, scoreErr := arg.Scorer(ctx, row)
 		if scoreErr != nil {
 			result.Errors = append(result.Errors,
 				fmt.Errorf("score invoice %s: %w", row.ID, scoreErr))

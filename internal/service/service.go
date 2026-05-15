@@ -18,6 +18,7 @@ type Services struct {
 	Message  MessageServicer
 	Reminder ReminderServicer
 	Audit    AuditServicer
+	Sync     SyncServicer
 }
 
 type AuthService struct {
@@ -145,5 +146,6 @@ func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token
 		Message:  NewMessageService(store),
 		Reminder: NewReminderService(store),
 		Audit:    NewAuditService(store),
+		Sync:     NewSyncService(store),
 	}
 }

@@ -67,6 +67,7 @@ WITH paid AS (
     SELECT COALESCE(SUM(amount), 0)::BIGINT AS total
     FROM payments
     WHERE invoice_id = $1
+      AND voided_at IS NULL
 )
 UPDATE invoices
 SET
@@ -206,6 +207,10 @@ SELECT
         FILTER (WHERE status NOT IN ('paid','cancelled')
             AND collection_state NOT IN ('reminded','no_response','paid','defaulted'))::INT AS open_actions,
     COUNT(*)
-        FILTER (WHERE collection_state = 'reminded')::INT              AS reminded_count
+        FILTER (WHERE collection_state = 'reminded')::INT              AS reminded_count,
+    COUNT(*)
+        FILTER (WHERE status NOT IN ('paid','cancelled'))::INT         AS open_invoices_count,
+    COALESCE(SUM(amount)      FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_invoiced,
+    COALESCE(SUM(paid_amount) FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_collected
 FROM invoices
 WHERE user_id = $1;

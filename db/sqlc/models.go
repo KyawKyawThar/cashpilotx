@@ -304,6 +304,7 @@ const (
 	CustomerEventTypeInvoiceCanceled        CustomerEventType = "invoice_canceled"
 	CustomerEventTypeInvoiceWrittenOff      CustomerEventType = "invoice_written_off"
 	CustomerEventTypePaymentReceived        CustomerEventType = "payment_received"
+	CustomerEventTypePaymentVoided          CustomerEventType = "payment_voided"
 	CustomerEventTypeReminderSent           CustomerEventType = "reminder_sent"
 	CustomerEventTypeMessageSent            CustomerEventType = "message_sent"
 	CustomerEventTypeReplyReceived          CustomerEventType = "reply_received"
@@ -356,6 +357,7 @@ func (e CustomerEventType) Valid() bool {
 		CustomerEventTypeInvoiceCanceled,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
+		CustomerEventTypePaymentVoided,
 		CustomerEventTypeReminderSent,
 		CustomerEventTypeMessageSent,
 		CustomerEventTypeReplyReceived,
@@ -376,6 +378,7 @@ func AllCustomerEventTypeValues() []CustomerEventType {
 		CustomerEventTypeInvoiceCanceled,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
+		CustomerEventTypePaymentVoided,
 		CustomerEventTypeReminderSent,
 		CustomerEventTypeMessageSent,
 		CustomerEventTypeReplyReceived,
@@ -1102,18 +1105,19 @@ type OperatorAuditLog struct {
 }
 
 type Payment struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	InvoiceID uuid.UUID `db:"invoice_id" json:"invoice_id"`
-	UserID    uuid.UUID `db:"user_id" json:"user_id"`
-	PaidOn    time.Time `db:"paid_on" json:"paid_on"`
-	Amount    int64     `db:"amount" json:"amount"`
-	Currency  string    `db:"currency" json:"currency"`
-	Method    string    `db:"method" json:"method"`
-	Reference *string   `db:"reference" json:"reference"`
-	ProofUrl  *string   `db:"proof_url" json:"proof_url"`
-	Note      *string   `db:"note" json:"note"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID  `db:"id" json:"id"`
+	InvoiceID uuid.UUID  `db:"invoice_id" json:"invoice_id"`
+	UserID    uuid.UUID  `db:"user_id" json:"user_id"`
+	PaidOn    time.Time  `db:"paid_on" json:"paid_on"`
+	Amount    int64      `db:"amount" json:"amount"`
+	Currency  string     `db:"currency" json:"currency"`
+	Method    string     `db:"method" json:"method"`
+	Reference *string    `db:"reference" json:"reference"`
+	ProofUrl  *string    `db:"proof_url" json:"proof_url"`
+	Note      *string    `db:"note" json:"note"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	VoidedAt  *time.Time `db:"voided_at" json:"voided_at"`
 }
 
 type Reminder struct {

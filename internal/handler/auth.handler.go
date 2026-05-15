@@ -245,3 +245,65 @@ func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
 
 	h.WriteNoContent(w)
 }
+
+// GetMe godoc
+//
+//	@Summary      Get current user
+//	@Description  Returns the authenticated user's profile, including their preferred home currency.
+//	@Tags         auth
+//	@Produce      json
+//	@Success      200  {object}  dto.UserResponse
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      404  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
+//	@Router       /api/v1/auth/me [get]
+//	@Security     BearerAuth
+func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.GetMe(r.Context(), userID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
+// UpdateUserSettings godoc
+//
+//	@Summary      Update user settings
+//	@Description  Updates the authenticated user's settings. Currently supports home_currency (THB, MMK, CNY).
+//	@Tags         auth
+//	@Accept       json
+//	@Produce      json
+//	@Param        body  body      dto.UpdateUserSettingsRequest  true  "Settings payload"
+//	@Success      200   {object}  dto.UserResponse
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      422   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
+//	@Router       /api/v1/auth/settings [patch]
+//	@Security     BearerAuth
+func (h *AuthHandler) UpdateUserSettings(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateUserSettingsRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.UpdateHomeCurrency(r.Context(), userID, req.HomeCurrency)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}

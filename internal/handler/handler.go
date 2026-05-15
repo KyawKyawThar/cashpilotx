@@ -33,6 +33,7 @@ type Handlers struct {
 	Audit     *AuditHandler
 	SSE       *SSEHandler
 	Batch     *BatchHandler
+	Sync      *SyncHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -107,6 +108,7 @@ func NewHandlers(
 		Message:   NewMessageHandler(messageSvc, base),
 		Reminder:  NewReminderHandler(reminderSvc, base),
 		Audit:     NewAuditHandler(auditSvc, base),
+		Sync:      NewSyncHandler(services.Sync, base),
 	}
 
 	if deps != nil && deps.RedisClient != nil {

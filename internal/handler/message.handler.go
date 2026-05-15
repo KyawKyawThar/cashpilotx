@@ -131,6 +131,8 @@ func (h *MessageHandler) ApproveMessage(w http.ResponseWriter, r *http.Request) 
 //	@Failure      500         {object}  dto.ErrorResponse
 //	@Router       /api/v1/messages/{message_id}/mark-sent [post]
 //	@Security     BearerAuth
+//
+//nolint:dupl // same handler skeleton as ReminderHandler.UpdateReminder; both are intentionally separate
 func (h *MessageHandler) MarkMessageSent(w http.ResponseWriter, r *http.Request) {
 	_, ok := h.MustUserID(w, r)
 	if !ok {

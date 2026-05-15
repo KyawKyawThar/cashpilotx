@@ -54,6 +54,34 @@ FROM payments
 WHERE invoice_id = $1;
 
 
+-- name: SumCollectedThisMonth :one
+-- Real-time sum of payments recorded in the current calendar month.
+SELECT COALESCE(SUM(amount), 0)::BIGINT AS total_collected
+FROM payments
+WHERE user_id = $1
+  AND date_trunc('month', paid_on) = date_trunc('month', now());
+
+
+-- name: SumCollectedBetween :one
+-- Collected amount and payment count for a custom date range (to is exclusive).
+SELECT
+  COALESCE(SUM(amount), 0)::BIGINT AS collected,
+  COUNT(*)::INT                     AS payment_count
+FROM payments
+WHERE user_id = $1
+  AND paid_on >= $2
+  AND paid_on <  $3;
+
+
+-- name: SetPaymentVoided :one
+UPDATE payments
+SET voided_at = now()
+WHERE id      = $1
+  AND user_id = $2
+  AND voided_at IS NULL
+RETURNING *;
+
+
 -- name: ListPaymentsEnriched :many
 SELECT
   p.*,

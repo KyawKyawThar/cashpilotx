@@ -5,7 +5,9 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,6 +53,46 @@ func (s *PaymentService) RecordPayment(
 		}
 		return nil, api.FromPgError(err)
 	}
+
+	// Write audit log asynchronously — must not block or fail the request.
+	isFull := result.Invoice.PaidAmount >= result.Invoice.Amount
+	sym := "฿"
+	if result.Invoice.Currency == "MMK" {
+		sym = "K"
+	}
+	qualifier := "partial"
+	if isFull {
+		qualifier = "full"
+	}
+	detail := fmt.Sprintf(
+		"Recorded %s payment of %s%d via %s.",
+		qualifier, sym, result.Payment.Amount, result.Payment.Method,
+	)
+	meta, err := json.Marshal(map[string]any{
+		"method":          result.Payment.Method,
+		"amount":          result.Payment.Amount,
+		"currency":        result.Invoice.Currency,
+		"is_full_payment": isFull,
+	})
+	if err != nil {
+		meta = nil
+	}
+	invID := result.Invoice.ID
+	custID := result.Customer.ID
+	payID := result.Payment.ID
+	logAuditAsync(ctx, s.store, db.CreateOperatorAuditLogParams{
+		UserID:        result.Invoice.UserID,
+		PerformedBy:   result.Invoice.UserID,
+		ActionType:    db.AuditActionTypePaymentRecorded,
+		EntityType:    db.AuditEntityTypePayment,
+		ActionLabel:   "Payment Recorded",
+		Detail:        detail,
+		InvoiceID:     &invID,
+		InvoiceNumber: result.Invoice.ExternalID,
+		CustomerID:    &custID,
+		PaymentID:     &payID,
+		Metadata:      meta,
+	})
 
 	return &dto.RecordPaymentResponse{
 		Payment: dto.ToPaymentResponse(result.Payment),
@@ -106,6 +148,34 @@ func (s *PaymentService) ListPayments(
 		out = append(out, dto.ToPaymentListItem(r))
 	}
 	return out, nil
+}
+
+// VoidPayment marks a payment as voided, recomputes the invoice status from the
+// remaining non-voided payments, and updates the customer running totals.
+func (s *PaymentService) VoidPayment(
+	ctx context.Context,
+	userID, paymentID uuid.UUID,
+	customerID uuid.UUID,
+) (*dto.PaymentResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	result, err := s.store.VoidPaymentTx(dbCtx, db.VoidPaymentTxParams{
+		PaymentID:  paymentID,
+		UserID:     userID,
+		CustomerID: customerID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, db.ErrPaymentAlreadyVoided):
+			return nil, api.ErrBadRequest("payment is already voided")
+		case api.IsRecordNotFound(err):
+			return nil, api.ErrPaymentNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	return dto.ToPaymentResponse(result.Payment), nil
 }
 
 // ListPaymentsByInvoice returns all payments for a specific invoice owned by userID.

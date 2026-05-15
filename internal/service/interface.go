@@ -4,6 +4,7 @@ import (
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/token"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -18,6 +19,8 @@ type AuthServicer interface {
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID string) error
 	ForgotPIN(ctx context.Context, req *dto.ForgotPINRequest) error
 	ResetPIN(ctx context.Context, req *dto.ResetPINRequest) error
+	GetMe(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error)
+	UpdateHomeCurrency(ctx context.Context, userID uuid.UUID, currency string) (*dto.UserResponse, error)
 }
 
 type InvoiceServicer interface {
@@ -25,9 +28,11 @@ type InvoiceServicer interface {
 	GetInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	ListInvoices(ctx context.Context, userID uuid.UUID, filter *dto.ListInvoicesFilter, pg *dto.Pagination) ([]*dto.InvoiceResponse, error)
 	CancelInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
+	ReactivateInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	WriteOffInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	MoveCollectionState(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.MoveCollectionStateRequest) (*dto.InvoiceResponse, error)
 	GetDashboardStats(ctx context.Context, userID uuid.UUID) (*dto.DashboardResponse, error)
+	GetCollectedSummary(ctx context.Context, userID uuid.UUID, from, to time.Time) (*dto.CollectedSummaryResponse, error)
 	GetRecoveryQueue(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.RecoveryQueueItemResponse, error)
 }
 
@@ -43,6 +48,7 @@ type ReminderServicer interface {
 	ListReminders(ctx context.Context, invoiceID uuid.UUID) ([]*dto.ReminderResponse, error)
 	ListAllReminders(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.ReminderResponse, error)
 	CreateReminder(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.CreateReminderRequest) (*dto.ReminderResponse, error)
+	UpdateReminder(ctx context.Context, reminderID uuid.UUID, req *dto.UpdateReminderRequest) (*dto.ReminderResponse, error)
 	MarkReminderSent(ctx context.Context, reminderID uuid.UUID, req *dto.MarkReminderSentRequest) error
 	CancelReminder(ctx context.Context, reminderID uuid.UUID) error
 }
@@ -57,6 +63,11 @@ type PaymentServicer interface {
 	GetPayment(ctx context.Context, userID, paymentID uuid.UUID) (*dto.PaymentResponse, error)
 	ListPayments(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.PaymentListItem, error)
 	ListPaymentsByInvoice(ctx context.Context, userID, invoiceID uuid.UUID) ([]*dto.PaymentResponse, error)
+	VoidPayment(ctx context.Context, userID, paymentID uuid.UUID, customerID uuid.UUID) (*dto.PaymentResponse, error)
+}
+
+type SyncServicer interface {
+	GetSyncData(ctx context.Context, userID uuid.UUID, since time.Time) (*dto.SyncResponse, error)
 }
 
 type CustomerServicer interface {
@@ -64,9 +75,11 @@ type CustomerServicer interface {
 	CreateCustomer(ctx context.Context, userID uuid.UUID, req *dto.CreateCustomerRequest) (*dto.CustomerResponse, error)
 	GetCustomer(ctx context.Context, userID, customerID uuid.UUID) (*dto.CustomerResponse, error)
 	ListCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
+	ListAllCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	SearchCustomers(ctx context.Context, userID uuid.UUID, query string) ([]*dto.CustomerResponse, error)
 	UpdateCustomer(ctx context.Context, userID, customerID uuid.UUID, req *dto.UpdateCustomerRequest) (*dto.CustomerResponse, error)
 	ArchiveCustomer(ctx context.Context, userID, customerID uuid.UUID) error
+	ReactivateCustomer(ctx context.Context, userID, customerID uuid.UUID) error
 
 	// Channel configs (per-user, not per-customer)
 	UpsertChannelConfig(ctx context.Context, userID uuid.UUID, req *dto.UpsertChannelConfigRequest) (*dto.ChannelConfigResponse, error)

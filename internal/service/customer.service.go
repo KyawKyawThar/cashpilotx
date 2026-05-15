@@ -130,6 +130,31 @@ func (s *CustomerService) ListCustomers(
 	return out, nil
 }
 
+//nolint:dupl // identical paginated-list pattern shared across services; abstraction adds no value
+func (s *CustomerService) ListAllCustomers(
+	ctx context.Context,
+	userID uuid.UUID,
+	pg *dto.Pagination,
+) ([]*dto.CustomerResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	rows, err := s.store.ListAllCustomers(dbCtx, db.ListAllCustomersParams{
+		UserID: userID,
+		Limit:  pg.Limit32(),
+		Offset: pg.Offset32(),
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	out := make([]*dto.CustomerResponse, 0, len(rows))
+	for _, c := range rows {
+		out = append(out, dto.ToCustomerResponse(c))
+	}
+	return out, nil
+}
+
 func (s *CustomerService) SearchCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -208,6 +233,8 @@ func (s *CustomerService) UpdateCustomer(
 }
 
 // ArchiveCustomer soft-deletes a customer by setting their status to "inactive".
+//
+//nolint:dupl // mirrors ReactivateCustomer structure; extracting a helper adds indirection with no benefit
 func (s *CustomerService) ArchiveCustomer(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
@@ -230,6 +257,37 @@ func (s *CustomerService) ArchiveCustomer(
 		ID:     customerID,
 		UserID: userID,
 		Status: "inactive",
+	}); err != nil {
+		return api.FromPgError(err)
+	}
+
+	return nil
+}
+
+// ReactivateCustomer restores an inactive customer to active status.
+//
+//nolint:dupl // mirrors ArchiveCustomer structure; extracting a helper adds indirection with no benefit
+func (s *CustomerService) ReactivateCustomer(
+	ctx context.Context,
+	userID, customerID uuid.UUID,
+) error {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if _, err := s.store.GetCustomerByID(dbCtx, db.GetCustomerByIDParams{
+		ID:     customerID,
+		UserID: userID,
+	}); err != nil {
+		if api.IsRecordNotFound(err) {
+			return api.ErrCustomerNotFound()
+		}
+		return api.FromPgError(err)
+	}
+
+	if err := s.store.SetCustomerStatus(dbCtx, db.SetCustomerStatusParams{
+		ID:     customerID,
+		UserID: userID,
+		Status: "active",
 	}); err != nil {
 		return api.FromPgError(err)
 	}

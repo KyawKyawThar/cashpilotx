@@ -21,12 +21,14 @@ const (
 )
 
 // collectionStateForReply maps a reply classification to the appropriate
-// collection lifecycle state. paid_claim → 'promised' because the financial
-// status only flips when RecordPaymentTx is called by the owner.
+// collection lifecycle state. paid_claim → 'verifying' so the owner can
+// confirm receipt before RecordPaymentTx marks the invoice paid.
 func collectionStateForReply(c ReplyClassification) string {
 	switch c {
-	case ReplyClassificationPromised, ReplyClassificationPaidClaim:
+	case ReplyClassificationPromised:
 		return "promised"
+	case ReplyClassificationPaidClaim:
+		return "verifying"
 	case ReplyClassificationNegotiating, ReplyClassificationOther:
 		return "negotiating"
 	default:

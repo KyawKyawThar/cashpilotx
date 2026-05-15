@@ -153,6 +153,49 @@ func (h *ReminderHandler) CancelReminder(w http.ResponseWriter, r *http.Request)
 	h.WriteNoContent(w)
 }
 
+// UpdateReminder godoc
+//
+//	@Summary      Update a pending reminder
+//	@Description  Edits the schedule, tone, channel, or max_attempts of a pending reminder. Returns 404 if the reminder is not found or not in pending state.
+//	@Tags         reminders
+//	@Accept       json
+//	@Produce      json
+//	@Param        reminder_id  path      string                     true  "Reminder UUID"
+//	@Param        body         body      dto.UpdateReminderRequest  true  "Fields to update"
+//	@Success      200          {object}  dto.ReminderResponse
+//	@Failure      400          {object}  dto.ErrorResponse
+//	@Failure      401          {object}  dto.ErrorResponse
+//	@Failure      404          {object}  dto.ErrorResponse
+//	@Failure      500          {object}  dto.ErrorResponse
+//	@Router       /api/v1/reminders/{reminder_id} [patch]
+//	@Security     BearerAuth
+//
+//nolint:dupl // same handler skeleton as MessageHandler.MarkMessageSent; both are intentionally separate
+func (h *ReminderHandler) UpdateReminder(w http.ResponseWriter, r *http.Request) {
+	_, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	reminderID, ok := h.MustUUIDParam(w, r, "reminder_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateReminderRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.UpdateReminder(r.Context(), reminderID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // MarkReminderSent godoc
 //
 //	@Summary      Mark reminder sent

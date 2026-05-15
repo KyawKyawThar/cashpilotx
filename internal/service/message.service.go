@@ -6,6 +6,7 @@ import (
 	"cashpilotx/internal/dto"
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -97,6 +98,29 @@ func (s *MessageService) MarkMessageSent(
 		}
 		return nil, api.FromPgError(err)
 	}
+
+	// Write audit log asynchronously.
+	detail := fmt.Sprintf("Message manually marked as sent via %s.", msg.Channel)
+	meta, err := json.Marshal(map[string]any{
+		"channel": msg.Channel,
+		"tone":    msg.Tone,
+	})
+	if err != nil {
+		meta = nil
+	}
+	msgID := msg.ID
+	logAuditAsync(ctx, s.store, db.CreateOperatorAuditLogParams{
+		UserID:      msg.UserID,
+		PerformedBy: msg.UserID,
+		ActionType:  db.AuditActionTypeMessageMarkedSent,
+		EntityType:  db.AuditEntityTypeMessage,
+		ActionLabel: "Message Marked Sent",
+		Detail:      detail,
+		InvoiceID:   msg.InvoiceID,
+		CustomerID:  &msg.CustomerID,
+		MessageID:   &msgID,
+		Metadata:    meta,
+	})
 
 	return dto.ToChatMessageResponse(msg), nil
 }

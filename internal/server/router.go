@@ -111,6 +111,8 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 				r.Post("/logout", s.handler.Auth.Logout)
 				r.Get("/sessions", s.handler.Auth.GetSessions)
 				r.Delete("/sessions/{session_id}", s.handler.Auth.RevokeSession)
+				r.Get("/me", s.handler.Auth.GetMe)
+				r.Patch("/settings", s.handler.Auth.UpdateUserSettings)
 			})
 		})
 	})
@@ -138,6 +140,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 
 		r.Get("/api/v1/dashboard", s.handler.Dashboard.GetDashboardStats)
 		r.Get("/api/v1/recovery-queue", s.handler.Dashboard.GetRecoveryQueue)
+		r.Get("/api/v1/sync", s.handler.Sync.GetSync)
 
 		r.Get("/api/v1/audit-log", s.handler.Audit.ListAuditLogs)
 		r.Post("/api/v1/audit-log/{log_id}/revert", s.handler.Audit.RevertAuditLog)
@@ -149,6 +152,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/{customer_id}", s.handler.Customer.GetCustomer)
 			r.Patch("/{customer_id}", s.handler.Customer.UpdateCustomer)
 			r.Delete("/{customer_id}", s.handler.Customer.ArchiveCustomer)
+			r.Post("/{customer_id}/reactivate", s.handler.Customer.ReactivateCustomer)
 			r.Get("/{customer_id}/events", s.handler.Customer.ListCustomerEvents)
 		})
 
@@ -165,6 +169,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/", s.handler.Invoice.ListInvoices)
 			r.Get("/{invoice_id}", s.handler.Invoice.GetInvoice)
 			r.Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
+			r.Post("/{invoice_id}/reactivate", s.handler.Invoice.ReactivateInvoice)
 			r.Post("/{invoice_id}/write-off", s.handler.Invoice.WriteOffInvoice)
 			r.With(mw.Idempotency(s.store)).Patch("/{invoice_id}/collection-state", s.handler.Invoice.MoveCollectionState)
 			r.Get("/{invoice_id}/payments", s.handler.Payment.ListPaymentsByInvoice)
@@ -182,14 +187,17 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 
 		r.Route("/api/v1/reminders", func(r chi.Router) {
 			r.Get("/", s.handler.Reminder.ListAllReminders)
+			r.Patch("/{reminder_id}", s.handler.Reminder.UpdateReminder)
 			r.Delete("/{reminder_id}", s.handler.Reminder.CancelReminder)
 			r.Post("/{reminder_id}/mark-sent", s.handler.Reminder.MarkReminderSent)
 		})
 
 		r.Route("/api/v1/payments", func(r chi.Router) {
+			r.Get("/summary", s.handler.Dashboard.GetCollectedSummary)
 			r.With(mw.Idempotency(s.store)).Post("/", s.handler.Payment.RecordPayment)
 			r.Get("/", s.handler.Payment.ListPayments)
 			r.Get("/{payment_id}", s.handler.Payment.GetPayment)
+			r.Post("/{payment_id}/void", s.handler.Payment.VoidPayment)
 		})
 	})
 }

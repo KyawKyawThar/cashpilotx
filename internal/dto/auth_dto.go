@@ -78,6 +78,11 @@ type ResetPINRequest struct {
 	ConfirmPIN string `json:"confirm_pin" validate:"required,pin"`
 }
 
+// UpdateUserSettingsRequest carries fields the user can change on their profile.
+type UpdateUserSettingsRequest struct {
+	HomeCurrency string `json:"home_currency" validate:"required,currency"`
+}
+
 // LogoutRequest optionally targets a specific session or all sessions.
 type LogoutRequest struct {
 	SessionID string `json:"session_id,omitempty"` // specific session; empty = current token only

@@ -4,6 +4,8 @@ import (
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 // PaymentHandler handles payment recording and listing endpoints.
@@ -109,6 +111,49 @@ func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := h.svc.GetPayment(r.Context(), userID, paymentID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
+// VoidPayment godoc
+//
+//	@Summary      Void a payment
+//	@Description  Marks a payment as voided, recomputes the invoice status, and adjusts customer running totals.
+//	@Tags         payments
+//	@Accept       json
+//	@Produce      json
+//	@Param        payment_id  path      string  true  "Payment UUID"
+//	@Param        body        body      dto.VoidPaymentRequest  true  "customer_id required to update totals"
+//	@Success      200         {object}  dto.PaymentResponse
+//	@Failure      400         {object}  dto.ErrorResponse
+//	@Failure      401         {object}  dto.ErrorResponse
+//	@Failure      404         {object}  dto.ErrorResponse
+//	@Failure      500         {object}  dto.ErrorResponse
+//	@Router       /api/v1/payments/{payment_id}/void [post]
+//	@Security     BearerAuth
+func (h *PaymentHandler) VoidPayment(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	paymentID, ok := h.MustUUIDParam(w, r, "payment_id")
+	if !ok {
+		return
+	}
+
+	var req struct {
+		CustomerID uuid.UUID `json:"customer_id" validate:"required"`
+	}
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.VoidPayment(r.Context(), userID, paymentID, req.CustomerID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
