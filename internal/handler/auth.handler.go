@@ -6,6 +6,32 @@ import (
 	"net/http"
 )
 
+// RequestEmailVerification godoc
+//
+//	@Summary      Send registration email OTP
+//	@Description  Send a 6-digit OTP to the provided email to verify ownership before account creation.
+//	@Tags         auth
+//	@Accept       json
+//	@Produce      json
+//	@Param        body  body      dto.RequestEmailVerificationRequest  true  "Email to verify"
+//	@Success      200   {object}  dto.MessageResponse
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
+//	@Router       /api/v1/auth/request-email-verification [post]
+func (h *AuthHandler) RequestEmailVerification(w http.ResponseWriter, r *http.Request) {
+	var req dto.RequestEmailVerificationRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	if err := h.svc.RequestEmailVerification(r.Context(), req.Email); err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteMessage(w, r, "A verification code has been sent to your email.")
+}
+
 // Register godoc
 //
 //	@Summary      Register new user

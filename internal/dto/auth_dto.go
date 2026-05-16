@@ -17,10 +17,16 @@ func NewMessageResponse(msg string) *MessageResponse {
 	return &MessageResponse{Message: msg}
 }
 
+// RequestEmailVerificationRequest carries an email to send a registration OTP to.
+type RequestEmailVerificationRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
 // RegisterRequest carries fields for new user registration (phone + email + PIN).
 type RegisterRequest struct {
 	Phone        string  `json:"phone"         validate:"required,phone"`
 	Email        string  `json:"email"         validate:"required,email"`
+	EmailOTP     string  `json:"email_otp"     validate:"required,len=6"`
 	PIN          string  `json:"pin"           validate:"required,pin"`
 	ConfirmPIN   string  `json:"confirm_pin"   validate:"required,pin"`
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`

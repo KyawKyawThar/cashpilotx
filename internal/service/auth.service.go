@@ -31,6 +31,20 @@ func generateRefreshToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+func (s *AuthService) RequestEmailVerification(ctx context.Context, email string) error {
+	otp, err := generateOTP()
+	if err != nil {
+		return api.ErrInternal(fmt.Errorf("generate OTP: %w", err))
+	}
+	if err := s.cache.StoreRegOTP(ctx, email, otp); err != nil {
+		return api.ErrInternal(fmt.Errorf("store reg OTP: %w", err))
+	}
+	if err := s.emailSender.SendOTP(ctx, email, email, otp); err != nil {
+		return api.ErrInternal(fmt.Errorf("send verification email: %w", err))
+	}
+	return nil
+}
+
 func (s *AuthService) Register(
 	ctx context.Context,
 	req *dto.RegisterRequest,
@@ -39,6 +53,18 @@ func (s *AuthService) Register(
 	if req.PIN != req.ConfirmPIN {
 		return nil, api.ErrValidation("PIN and confirm PIN do not match")
 	}
+
+	storedOTP, err := s.cache.GetRegOTP(ctx, req.Email)
+	if err != nil {
+		if errors.Is(err, cache.ErrTokenNotFound) {
+			return nil, api.ErrInvalidOTP()
+		}
+		return nil, api.ErrInternal(fmt.Errorf("get reg OTP: %w", err))
+	}
+	if storedOTP != req.EmailOTP {
+		return nil, api.ErrInvalidOTP()
+	}
+	s.cache.DeleteRegOTP(ctx, req.Email) //nolint:errcheck
 
 	pinHash, err := utils.HashPassword(req.PIN)
 	if err != nil {

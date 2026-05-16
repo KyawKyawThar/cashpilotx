@@ -54,7 +54,13 @@ func NewServer(store db.Store, redisCache *cache.RedisClient, cfg config.Config)
 	}
 	server.logger = &logger
 
-	emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.EmailFrom, cfg.SMTPUsername, cfg.SMTPPassword)
+	// Fly.io blocks outbound SMTP port 587. Use Resend's HTTP API in production.
+	var emailSender email.Sender
+	if cfg.Environment == config.EnvironmentProduction {
+		emailSender = email.NewResendSender(cfg.SMTPPassword, cfg.EmailFrom)
+	} else {
+		emailSender = email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.EmailFrom, cfg.SMTPUsername, cfg.SMTPPassword)
+	}
 
 	encKey, err := base64.StdEncoding.DecodeString(cfg.EncryptionKey)
 	if err != nil {

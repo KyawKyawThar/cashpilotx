@@ -51,6 +51,13 @@ const (
 	otpResetTTL    = 10 * time.Minute
 
 	// =============================================================================
+	// Registration Email OTP (keyed by email)
+	// =============================================================================
+
+	otpRegPrefix = "otp:reg"
+	otpRegTTL    = 10 * time.Minute
+
+	// =============================================================================
 	// Email Verification Tokens
 	// =============================================================================
 
@@ -930,5 +937,34 @@ func (r *RedisClient) GetOTP(ctx context.Context, userID string) (string, error)
 // DeleteOTP removes the OTP for a userID after it has been consumed.
 func (r *RedisClient) DeleteOTP(ctx context.Context, userID string) error {
 	key := r.Key(otpResetPrefix, userID)
+	return r.Client.Del(ctx, key).Err()
+}
+
+// =============================================================================
+// Registration Email OTP (keyed by email, pre-account-creation)
+// =============================================================================
+
+// StoreRegOTP persists a 6-digit registration OTP keyed by email with a 10-minute TTL.
+func (r *RedisClient) StoreRegOTP(ctx context.Context, email, otp string) error {
+	key := r.Key(otpRegPrefix, email)
+	return r.Client.Set(ctx, key, otp, otpRegTTL).Err()
+}
+
+// GetRegOTP retrieves the registration OTP for the given email. Returns ErrTokenNotFound when absent or expired.
+func (r *RedisClient) GetRegOTP(ctx context.Context, email string) (string, error) {
+	key := r.Key(otpRegPrefix, email)
+	val, err := r.Client.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", ErrTokenNotFound
+		}
+		return "", err
+	}
+	return val, nil
+}
+
+// DeleteRegOTP removes the registration OTP for an email after it has been consumed.
+func (r *RedisClient) DeleteRegOTP(ctx context.Context, email string) error {
+	key := r.Key(otpRegPrefix, email)
 	return r.Client.Del(ctx, key).Err()
 }

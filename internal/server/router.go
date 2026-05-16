@@ -99,6 +99,7 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 		// path is mounted twice via r.Route() on the same mux.
 		r.Route("/api/v1/auth", func(r chi.Router) {
 			// Public — no JWT required
+			r.Post("/request-email-verification", s.handler.Auth.RequestEmailVerification)
 			r.Post("/register", s.handler.Auth.Register)
 			r.Post("/login", s.handler.Auth.Login)
 			r.Post("/refresh", s.handler.Auth.RefreshToken)

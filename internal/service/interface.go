@@ -10,6 +10,7 @@ import (
 )
 
 type AuthServicer interface {
+	RequestEmailVerification(ctx context.Context, email string) error
 	Register(ctx context.Context, req *dto.RegisterRequest, ipAddress, userAgent string) (*dto.RegisterResponse, error)
 	Login(ctx context.Context, req *dto.LoginRequest, ipAddress, userAgent string) (*dto.LoginResponse, error)
 	Logout(ctx context.Context, accessToken string, req *dto.LogoutRequest) error
