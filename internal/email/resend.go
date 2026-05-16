@@ -52,7 +52,10 @@ func (s *ResendSender) SendOTP(ctx context.Context, to, name, otp string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("resend: API error %d (could not read body: %w)", resp.StatusCode, err)
+		}
 		return fmt.Errorf("resend: API error %d: %s", resp.StatusCode, body)
 	}
 	return nil

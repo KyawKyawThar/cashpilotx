@@ -64,7 +64,7 @@ func (s *AuthService) Register(
 	if storedOTP != req.EmailOTP {
 		return nil, api.ErrInvalidOTP()
 	}
-	s.cache.DeleteRegOTP(ctx, req.Email) //nolint:errcheck
+	s.cache.DeleteRegOTP(ctx, req.Email) //nolint:errcheck // best-effort cleanup; OTP already validated and consumed above
 
 	pinHash, err := utils.HashPassword(req.PIN)
 	if err != nil {
