@@ -1,0 +1,50 @@
+# fly.toml — CashpilotX multi-process configuration
+# See https://fly.io/docs/reference/configuration/
+
+app = 'cashpilotx-api'
+primary_region = 'sin'
+
+[build]
+  dockerfile = 'deploy/Dockerfile'
+
+[deploy]
+  # Runs once before new instances start; deploy is rolled back if this fails.
+  release_command = '/app/migrate'
+
+[env]
+  APP_ENV        = "production"
+  SERVER_PORT    = "8080"
+
+# ── Process definitions ───────────────────────────────────────────────────────
+[processes]
+  api    = "/app/api"
+  worker = "/app/worker"
+
+# ── HTTP service (api process only) ──────────────────────────────────────────
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes           = ['api']
+
+  [http_service.concurrency]
+    type       = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+# ── Machine sizes ─────────────────────────────────────────────────────────────
+# API: 512 MB (matches odoodevtools-api)
+[[vm]]
+  cpu_kind  = 'shared'
+  cpus      = 1
+  memory_mb = 512
+  processes = ['api']
+
+# Worker: 256 MB — lightweight Redis stream consumer
+[[vm]]
+  cpu_kind  = 'shared'
+  cpus      = 1
+  memory_mb = 256
+  processes = ['worker']

@@ -161,7 +161,7 @@ func setupLogger(environment string) {
 		log.Logger = zerolog.New(os.Stderr).
 			With().
 			Timestamp().
-			Str("service", "odoodevtools-server").
+			Str("service", "cashpilotx-api").
 			Logger()
 
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
