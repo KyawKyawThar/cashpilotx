@@ -124,3 +124,9 @@ WHERE id = $1;
 -- cascade automatically via ON DELETE CASCADE foreign keys.
 -- Callers must clear Redis keys before calling this.
 DELETE FROM users WHERE id = $1;
+-- name: ListUsersForDigest :many
+-- Returns all active users who have an email address, for the daily digest job.
+SELECT id, name, email, home_currency
+FROM users
+WHERE is_active = true
+  AND email IS NOT NULL;

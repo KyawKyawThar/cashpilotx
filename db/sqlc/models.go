@@ -1120,6 +1120,15 @@ type Payment struct {
 	VoidedAt  *time.Time `db:"voided_at" json:"voided_at"`
 }
 
+type PushSubscription struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	Endpoint  string    `db:"endpoint" json:"endpoint"`
+	P256dh    string    `db:"p256dh" json:"p256dh"`
+	Auth      string    `db:"auth" json:"auth"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
 type Reminder struct {
 	ID                uuid.UUID  `db:"id" json:"id"`
 	UserID            uuid.UUID  `db:"user_id" json:"user_id"`

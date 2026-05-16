@@ -200,6 +200,46 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 	return i, err
 }
 
+const listUsersForDigest = `-- name: ListUsersForDigest :many
+SELECT id, name, email, home_currency
+FROM users
+WHERE is_active = true
+  AND email IS NOT NULL
+`
+
+type ListUsersForDigestRow struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	Name         string    `db:"name" json:"name"`
+	Email        *string   `db:"email" json:"email"`
+	HomeCurrency string    `db:"home_currency" json:"home_currency"`
+}
+
+// Returns all active users who have an email address, for the daily digest job.
+func (q *Queries) ListUsersForDigest(ctx context.Context) ([]ListUsersForDigestRow, error) {
+	rows, err := q.db.Query(ctx, listUsersForDigest)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersForDigestRow{}
+	for rows.Next() {
+		var i ListUsersForDigestRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.HomeCurrency,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const nextCustomerSequence = `-- name: NextCustomerSequence :one
 UPDATE users
 SET

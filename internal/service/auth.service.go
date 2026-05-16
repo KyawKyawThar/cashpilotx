@@ -39,7 +39,7 @@ func (s *AuthService) RequestEmailVerification(ctx context.Context, email string
 	if err := s.cache.StoreRegOTP(ctx, email, otp); err != nil {
 		return api.ErrInternal(fmt.Errorf("store reg OTP: %w", err))
 	}
-	if err := s.emailSender.SendOTP(ctx, email, email, otp); err != nil {
+	if err := s.emailSender.SendRegistrationOTP(ctx, email, otp); err != nil {
 		return api.ErrInternal(fmt.Errorf("send verification email: %w", err))
 	}
 	return nil

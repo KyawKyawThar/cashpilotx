@@ -60,6 +60,7 @@ type Querier interface {
 	DeleteInsightByID(ctx context.Context, id uuid.UUID) error
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	DeleteOldProcessedWebhookEvents(ctx context.Context) error
+	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeleteSessionByID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	DeleteSessionByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, error)
 	DeleteStatsByDateRange(ctx context.Context, arg DeleteStatsByDateRangeParams) error
@@ -166,6 +167,7 @@ type Querier interface {
 	ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsByCustomerParams) ([]Payment, error)
 	ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByInvoiceParams) ([]Payment, error)
 	ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error)
+	ListPushSubscriptionsForUser(ctx context.Context, userID uuid.UUID) ([]PushSubscription, error)
 	ListRemindersByInvoice(ctx context.Context, invoiceID uuid.UUID) ([]Reminder, error)
 	ListRemindersByUser(ctx context.Context, arg ListRemindersByUserParams) ([]Reminder, error)
 	ListRevertedOperatorAuditLogs(ctx context.Context, arg ListRevertedOperatorAuditLogsParams) ([]OperatorAuditLog, error)
@@ -174,6 +176,8 @@ type Querier interface {
 	ListUnscored(ctx context.Context, limit int32) ([]ListUnscoredRow, error)
 	ListUserContacts(ctx context.Context, arg ListUserContactsParams) ([]CustomerContact, error)
 	ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Session, error)
+	// Returns all active users who have an email address, for the daily digest job.
+	ListUsersForDigest(ctx context.Context) ([]ListUsersForDigestRow, error)
 	MarkChannelConnected(ctx context.Context, id uuid.UUID) error
 	MarkChannelError(ctx context.Context, arg MarkChannelErrorParams) error
 	MarkMessageDelivered(ctx context.Context, arg MarkMessageDeliveredParams) (Message, error)
@@ -263,6 +267,7 @@ type Querier interface {
 	// =========================================
 	UpsertCustomerRiskProfile(ctx context.Context, arg UpsertCustomerRiskProfileParams) (CustomerRiskProfile, error)
 	UpsertDailyStats(ctx context.Context, arg UpsertDailyStatsParams) (DailyStat, error)
+	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) (PushSubscription, error)
 }
 
 var _ Querier = (*Queries)(nil)

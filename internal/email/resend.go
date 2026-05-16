@@ -27,12 +27,24 @@ func NewResendSender(apiKey, from string) *ResendSender {
 	}
 }
 
+func (s *ResendSender) SendRegistrationOTP(ctx context.Context, to, otp string) error {
+	return s.send(ctx, to, "Verify your CashPilotX account", registrationOTPEmailBody(otp))
+}
+
+func (s *ResendSender) SendDigest(ctx context.Context, to string, data DigestData) error {
+	return s.send(ctx, to, "CashPilotX — Your daily cash recovery summary", digestEmailBody(data))
+}
+
 func (s *ResendSender) SendOTP(ctx context.Context, to, name, otp string) error {
+	return s.send(ctx, to, "Your CashPilotX PIN reset code", otpEmailBody(name, otp))
+}
+
+func (s *ResendSender) send(ctx context.Context, to, subject, html string) error {
 	payload, err := json.Marshal(map[string]any{
 		"from":    s.from,
 		"to":      []string{to},
-		"subject": "Your CashPilotX PIN reset code",
-		"html":    otpEmailBody(name, otp),
+		"subject": subject,
+		"html":    html,
 	})
 	if err != nil {
 		return fmt.Errorf("resend: marshal payload: %w", err)
