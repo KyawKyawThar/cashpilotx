@@ -9,12 +9,15 @@ WORKDIR /app
 
 # Cache dependencies first
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source and build all three binaries
 COPY . .
 RUN mkdir -p db/migrations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" \
     -o /bin/api ./cmd/api && \
     go build -ldflags="-s -w" -o /bin/worker ./cmd/worker && \

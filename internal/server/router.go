@@ -113,6 +113,7 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 				r.Get("/sessions", s.handler.Auth.GetSessions)
 				r.Delete("/sessions/{session_id}", s.handler.Auth.RevokeSession)
 				r.Get("/me", s.handler.Auth.GetMe)
+				r.Delete("/me", s.handler.Auth.DeleteAccount)
 				r.Patch("/settings", s.handler.Auth.UpdateUserSettings)
 			})
 		})

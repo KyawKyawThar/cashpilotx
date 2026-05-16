@@ -85,6 +85,18 @@ func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+// Hard-deletes the user row. All child rows (sessions, customers, invoices, etc.)
+// cascade automatically via ON DELETE CASCADE foreign keys.
+// Callers must clear Redis keys before calling this.
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
 FROM users

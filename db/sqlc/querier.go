@@ -63,6 +63,10 @@ type Querier interface {
 	DeleteSessionByID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	DeleteSessionByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, error)
 	DeleteStatsByDateRange(ctx context.Context, arg DeleteStatsByDateRangeParams) error
+	// Hard-deletes the user row. All child rows (sessions, customers, invoices, etc.)
+	// cascade automatically via ON DELETE CASCADE foreign keys.
+	// Callers must clear Redis keys before calling this.
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 	FetchApprovedMessages(ctx context.Context, limit int32) ([]Message, error)
 	GetActiveChannelConfig(ctx context.Context, arg GetActiveChannelConfigParams) (ChannelConfig, error)
 	GetActiveExchangeRate(ctx context.Context, arg GetActiveExchangeRateParams) (ExchangeRate, error)

@@ -299,6 +299,32 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, resp)
 }
 
+// DeleteAccount godoc
+//
+//	@Summary      Delete account
+//	@Description  Permanently deletes the authenticated user's account and all associated data (customers, invoices, sessions). This action is irreversible.
+//	@Tags         auth
+//	@Produce      json
+//	@Success      204
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      404  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
+//	@Router       /api/v1/auth/me [delete]
+//	@Security     BearerAuth
+func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	if err := h.svc.DeleteUser(r.Context(), userID); err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteNoContent(w)
+}
+
 // UpdateUserSettings godoc
 //
 //	@Summary      Update user settings

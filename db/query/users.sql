@@ -118,3 +118,9 @@ SET
     is_active = false,
     updated_at = now()
 WHERE id = $1;
+
+-- name: DeleteUser :exec
+-- Hard-deletes the user row. All child rows (sessions, customers, invoices, etc.)
+-- cascade automatically via ON DELETE CASCADE foreign keys.
+-- Callers must clear Redis keys before calling this.
+DELETE FROM users WHERE id = $1;

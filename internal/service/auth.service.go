@@ -467,6 +467,29 @@ func (s *AuthService) ResetPIN(ctx context.Context, req *dto.ResetPINRequest) er
 	return nil
 }
 
+// DeleteUser cleans up all Redis keys for the user, then hard-deletes the DB row.
+// All child rows (sessions, customers, invoices, etc.) cascade automatically.
+func (s *AuthService) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	user, err := s.store.GetUserByID(dbCtx, userID)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return api.ErrUserNotFound()
+		}
+		return api.FromPgError(err)
+	}
+
+	// Clear rate-limit keys keyed on the phone number before the row disappears.
+	s.cache.ClearLoginAttempts(ctx, user.Phone) //nolint:errcheck // best-effort; Redis cleanup does not affect correctness of the DB delete
+
+	// Clear all session keys from Redis; DB sessions cascade from the DELETE below.
+	s.cache.DeleteAllUserSessions(ctx, userID.String()) //nolint:errcheck // best-effort; DB delete is the authoritative operation
+
+	return api.FromPgError(s.store.DeleteUser(dbCtx, userID))
+}
+
 // GetMe returns the authenticated user's profile.
 func (s *AuthService) GetMe(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)

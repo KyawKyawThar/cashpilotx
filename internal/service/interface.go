@@ -22,6 +22,7 @@ type AuthServicer interface {
 	ResetPIN(ctx context.Context, req *dto.ResetPINRequest) error
 	GetMe(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateHomeCurrency(ctx context.Context, userID uuid.UUID, currency string) (*dto.UserResponse, error)
+	DeleteUser(ctx context.Context, userID uuid.UUID) error
 }
 
 type InvoiceServicer interface {
