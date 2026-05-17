@@ -152,6 +152,7 @@ type Querier interface {
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]Invoice, error)
 	ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesByCustomerParams) ([]Invoice, error)
 	ListInvoicesByStatus(ctx context.Context, arg ListInvoicesByStatusParams) ([]Invoice, error)
+	ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]Invoice, error)
 	ListMessagesByCustomer(ctx context.Context, arg ListMessagesByCustomerParams) ([]Message, error)
 	ListMessagesByInvoice(ctx context.Context, invoiceID *uuid.UUID) ([]Message, error)
 	// ═══════════════════════════════════════════════════════

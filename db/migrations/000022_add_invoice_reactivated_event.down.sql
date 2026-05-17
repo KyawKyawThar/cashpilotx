@@ -1,0 +1,2 @@
+-- Cannot remove enum values in Postgres; this migration cannot be fully reversed.
+-- If needed, drop and recreate the enum without 'invoice_reactivated'.

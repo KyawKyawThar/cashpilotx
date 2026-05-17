@@ -34,6 +34,7 @@ type Handlers struct {
 	SSE       *SSEHandler
 	Batch     *BatchHandler
 	Sync      *SyncHandler
+	Push      *PushHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -118,7 +119,7 @@ func NewHandlers(
 		h.SSE = NewSSEHandler(base, deps.RedisCache)
 	}
 
-	_ = store // reserved for future handlers that need direct store access
+	h.Push = NewPushHandler(store, base)
 
 	return h
 }

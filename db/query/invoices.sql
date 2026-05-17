@@ -214,3 +214,12 @@ SELECT
     COALESCE(SUM(paid_amount) FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_collected
 FROM invoices
 WHERE user_id = $1;
+
+-- name: ListInvoicesDueToday :many
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+FROM invoices
+WHERE user_id = $1
+  AND paid_amount < amount
+  AND due_date = CURRENT_DATE
+  AND status NOT IN ('cancelled', 'paid', 'written_off')
+ORDER BY due_date ASC;

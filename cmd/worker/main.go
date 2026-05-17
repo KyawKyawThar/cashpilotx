@@ -5,6 +5,8 @@ import (
 	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/cache"
 	"cashpilotx/internal/config"
+	"cashpilotx/internal/email"
+	"cashpilotx/internal/notify"
 	"cashpilotx/internal/worker"
 	"context"
 	"fmt"
@@ -60,6 +62,22 @@ func runWorker(cfg config.Config) error {
 	store := db.NewStore(connPool)
 	w := worker.New(store, redisClient, consumer)
 
+	// Build email sender (same logic as API server: Resend in prod, SMTP elsewhere).
+	var emailSender email.Sender
+	if cfg.Environment == config.EnvironmentProduction {
+		emailSender = email.NewResendSender(cfg.SMTPPassword, cfg.EmailFrom)
+	} else {
+		emailSender = email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.EmailFrom, cfg.SMTPUsername, cfg.SMTPPassword)
+	}
+
+	// Build push sender — optional; only active when VAPID keys are configured.
+	var pushSender *notify.Sender
+	if cfg.VAPIDPublicKey != "" && cfg.VAPIDPrivateKey != "" {
+		pushSender = notify.NewSender(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDEmail)
+	}
+
+	digest := worker.NewDigestScheduler(store, emailSender, pushSender, cfg.DigestHourUTC, cfg.AppURL)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -70,6 +88,7 @@ func runWorker(cfg config.Config) error {
 	go func() {
 		workerDone <- w.Run(ctx)
 	}()
+	go digest.Run(ctx)
 
 	select {
 	case sig := <-shutdown:

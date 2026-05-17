@@ -590,6 +590,64 @@ func (q *Queries) ListInvoicesByStatus(ctx context.Context, arg ListInvoicesBySt
 	return items, nil
 }
 
+const listInvoicesDueToday = `-- name: ListInvoicesDueToday :many
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+FROM invoices
+WHERE user_id = $1
+  AND paid_amount < amount
+  AND due_date = CURRENT_DATE
+  AND status NOT IN ('cancelled', 'paid', 'written_off')
+ORDER BY due_date ASC
+`
+
+func (q *Queries) ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, listInvoicesDueToday, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Invoice{}
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CustomerID,
+			&i.Amount,
+			&i.Currency,
+			&i.PaidAmount,
+			&i.PaidAt,
+			&i.Description,
+			&i.DueDate,
+			&i.Status,
+			&i.Source,
+			&i.PhotoUrl,
+			&i.ExternalID,
+			&i.IssuedAt,
+			&i.Items,
+			&i.CollectionState,
+			&i.LastContactedAt,
+			&i.LastResponseAt,
+			&i.FollowUpCount,
+			&i.ConfidenceScore,
+			&i.ConfidenceFactors,
+			&i.OutcomeText,
+			&i.OutcomeTimeframe,
+			&i.ConfidenceComputedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PromisedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOverdueInvoices = `-- name: ListOverdueInvoices :many
 SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
 FROM invoices

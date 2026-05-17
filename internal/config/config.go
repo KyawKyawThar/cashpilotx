@@ -79,6 +79,15 @@ type Config struct {
 	SMTPPort     int    `mapstructure:"SMTP_PORT"`
 	SMTPUsername string `mapstructure:"SMTP_USERNAME"` // "resend" when using Resend relay
 	SMTPPassword string `mapstructure:"SMTP_PASSWORD"` // Resend API key
+
+	// ── Web Push (VAPID) ─────────────────────────────────────────
+	VAPIDPublicKey  string `mapstructure:"VAPID_PUBLIC_KEY"`
+	VAPIDPrivateKey string `mapstructure:"VAPID_PRIVATE_KEY"`
+	VAPIDEmail      string `mapstructure:"VAPID_EMAIL"` // e.g. mailto:admin@cashpilotx.app
+
+	// ── Digest scheduler ─────────────────────────────────────────
+	DigestHourUTC int    `mapstructure:"DIGEST_HOUR_UTC"` // 0-23, default 8
+	AppURL        string `mapstructure:"APP_URL"`         // e.g. https://cashpilotx.app
 }
 
 // LoadConfig loads the configuration from the given path.
@@ -119,6 +128,11 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("SMTP_PORT", 1025)
 	viper.SetDefault("SMTP_USERNAME", "")
 	viper.SetDefault("SMTP_PASSWORD", "")
+	viper.SetDefault("VAPID_PUBLIC_KEY", "")
+	viper.SetDefault("VAPID_PRIVATE_KEY", "")
+	viper.SetDefault("VAPID_EMAIL", "mailto:admin@cashpilotx.app")
+	viper.SetDefault("DIGEST_HOUR_UTC", 8)
+	viper.SetDefault("APP_URL", "https://cashpilotx.app")
 
 	err = viper.ReadInConfig()
 	if err != nil {

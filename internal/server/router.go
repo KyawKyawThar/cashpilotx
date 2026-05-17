@@ -194,6 +194,11 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Post("/{reminder_id}/mark-sent", s.handler.Reminder.MarkReminderSent)
 		})
 
+		r.Route("/api/v1/push", func(r chi.Router) {
+			r.Post("/subscribe", s.handler.Push.Subscribe)
+			r.Delete("/subscribe", s.handler.Push.Unsubscribe)
+		})
+
 		r.Route("/api/v1/payments", func(r chi.Router) {
 			r.Get("/summary", s.handler.Dashboard.GetCollectedSummary)
 			r.With(mw.Idempotency(s.store)).Post("/", s.handler.Payment.RecordPayment)
