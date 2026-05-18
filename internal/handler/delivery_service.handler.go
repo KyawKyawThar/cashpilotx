@@ -29,7 +29,7 @@ func toDeliveryServiceResponse(s db.DeliveryService) deliveryServiceResponse {
 	return deliveryServiceResponse{ID: s.ID, Name: s.Name, CreatedAt: s.CreatedAt}
 }
 
-// ListDeliveryServices godoc
+// List godoc
 //
 //	@Summary  List delivery services
 //	@Tags     delivery-services
@@ -56,7 +56,7 @@ func (h *DeliveryServiceHandler) List(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, out)
 }
 
-// CreateDeliveryService godoc
+// Create godoc
 //
 //	@Summary  Create delivery service
 //	@Tags     delivery-services
@@ -92,7 +92,7 @@ func (h *DeliveryServiceHandler) Create(w http.ResponseWriter, r *http.Request) 
 	h.WriteCreated(w, r, toDeliveryServiceResponse(svc))
 }
 
-// DeleteDeliveryService godoc
+// Delete godoc
 //
 //	@Summary  Delete delivery service
 //	@Tags     delivery-services

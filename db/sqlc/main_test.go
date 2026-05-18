@@ -51,13 +51,9 @@ func TestMain(m *testing.M) {
 
 	testStore = NewStore(testDB)
 
-	// Remove stale committed reminders left by previous test runs whose process was
-	// killed before t.Cleanup executed. Deleting reminders directly avoids the
-	// operator_audit_log trigger that blocks user cascade-deletes.
-	if _, err := testDB.Exec(context.Background(),
-		"DELETE FROM reminders WHERE created_at < now() - interval '1 hour'",
-	); err != nil {
-		log.Println("warn: stale reminder cleanup failed:", err)
+	// Truncate users table to cascade deletes and ensure clean state for tests
+	if _, err := testDB.Exec(context.Background(), "TRUNCATE TABLE users RESTART IDENTITY CASCADE"); err != nil {
+		log.Fatal("failed to truncate tables:", err)
 	}
 
 	code := m.Run()

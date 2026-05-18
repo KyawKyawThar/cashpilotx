@@ -16,14 +16,14 @@ import (
 // Reminder fields (tone, channel, scheduled_at, max_attempts) configure the
 // first reminder that is created atomically with the invoice.
 type CreateInvoiceRequest struct {
-	CustomerID  uuid.UUID       `json:"customer_id"  validate:"required"                        example:"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`
-	Description *string         `json:"description"  validate:"omitempty,max=500"               example:"Web design services - May 2026"`
-	Items       json.RawMessage `json:"items"        validate:"omitempty" swaggertype:"array,object"`
-	Amount      int64           `json:"amount"       validate:"required,min=1"                  example:"150000"`
-	Currency    string          `json:"currency"     validate:"required,len=3"                  example:"USD"`
-	DueDate     time.Time       `json:"due_date"     validate:"required"                        example:"2026-06-01T00:00:00Z"`
-	Source      *string         `json:"source"       validate:"omitempty,max=100"               example:"manual"`
-	PhotoURL    *string         `json:"photo_url"    validate:"omitempty,url"                   example:"https://example.com/invoice.jpg"`
+	CustomerID      uuid.UUID       `json:"customer_id"  validate:"required"                        example:"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`
+	Description     *string         `json:"description"  validate:"omitempty,max=500"               example:"Web design services - May 2026"`
+	Items           json.RawMessage `json:"items"        validate:"omitempty" swaggertype:"array,object"`
+	Amount          int64           `json:"amount"       validate:"required,min=1"                  example:"150000"`
+	Currency        string          `json:"currency"     validate:"required,len=3"                  example:"USD"`
+	DueDate         time.Time       `json:"due_date"     validate:"required"                        example:"2026-06-01T00:00:00Z"`
+	Source          *string         `json:"source"       validate:"omitempty,max=100"               example:"manual"`
+	PhotoURL        *string         `json:"photo_url"    validate:"omitempty,url"                   example:"https://example.com/invoice.jpg"`
 	AssignedTo      *string         `json:"assigned_to"       validate:"omitempty,max=100"   example:"Ko Aung"`
 	DeliveryService *string         `json:"delivery_service"  validate:"omitempty,max=100"   example:"Flash Express"`
 	TrackingNumber  *string         `json:"tracking_number"   validate:"omitempty,max=100"   example:"10661980LZR"`
