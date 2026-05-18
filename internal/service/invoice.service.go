@@ -107,7 +107,10 @@ func (s *InvoiceService) CreateInvoice(
 			Source:      req.Source,
 			PhotoUrl:    req.PhotoURL,
 			ExternalID:  &externalID,
-			Column10:    items,
+			Column10:        items,
+			AssignedTo:      req.AssignedTo,
+			DeliveryService: req.DeliveryService,
+			TrackingNumber:  req.TrackingNumber,
 		},
 		Reminder: db.CreateReminderParams{
 			UserID:      userID,

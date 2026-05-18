@@ -302,6 +302,7 @@ const (
 	CustomerEventTypeCustomerCreated        CustomerEventType = "customer_created"
 	CustomerEventTypeInvoiceCreated         CustomerEventType = "invoice_created"
 	CustomerEventTypeInvoiceCanceled        CustomerEventType = "invoice_canceled"
+	CustomerEventTypeInvoiceReactivated     CustomerEventType = "invoice_reactivated"
 	CustomerEventTypeInvoiceWrittenOff      CustomerEventType = "invoice_written_off"
 	CustomerEventTypePaymentReceived        CustomerEventType = "payment_received"
 	CustomerEventTypePaymentVoided          CustomerEventType = "payment_voided"
@@ -355,6 +356,7 @@ func (e CustomerEventType) Valid() bool {
 	case CustomerEventTypeCustomerCreated,
 		CustomerEventTypeInvoiceCreated,
 		CustomerEventTypeInvoiceCanceled,
+		CustomerEventTypeInvoiceReactivated,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
 		CustomerEventTypePaymentVoided,
@@ -376,6 +378,7 @@ func AllCustomerEventTypeValues() []CustomerEventType {
 		CustomerEventTypeCustomerCreated,
 		CustomerEventTypeInvoiceCreated,
 		CustomerEventTypeInvoiceCanceled,
+		CustomerEventTypeInvoiceReactivated,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
 		CustomerEventTypePaymentVoided,
@@ -1013,6 +1016,13 @@ type DailyStat struct {
 	UpdatedAt        time.Time `db:"updated_at" json:"updated_at"`
 }
 
+type DeliveryService struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	Name      string    `db:"name" json:"name"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
 type ExchangeRate struct {
 	ID           uuid.UUID  `db:"id" json:"id"`
 	UserID       uuid.UUID  `db:"user_id" json:"user_id"`
@@ -1061,6 +1071,9 @@ type Invoice struct {
 	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
 	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
 	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
+	AssignedTo           *string          `db:"assigned_to" json:"assigned_to"`
+	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
 }
 
 type Message struct {

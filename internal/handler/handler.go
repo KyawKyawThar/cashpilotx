@@ -23,18 +23,19 @@ import (
 
 // Handlers is the main container for all HTTP handlers.
 type Handlers struct {
-	Auth      *AuthHandler
-	Customer  *CustomerHandler
-	Invoice   *InvoiceHandler
-	Payment   *PaymentHandler
-	Dashboard *DashboardHandler
-	Message   *MessageHandler
-	Reminder  *ReminderHandler
-	Audit     *AuditHandler
-	SSE       *SSEHandler
-	Batch     *BatchHandler
-	Sync      *SyncHandler
-	Push      *PushHandler
+	Auth            *AuthHandler
+	Customer        *CustomerHandler
+	Invoice         *InvoiceHandler
+	Payment         *PaymentHandler
+	Dashboard       *DashboardHandler
+	Message         *MessageHandler
+	Reminder        *ReminderHandler
+	Audit           *AuditHandler
+	SSE             *SSEHandler
+	Batch           *BatchHandler
+	Sync            *SyncHandler
+	Push            *PushHandler
+	DeliveryService *DeliveryServiceHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -120,6 +121,7 @@ func NewHandlers(
 	}
 
 	h.Push = NewPushHandler(store, base)
+	h.DeliveryService = NewDeliveryServiceHandler(store, base)
 
 	return h
 }

@@ -32,6 +32,7 @@ type Querier interface {
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateCustomerEvent(ctx context.Context, arg CreateCustomerEventParams) (CustomerEvent, error)
 	CreateCustomerInsight(ctx context.Context, arg CreateCustomerInsightParams) (CustomerInsight, error)
+	CreateDeliveryService(ctx context.Context, arg CreateDeliveryServiceParams) (DeliveryService, error)
 	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
 	CreateIdempotencyKey(ctx context.Context, arg CreateIdempotencyKeyParams) (IdempotencyKey, error)
 	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
@@ -54,6 +55,7 @@ type Querier interface {
 	// OPTIONAL: hard delete (use carefully)
 	// =========================================
 	DeleteCustomerRiskProfile(ctx context.Context, arg DeleteCustomerRiskProfileParams) error
+	DeleteDeliveryService(ctx context.Context, arg DeleteDeliveryServiceParams) error
 	DeleteExpiredIdempotencyKeys(ctx context.Context, createdAt time.Time) (int64, error)
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteIdempotencyKey(ctx context.Context, arg DeleteIdempotencyKeyParams) error
@@ -141,6 +143,7 @@ type Querier interface {
 	ListCustomerRiskProfiles(ctx context.Context, arg ListCustomerRiskProfilesParams) ([]CustomerRiskProfile, error)
 	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)
+	ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error)
 	ListEventsByType(ctx context.Context, arg ListEventsByTypeParams) ([]CustomerEvent, error)
 	ListExchangeRates(ctx context.Context, arg ListExchangeRatesParams) ([]ExchangeRate, error)
 	ListFailedWebhookEvents(ctx context.Context, arg ListFailedWebhookEventsParams) ([]WebhookEvent, error)
@@ -152,7 +155,7 @@ type Querier interface {
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]Invoice, error)
 	ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesByCustomerParams) ([]Invoice, error)
 	ListInvoicesByStatus(ctx context.Context, arg ListInvoicesByStatusParams) ([]Invoice, error)
-	ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]Invoice, error)
+	ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]ListInvoicesDueTodayRow, error)
 	ListMessagesByCustomer(ctx context.Context, arg ListMessagesByCustomerParams) ([]Message, error)
 	ListMessagesByInvoice(ctx context.Context, invoiceID *uuid.UUID) ([]Message, error)
 	// ═══════════════════════════════════════════════════════

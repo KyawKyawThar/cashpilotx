@@ -199,6 +199,12 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Delete("/subscribe", s.handler.Push.Unsubscribe)
 		})
 
+		r.Route("/api/v1/delivery-services", func(r chi.Router) {
+			r.Get("/", s.handler.DeliveryService.List)
+			r.Post("/", s.handler.DeliveryService.Create)
+			r.Delete("/{service_id}", s.handler.DeliveryService.Delete)
+		})
+
 		r.Route("/api/v1/payments", func(r chi.Router) {
 			r.Get("/summary", s.handler.Dashboard.GetCollectedSummary)
 			r.With(mw.Idempotency(s.store)).Post("/", s.handler.Payment.RecordPayment)

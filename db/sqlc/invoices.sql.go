@@ -20,7 +20,7 @@ SET
     updated_at  = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type AddPaymentParams struct {
@@ -60,6 +60,9 @@ func (q *Queries) AddPayment(ctx context.Context, arg AddPaymentParams) (Invoice
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -72,7 +75,7 @@ SET
 WHERE id = $1
   AND user_id = $2
   AND status != 'cancelled'
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type CancelInvoiceParams struct {
@@ -111,6 +114,9 @@ func (q *Queries) CancelInvoice(ctx context.Context, arg CancelInvoiceParams) (I
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -126,23 +132,29 @@ INSERT INTO invoices (
     source,
     photo_url,
     external_id,
-    items
+    items,
+    assigned_to,
+    delivery_service,
+    tracking_number
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10::jsonb, '[]'::jsonb))
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10::jsonb, '[]'::jsonb), $11, $12, $13)
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type CreateInvoiceParams struct {
-	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
-	CustomerID  uuid.UUID       `db:"customer_id" json:"customer_id"`
-	Amount      int64           `db:"amount" json:"amount"`
-	Currency    string          `db:"currency" json:"currency"`
-	Description *string         `db:"description" json:"description"`
-	DueDate     time.Time       `db:"due_date" json:"due_date"`
-	Source      *string         `db:"source" json:"source"`
-	PhotoUrl    *string         `db:"photo_url" json:"photo_url"`
-	ExternalID  *string         `db:"external_id" json:"external_id"`
-	Column10    json.RawMessage `db:"column_10" json:"column_10"`
+	UserID          uuid.UUID       `db:"user_id" json:"user_id"`
+	CustomerID      uuid.UUID       `db:"customer_id" json:"customer_id"`
+	Amount          int64           `db:"amount" json:"amount"`
+	Currency        string          `db:"currency" json:"currency"`
+	Description     *string         `db:"description" json:"description"`
+	DueDate         time.Time       `db:"due_date" json:"due_date"`
+	Source          *string         `db:"source" json:"source"`
+	PhotoUrl        *string         `db:"photo_url" json:"photo_url"`
+	ExternalID      *string         `db:"external_id" json:"external_id"`
+	Column10        json.RawMessage `db:"column_10" json:"column_10"`
+	AssignedTo      *string         `db:"assigned_to" json:"assigned_to"`
+	DeliveryService *string         `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber  *string         `db:"tracking_number" json:"tracking_number"`
 }
 
 func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error) {
@@ -157,6 +169,9 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		arg.PhotoUrl,
 		arg.ExternalID,
 		arg.Column10,
+		arg.AssignedTo,
+		arg.DeliveryService,
+		arg.TrackingNumber,
 	)
 	var i Invoice
 	err := row.Scan(
@@ -187,12 +202,15 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
 
 const getInvoiceByID = `-- name: GetInvoiceByID :one
-SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 FROM invoices
 WHERE id = $1
   AND user_id = $2
@@ -235,13 +253,16 @@ func (q *Queries) GetInvoiceByID(ctx context.Context, arg GetInvoiceByIDParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
 
 const getRecoveryQueue = `-- name: GetRecoveryQueue :many
 SELECT
-    i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at,
+    i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number,
     c.name  AS customer_name,
     c.phone AS customer_phone
 FROM invoices i
@@ -288,6 +309,9 @@ type GetRecoveryQueueRow struct {
 	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
 	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
 	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
+	AssignedTo           *string          `db:"assigned_to" json:"assigned_to"`
+	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
 	CustomerName         string           `db:"customer_name" json:"customer_name"`
 	CustomerPhone        *string          `db:"customer_phone" json:"customer_phone"`
 }
@@ -331,6 +355,9 @@ func (q *Queries) GetRecoveryQueue(ctx context.Context, arg GetRecoveryQueuePara
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
 			&i.CustomerName,
 			&i.CustomerPhone,
 		); err != nil {
@@ -391,7 +418,7 @@ func (q *Queries) GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRe
 }
 
 const listInvoices = `-- name: ListInvoices :many
-SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 FROM invoices
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -441,6 +468,9 @@ func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]I
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -453,7 +483,7 @@ func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]I
 }
 
 const listInvoicesByCustomer = `-- name: ListInvoicesByCustomer :many
-SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 FROM invoices
 WHERE user_id = $1
   AND customer_id = $2
@@ -510,6 +540,9 @@ func (q *Queries) ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -522,7 +555,7 @@ func (q *Queries) ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesBy
 }
 
 const listInvoicesByStatus = `-- name: ListInvoicesByStatus :many
-SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 FROM invoices
 WHERE user_id = $1
   AND status = $2
@@ -579,6 +612,9 @@ func (q *Queries) ListInvoicesByStatus(ctx context.Context, arg ListInvoicesBySt
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -600,15 +636,45 @@ WHERE user_id = $1
 ORDER BY due_date ASC
 `
 
-func (q *Queries) ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]Invoice, error) {
+type ListInvoicesDueTodayRow struct {
+	ID                   uuid.UUID        `db:"id" json:"id"`
+	UserID               uuid.UUID        `db:"user_id" json:"user_id"`
+	CustomerID           uuid.UUID        `db:"customer_id" json:"customer_id"`
+	Amount               int64            `db:"amount" json:"amount"`
+	Currency             string           `db:"currency" json:"currency"`
+	PaidAmount           int64            `db:"paid_amount" json:"paid_amount"`
+	PaidAt               *time.Time       `db:"paid_at" json:"paid_at"`
+	Description          *string          `db:"description" json:"description"`
+	DueDate              time.Time        `db:"due_date" json:"due_date"`
+	Status               string           `db:"status" json:"status"`
+	Source               *string          `db:"source" json:"source"`
+	PhotoUrl             *string          `db:"photo_url" json:"photo_url"`
+	ExternalID           *string          `db:"external_id" json:"external_id"`
+	IssuedAt             *time.Time       `db:"issued_at" json:"issued_at"`
+	Items                json.RawMessage  `db:"items" json:"items"`
+	CollectionState      string           `db:"collection_state" json:"collection_state"`
+	LastContactedAt      *time.Time       `db:"last_contacted_at" json:"last_contacted_at"`
+	LastResponseAt       *time.Time       `db:"last_response_at" json:"last_response_at"`
+	FollowUpCount        int32            `db:"follow_up_count" json:"follow_up_count"`
+	ConfidenceScore      *float64         `db:"confidence_score" json:"confidence_score"`
+	ConfidenceFactors    *json.RawMessage `db:"confidence_factors" json:"confidence_factors"`
+	OutcomeText          *string          `db:"outcome_text" json:"outcome_text"`
+	OutcomeTimeframe     *string          `db:"outcome_timeframe" json:"outcome_timeframe"`
+	ConfidenceComputedAt *time.Time       `db:"confidence_computed_at" json:"confidence_computed_at"`
+	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
+	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
+}
+
+func (q *Queries) ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]ListInvoicesDueTodayRow, error) {
 	rows, err := q.db.Query(ctx, listInvoicesDueToday, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Invoice{}
+	items := []ListInvoicesDueTodayRow{}
 	for rows.Next() {
-		var i Invoice
+		var i ListInvoicesDueTodayRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -649,7 +715,7 @@ func (q *Queries) ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([
 }
 
 const listOverdueInvoices = `-- name: ListOverdueInvoices :many
-SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 FROM invoices
 WHERE user_id = $1
   AND paid_amount < amount
@@ -701,6 +767,9 @@ func (q *Queries) ListOverdueInvoices(ctx context.Context, arg ListOverdueInvoic
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -775,7 +844,7 @@ SET
 FROM paid
 WHERE invoices.id = $1
   AND invoices.user_id = $2
-RETURNING invoices.id, invoices.user_id, invoices.customer_id, invoices.amount, invoices.currency, invoices.paid_amount, invoices.paid_at, invoices.description, invoices.due_date, invoices.status, invoices.source, invoices.photo_url, invoices.external_id, invoices.issued_at, invoices.items, invoices.collection_state, invoices.last_contacted_at, invoices.last_response_at, invoices.follow_up_count, invoices.confidence_score, invoices.confidence_factors, invoices.outcome_text, invoices.outcome_timeframe, invoices.confidence_computed_at, invoices.created_at, invoices.updated_at, invoices.promised_at
+RETURNING invoices.id, invoices.user_id, invoices.customer_id, invoices.amount, invoices.currency, invoices.paid_amount, invoices.paid_at, invoices.description, invoices.due_date, invoices.status, invoices.source, invoices.photo_url, invoices.external_id, invoices.issued_at, invoices.items, invoices.collection_state, invoices.last_contacted_at, invoices.last_response_at, invoices.follow_up_count, invoices.confidence_score, invoices.confidence_factors, invoices.outcome_text, invoices.outcome_timeframe, invoices.confidence_computed_at, invoices.created_at, invoices.updated_at, invoices.promised_at, invoices.assigned_to, invoices.delivery_service, invoices.tracking_number
 `
 
 type RecomputeInvoiceStatusParams struct {
@@ -814,6 +883,9 @@ func (q *Queries) RecomputeInvoiceStatus(ctx context.Context, arg RecomputeInvoi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -827,7 +899,7 @@ SET
     updated_at        = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type SetInvoiceContactedParams struct {
@@ -869,6 +941,9 @@ func (q *Queries) SetInvoiceContacted(ctx context.Context, arg SetInvoiceContact
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -883,7 +958,7 @@ SET
     updated_at       = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type SetInvoicePromisedParams struct {
@@ -926,6 +1001,9 @@ func (q *Queries) SetInvoicePromised(ctx context.Context, arg SetInvoicePromised
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -938,7 +1016,7 @@ SET
     updated_at       = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type SetInvoiceRepliedParams struct {
@@ -980,6 +1058,9 @@ func (q *Queries) SetInvoiceReplied(ctx context.Context, arg SetInvoiceRepliedPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }
@@ -992,7 +1073,7 @@ SET
     updated_at       = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
 `
 
 type UpdateInvoiceCollectionStateParams struct {
@@ -1035,6 +1116,9 @@ func (q *Queries) UpdateInvoiceCollectionState(ctx context.Context, arg UpdateIn
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
 	)
 	return i, err
 }

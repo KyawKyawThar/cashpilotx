@@ -24,12 +24,20 @@ type CreateInvoiceRequest struct {
 	DueDate     time.Time       `json:"due_date"     validate:"required"                        example:"2026-06-01T00:00:00Z"`
 	Source      *string         `json:"source"       validate:"omitempty,max=100"               example:"manual"`
 	PhotoURL    *string         `json:"photo_url"    validate:"omitempty,url"                   example:"https://example.com/invoice.jpg"`
+	AssignedTo      *string         `json:"assigned_to"       validate:"omitempty,max=100"   example:"Ko Aung"`
+	DeliveryService *string         `json:"delivery_service"  validate:"omitempty,max=100"   example:"Flash Express"`
+	TrackingNumber  *string         `json:"tracking_number"   validate:"omitempty,max=100"   example:"10661980LZR"`
 
 	// First reminder — all optional, defaults applied in service.
 	Tone        string     `json:"tone"         validate:"omitempty,oneof=polite firm urgent"                        example:"polite"`
 	Channel     string     `json:"channel"      validate:"omitempty,oneof=line whatsapp messenger wechat telegram viber"  example:"whatsapp"`
 	ScheduledAt *time.Time `json:"scheduled_at" validate:"omitempty"                                                example:"2026-05-20T09:00:00Z"`
 	MaxAttempts int32      `json:"max_attempts" validate:"omitempty,min=1,max=10"                                   example:"3"`
+}
+
+// CreateDeliveryServiceRequest is the payload for POST /api/v1/delivery-services.
+type CreateDeliveryServiceRequest struct {
+	Name string `json:"name" validate:"required,min=1,max=100"`
 }
 
 // MoveCollectionStateRequest is the payload for PATCH /api/v1/invoices/{id}/collection-state.
@@ -76,6 +84,9 @@ type InvoiceResponse struct {
 	ConfidenceFactors *json.RawMessage `json:"confidence_factors,omitempty" swaggertype:"object"`
 	OutcomeText       *string          `json:"outcome_text,omitempty"`
 	OutcomeTimeframe  *string          `json:"outcome_timeframe,omitempty"`
+	AssignedTo        *string          `json:"assigned_to,omitempty"`
+	DeliveryService   *string          `json:"delivery_service,omitempty"`
+	TrackingNumber    *string          `json:"tracking_number,omitempty"`
 	CreatedAt         time.Time        `json:"created_at"`
 	UpdatedAt         time.Time        `json:"updated_at"`
 }
@@ -133,6 +144,9 @@ func ToInvoiceResponse(i db.Invoice) *InvoiceResponse {
 		ConfidenceFactors: i.ConfidenceFactors,
 		OutcomeText:       i.OutcomeText,
 		OutcomeTimeframe:  i.OutcomeTimeframe,
+		AssignedTo:        i.AssignedTo,
+		DeliveryService:   i.DeliveryService,
+		TrackingNumber:    i.TrackingNumber,
 		CreatedAt:         i.CreatedAt,
 		UpdatedAt:         i.UpdatedAt,
 	}

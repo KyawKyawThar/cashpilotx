@@ -9,9 +9,12 @@ INSERT INTO invoices (
     source,
     photo_url,
     external_id,
-    items
+    items,
+    assigned_to,
+    delivery_service,
+    tracking_number
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10::jsonb, '[]'::jsonb))
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10::jsonb, '[]'::jsonb), $11, $12, $13)
 RETURNING *;
 
 -- name: GetInvoiceByID :one
