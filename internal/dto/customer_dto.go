@@ -12,6 +12,11 @@ import (
 // Customer DTOs
 // =============================================================================
 
+// ListCustomersFilter holds optional scope filters for GET /api/v1/customers.
+type ListCustomersFilter struct {
+	AssignedTo *uuid.UUID // non-nil when caller is sales (own scope)
+}
+
 // CreateCustomerRequest is the payload for creating a new customer.
 type CreateCustomerRequest struct {
 	Name    string   `json:"name"    validate:"required,min=1,max=200"`

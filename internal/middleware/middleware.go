@@ -25,6 +25,7 @@ const (
 	ContextKeyRequestID   contextKey = "request_id"
 	ContextKeyRequestTime contextKey = "request_time"
 	ContextKeyUserID      contextKey = "user_id"
+	ContextKeyPayload     contextKey = "jwt_payload"
 )
 
 // =============================================================================
@@ -61,6 +62,15 @@ func SetRequestID(ctx context.Context, requestID string) context.Context {
 
 func SetUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, ContextKeyUserID, userID)
+}
+
+func GetPayload(ctx context.Context) *token.Payload {
+	p, _ := ctx.Value(ContextKeyPayload).(*token.Payload) //nolint:errcheck // type assertion; nil is the correct zero value
+	return p
+}
+
+func setPayload(ctx context.Context, p *token.Payload) context.Context {
+	return context.WithValue(ctx, ContextKeyPayload, p)
 }
 
 // =============================================================================
@@ -245,6 +255,7 @@ func JWTAuth(maker token.Maker) func(http.Handler) http.Handler {
 				return
 			}
 			ctx := SetUserID(r.Context(), payload.UserID.String())
+			ctx = setPayload(ctx, payload)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -266,6 +277,7 @@ func JWTAuthWithService(svc service.AuthServicer) func(http.Handler) http.Handle
 				return
 			}
 			ctx := SetUserID(r.Context(), payload.UserID.String())
+			ctx = setPayload(ctx, payload)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

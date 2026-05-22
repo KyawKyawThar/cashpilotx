@@ -15,13 +15,16 @@ import (
 
 func newRegisterParams() RegisterUserTxParams {
 	ua := "test"
+	phone := utils.RandomPhone(9)
+	bn := utils.RandomString(6)
 	return RegisterUserTxParams{
 		User: CreateUserParams{
-			Phone:        utils.RandomPhone(9),
+			Phone:        &phone,
 			PinHash:      "hash",
 			Name:         utils.RandomString(6),
 			Plan:         "pro",
 			HomeCurrency: "THB",
+			BusinessName: &bn,
 		},
 		Session: CreateSessionParams{
 			RefreshToken: utils.RandomString(32),

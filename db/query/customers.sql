@@ -9,9 +9,10 @@ INSERT INTO customers (
     type,
     notes,
     tags,
-    customer_number
+    customer_number,
+    assigned_to
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 RETURNING *;
 
 
@@ -120,6 +121,15 @@ SET
 WHERE id = $1
   AND user_id = $2;
 
+
+-- name: ListCustomersAssigned :many
+SELECT *
+FROM customers
+WHERE user_id = $1
+  AND assigned_to = $2
+  AND status = 'active'
+ORDER BY last_activity DESC NULLS LAST, created_at DESC
+LIMIT $3 OFFSET $4;
 
 -- name: TopDebtors :many
 SELECT *

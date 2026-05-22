@@ -30,7 +30,7 @@ func NewSyncHandler(svc service.SyncServicer, base *BaseHandler) *SyncHandler {
 //	@Router       /api/v1/sync [get]
 //	@Security     BearerAuth
 func (h *SyncHandler) GetSync(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func (h *SyncHandler) GetSync(w http.ResponseWriter, r *http.Request) {
 	}
 	// since == zero value → returns all records for the user
 
-	data, err := h.svc.GetSyncData(r.Context(), userID, since)
+	data, err := h.svc.GetSyncData(r.Context(), effectiveUserID, since)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

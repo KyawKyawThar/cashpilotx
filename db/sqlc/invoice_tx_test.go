@@ -19,8 +19,9 @@ func committedUser(t *testing.T) User {
 	t.Helper()
 	bn := utils.RandomString(8)
 	local := "en"
+	phone := utils.RandomPhone(9)
 	u, err := testStore.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(9),
+		Phone:        &phone,
 		PinHash:      "test_hash",
 		Name:         utils.RandomString(6),
 		BusinessName: &bn,

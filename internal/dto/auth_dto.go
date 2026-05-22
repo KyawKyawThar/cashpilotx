@@ -24,14 +24,14 @@ type RequestEmailVerificationRequest struct {
 
 // RegisterRequest carries fields for new user registration (phone + email + PIN).
 type RegisterRequest struct {
-	Phone        string  `json:"phone"         validate:"required,phone"`
-	Email        string  `json:"email"         validate:"required,email"`
-	EmailOTP     string  `json:"email_otp"     validate:"required,len=6"`
-	PIN          string  `json:"pin"           validate:"required,pin"`
-	ConfirmPIN   string  `json:"confirm_pin"   validate:"required,pin"`
-	Name         string  `json:"name"          validate:"required,min=2,max=100"`
-	BusinessName *string `json:"business_name" validate:"omitempty,min=2,max=100"`
-	HomeCurrency string  `json:"home_currency" validate:"required,currency"`
+	Phone        string `json:"phone"         validate:"required,phone"`
+	Email        string `json:"email"         validate:"required,email"`
+	EmailOTP     string `json:"email_otp"     validate:"required,len=6"`
+	PIN          string `json:"pin"           validate:"required,pin"`
+	ConfirmPIN   string `json:"confirm_pin"   validate:"required,pin"`
+	Name         string `json:"name"          validate:"required,min=2,max=100"`
+	BusinessName string `json:"business_name" validate:"required,min=2,max=100"`
+	HomeCurrency string `json:"home_currency" validate:"required,currency"`
 }
 
 // RegisterResponse is returned after successful registration.
@@ -43,10 +43,10 @@ type RegisterResponse struct {
 	TokenType    string        `json:"token_type"`
 }
 
-// LoginRequest carries phone and PIN for authentication.
+// LoginRequest accepts either a phone number (super_admin) or username (team accounts).
 type LoginRequest struct {
-	Phone string `json:"phone" validate:"required,phone"`
-	PIN   string `json:"pin"   validate:"required,pin"`
+	Identifier string `json:"identifier" validate:"required,min=3,max=50"`
+	PIN        string `json:"pin"        validate:"required,pin"`
 }
 
 // LoginResponse is returned after successful authentication.
@@ -84,6 +84,21 @@ type ResetPINRequest struct {
 	ConfirmPIN string `json:"confirm_pin" validate:"required,pin"`
 }
 
+// ChangePINRequest is used by authenticated users to change their own PIN.
+// Also clears force_pin_change on success.
+type ChangePINRequest struct {
+	CurrentPIN string `json:"current_pin" validate:"required,pin"`
+	NewPIN     string `json:"new_pin"     validate:"required,pin"`
+	ConfirmPIN string `json:"confirm_pin" validate:"required,pin"`
+}
+
+// ChangePINResponse returns a fresh access token with force_pin_change: false.
+type ChangePINResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int64  `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+}
+
 // UpdateUserSettingsRequest carries fields the user can change on their profile.
 type UpdateUserSettingsRequest struct {
 	HomeCurrency string `json:"home_currency" validate:"required,currency"`
@@ -91,8 +106,8 @@ type UpdateUserSettingsRequest struct {
 
 // LogoutRequest optionally targets a specific session or all sessions.
 type LogoutRequest struct {
-	SessionID string `json:"session_id,omitempty"` // specific session; empty = current token only
-	LogoutAll bool   `json:"logout_all"`           // true = revoke all sessions
+	SessionID string `json:"session_id,omitempty"`
+	LogoutAll bool   `json:"logout_all"`
 }
 
 // SessionResponse represents a single active session.
@@ -107,27 +122,33 @@ type SessionResponse struct {
 
 // UserResponse is the public representation of a CashPilotX user.
 type UserResponse struct {
-	ID           uuid.UUID `json:"id"`
-	Phone        string    `json:"phone"`
-	Name         string    `json:"name"`
-	BusinessName *string   `json:"business_name,omitempty"`
-	HomeCurrency string    `json:"home_currency"`
-	Plan         string    `json:"plan"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID             uuid.UUID `json:"id"`
+	Phone          *string   `json:"phone,omitempty"`
+	Username       *string   `json:"username,omitempty"`
+	Name           string    `json:"name"`
+	BusinessName   *string   `json:"business_name,omitempty"`
+	Locale         *string   `json:"locale,omitempty"`
+	HomeCurrency   string    `json:"home_currency"`
+	Plan           string    `json:"plan"`
+	ForcePinChange bool      `json:"force_pin_change"`
+	IsActive       bool      `json:"is_active"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // ToUserResponse maps db.User to a client-facing UserResponse.
 func ToUserResponse(u db.User) *UserResponse {
 	return &UserResponse{
-		ID:           u.ID,
-		Phone:        u.Phone,
-		Name:         u.Name,
-		BusinessName: u.BusinessName,
-		HomeCurrency: u.HomeCurrency,
-		Plan:         u.Plan,
-		IsActive:     u.IsActive,
-		CreatedAt:    u.CreatedAt,
+		ID:             u.ID,
+		Phone:          u.Phone,
+		Username:       u.Username,
+		Name:           u.Name,
+		BusinessName:   u.BusinessName,
+		Locale:         u.Locale,
+		HomeCurrency:   u.HomeCurrency,
+		Plan:           u.Plan,
+		ForcePinChange: u.ForcePinChange,
+		IsActive:       u.IsActive,
+		CreatedAt:      u.CreatedAt,
 	}
 }
 
@@ -149,7 +170,7 @@ func DbSessionToResponse(s db.Session) *SessionResponse {
 		ID:           s.ID.String(),
 		CreatedAt:    s.CreatedAt,
 		ExpiresAt:    s.ExpiresAt,
-		LastActiveAt: s.CreatedAt, // db.Session has no LastUsedAt; seed from CreatedAt
+		LastActiveAt: s.CreatedAt,
 	}
 	if s.UserAgent != nil {
 		r.UserAgent = *s.UserAgent

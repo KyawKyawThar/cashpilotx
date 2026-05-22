@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
 	"net/http"
@@ -33,7 +34,7 @@ func NewInvoiceHandler(svc service.InvoiceServicer, base *BaseHandler) *InvoiceH
 //	@Router       /api/v1/invoices [post]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -43,7 +44,7 @@ func (h *InvoiceHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.CreateInvoice(r.Context(), userID, &req)
+	resp, err := h.svc.CreateInvoice(r.Context(), effectiveUserID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -66,7 +67,7 @@ func (h *InvoiceHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices/{invoice_id} [get]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -76,7 +77,7 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.GetInvoice(r.Context(), userID, invoiceID)
+	resp, err := h.svc.GetInvoice(r.Context(), effectiveUserID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -103,7 +104,7 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices [get]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +112,17 @@ func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	pg := dto.GetPaginationFromRequest(r)
 	filter := invoiceFilterFromQuery(r)
 
-	resp, err := h.svc.ListInvoices(r.Context(), userID, filter, pg)
+	// sales: enforce current-month-only restriction.
+	if scope.Scope == scopeOwn {
+		// Reject explicit history queries older than the current month.
+		if r.URL.Query().Get("before") != "" {
+			h.WriteErr(w, r, api.ErrForbidden("Invoice history beyond current month is not available for your role"))
+			return
+		}
+		filter.CurrentMonthOnly = true
+	}
+
+	resp, err := h.svc.ListInvoices(r.Context(), effectiveUserID, filter, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -135,7 +146,7 @@ func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices/{invoice_id}/cancel [post]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -145,7 +156,7 @@ func (h *InvoiceHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.CancelInvoice(r.Context(), userID, invoiceID)
+	resp, err := h.svc.CancelInvoice(r.Context(), effectiveUserID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -169,7 +180,7 @@ func (h *InvoiceHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices/{invoice_id}/reactivate [post]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) ReactivateInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -179,7 +190,7 @@ func (h *InvoiceHandler) ReactivateInvoice(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resp, err := h.svc.ReactivateInvoice(r.Context(), userID, invoiceID)
+	resp, err := h.svc.ReactivateInvoice(r.Context(), effectiveUserID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -202,7 +213,7 @@ func (h *InvoiceHandler) ReactivateInvoice(w http.ResponseWriter, r *http.Reques
 //	@Router       /api/v1/invoices/{invoice_id}/write-off [post]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) WriteOffInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -212,7 +223,7 @@ func (h *InvoiceHandler) WriteOffInvoice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.svc.WriteOffInvoice(r.Context(), userID, invoiceID)
+	resp, err := h.svc.WriteOffInvoice(r.Context(), effectiveUserID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -242,7 +253,7 @@ func (h *InvoiceHandler) WriteOffInvoice(w http.ResponseWriter, r *http.Request)
 //
 //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 func (h *InvoiceHandler) MoveCollectionState(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -257,7 +268,32 @@ func (h *InvoiceHandler) MoveCollectionState(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp, err := h.svc.MoveCollectionState(r.Context(), userID, invoiceID, &req)
+	resp, err := h.svc.MoveCollectionState(r.Context(), effectiveUserID, invoiceID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
+func (h *InvoiceHandler) PatchInvoiceTracking(w http.ResponseWriter, r *http.Request) { //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	invoiceID, ok := h.MustUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateInvoiceTrackingRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.UpdateInvoiceTracking(r.Context(), effectiveUserID, invoiceID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

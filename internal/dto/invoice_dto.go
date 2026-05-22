@@ -37,7 +37,9 @@ type CreateInvoiceRequest struct {
 
 // CreateDeliveryServiceRequest is the payload for POST /api/v1/delivery-services.
 type CreateDeliveryServiceRequest struct {
-	Name string `json:"name" validate:"required,min=1,max=100"`
+	Name     string `json:"name"     validate:"required,min=1,max=100"`
+	Price    int64  `json:"price"    validate:"min=0"`
+	Currency string `json:"currency" validate:"required,len=3"`
 }
 
 // MoveCollectionStateRequest is the payload for PATCH /api/v1/invoices/{id}/collection-state.
@@ -47,12 +49,18 @@ type MoveCollectionStateRequest struct {
 	PromisedAt *time.Time `json:"promised_at"` // only honored when State == "promised"
 }
 
+// UpdateInvoiceTrackingRequest is the payload for PATCH /api/v1/invoices/{id}/tracking.
+type UpdateInvoiceTrackingRequest struct {
+	TrackingNumber *string `json:"tracking_number" validate:"omitempty,max=100" example:"10661980LZR"`
+}
+
 // ListInvoicesFilter holds optional filters for GET /api/v1/invoices.
 type ListInvoicesFilter struct {
-	Status          *string // unpaid | partial | paid | canceled
-	Overdue         bool
-	CollectionState *string // pending | reminded | no_response | negotiating | promised | verifying | paid | defaulted
-	CustomerID      *uuid.UUID
+	Status           *string // unpaid | partial | paid | canceled
+	Overdue          bool
+	CollectionState  *string // pending | reminded | no_response | negotiating | promised | verifying | paid | defaulted
+	CustomerID       *uuid.UUID
+	CurrentMonthOnly bool // enforced for sales role by scope middleware
 }
 
 // =============================================================================

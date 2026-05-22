@@ -19,6 +19,8 @@ type Services struct {
 	Reminder ReminderServicer
 	Audit    AuditServicer
 	Sync     SyncServicer
+	Team     TeamServicer
+	Product  ProductServicer
 }
 
 type AuthService struct {
@@ -54,6 +56,14 @@ type ReminderService struct {
 }
 
 type AuditService struct {
+	store db.Store
+}
+
+type TeamService struct {
+	store db.Store
+}
+
+type ProductService struct {
 	store db.Store
 }
 
@@ -109,6 +119,14 @@ func NewAuditService(store db.Store) *AuditService {
 	return &AuditService{store: store}
 }
 
+func NewTeamService(store db.Store) *TeamService {
+	return &TeamService{store: store}
+}
+
+func NewProductService(store db.Store) *ProductService {
+	return &ProductService{store: store}
+}
+
 func NewCustomerService(store db.Store, cfg *CustomerConfig) *CustomerService {
 	var key []byte
 	if cfg != nil {
@@ -147,5 +165,7 @@ func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token
 		Reminder: NewReminderService(store),
 		Audit:    NewAuditService(store),
 		Sync:     NewSyncService(store),
+		Team:     NewTeamService(store),
+		Product:  NewProductService(store),
 	}
 }

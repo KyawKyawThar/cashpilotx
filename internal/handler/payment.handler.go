@@ -37,7 +37,7 @@ func NewPaymentHandler(svc service.PaymentServicer, base *BaseHandler) *PaymentH
 //	@Router       /api/v1/payments [post]
 //	@Security     BearerAuth
 func (h *PaymentHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *PaymentHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.RecordPayment(r.Context(), userID, &req)
+	resp, err := h.svc.RecordPayment(r.Context(), effectiveUserID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -70,14 +70,14 @@ func (h *PaymentHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/payments [get]
 //	@Security     BearerAuth
 func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.ListPayments(r.Context(), userID, pg)
+	resp, err := h.svc.ListPayments(r.Context(), effectiveUserID, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -100,7 +100,7 @@ func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/payments/{payment_id} [get]
 //	@Security     BearerAuth
 func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -110,7 +110,7 @@ func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.GetPayment(r.Context(), userID, paymentID)
+	resp, err := h.svc.GetPayment(r.Context(), effectiveUserID, paymentID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -136,7 +136,7 @@ func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/payments/{payment_id}/void [post]
 //	@Security     BearerAuth
 func (h *PaymentHandler) VoidPayment(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -153,7 +153,7 @@ func (h *PaymentHandler) VoidPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.VoidPayment(r.Context(), userID, paymentID, req.CustomerID)
+	resp, err := h.svc.VoidPayment(r.Context(), effectiveUserID, paymentID, req.CustomerID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -176,7 +176,7 @@ func (h *PaymentHandler) VoidPayment(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices/{invoice_id}/payments [get]
 //	@Security     BearerAuth
 func (h *PaymentHandler) ListPaymentsByInvoice(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -186,7 +186,7 @@ func (h *PaymentHandler) ListPaymentsByInvoice(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	resp, err := h.svc.ListPaymentsByInvoice(r.Context(), userID, invoiceID)
+	resp, err := h.svc.ListPaymentsByInvoice(r.Context(), effectiveUserID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

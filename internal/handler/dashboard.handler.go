@@ -30,12 +30,12 @@ func NewDashboardHandler(svc service.InvoiceServicer, base *BaseHandler) *Dashbo
 //	@Router       /api/v1/dashboard [get]
 //	@Security     BearerAuth
 func (h *DashboardHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
 
-	resp, err := h.svc.GetDashboardStats(r.Context(), userID)
+	resp, err := h.svc.GetDashboardStats(r.Context(), effectiveUserID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -59,7 +59,7 @@ func (h *DashboardHandler) GetDashboardStats(w http.ResponseWriter, r *http.Requ
 //	@Router       /api/v1/payments/summary [get]
 //	@Security     BearerAuth
 func (h *DashboardHandler) GetCollectedSummary(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -85,7 +85,7 @@ func (h *DashboardHandler) GetCollectedSummary(w http.ResponseWriter, r *http.Re
 	// Add 1 day so the selected to-date is inclusive in the SQL < comparison
 	toExclusive := to.AddDate(0, 0, 1)
 
-	resp, err := h.svc.GetCollectedSummary(r.Context(), userID, from, toExclusive)
+	resp, err := h.svc.GetCollectedSummary(r.Context(), effectiveUserID, from, toExclusive)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -108,14 +108,14 @@ func (h *DashboardHandler) GetCollectedSummary(w http.ResponseWriter, r *http.Re
 //	@Router       /api/v1/recovery-queue [get]
 //	@Security     BearerAuth
 func (h *DashboardHandler) GetRecoveryQueue(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.GetRecoveryQueue(r.Context(), userID, pg)
+	resp, err := h.svc.GetRecoveryQueue(r.Context(), effectiveUserID, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

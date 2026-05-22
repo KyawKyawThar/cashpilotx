@@ -115,6 +115,7 @@ func (s *Server) setupPublicRoutes(r chi.Router) {
 				r.Get("/me", s.handler.Auth.GetMe)
 				r.Delete("/me", s.handler.Auth.DeleteAccount)
 				r.Patch("/settings", s.handler.Auth.UpdateUserSettings)
+				r.Post("/change-pin", s.handler.Auth.ChangePIN)
 			})
 		})
 	})
@@ -139,13 +140,15 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 		r.Use(mw.Timeout(s.requestTimeout()))
 		r.Use(mw.MaxBodySize(1 << 20)) // 1 MB
 		r.Use(mw.JWTAuthWithService(s.services.Auth))
+		r.Use(mw.ScopeContext) // resolves role/scope from JWT payload for all protected routes
 
 		r.Get("/api/v1/dashboard", s.handler.Dashboard.GetDashboardStats)
 		r.Get("/api/v1/recovery-queue", s.handler.Dashboard.GetRecoveryQueue)
 		r.Get("/api/v1/sync", s.handler.Sync.GetSync)
 
 		r.Get("/api/v1/audit-log", s.handler.Audit.ListAuditLogs)
-		r.Post("/api/v1/audit-log/{log_id}/revert", s.handler.Audit.RevertAuditLog)
+		r.With(mw.RequirePermission("audit_log", "revert")).
+			Post("/api/v1/audit-log/{log_id}/revert", s.handler.Audit.RevertAuditLog)
 
 		r.Route("/api/v1/customers", func(r chi.Router) {
 			r.Post("/", s.handler.Customer.CreateCustomer)
@@ -158,7 +161,9 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/{customer_id}/events", s.handler.Customer.ListCustomerEvents)
 		})
 
+		// Channel configs: admin-only (requires channel_config:manage permission).
 		r.Route("/api/v1/channel-configs", func(r chi.Router) {
+			r.Use(mw.RequirePermission("channel_config", "manage"))
 			r.Post("/", s.handler.Customer.UpsertChannelConfig)
 			r.Get("/", s.handler.Customer.ListChannelConfigs)
 			r.Get("/{channel}", s.handler.Customer.GetChannelConfig)
@@ -174,6 +179,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Post("/{invoice_id}/reactivate", s.handler.Invoice.ReactivateInvoice)
 			r.Post("/{invoice_id}/write-off", s.handler.Invoice.WriteOffInvoice)
 			r.With(mw.Idempotency(s.store)).Patch("/{invoice_id}/collection-state", s.handler.Invoice.MoveCollectionState)
+			r.Patch("/{invoice_id}/tracking", s.handler.Invoice.PatchInvoiceTracking)
 			r.Get("/{invoice_id}/payments", s.handler.Payment.ListPaymentsByInvoice)
 			r.Get("/{invoice_id}/messages", s.handler.Message.ListMessages)
 			r.Get("/{invoice_id}/reminders", s.handler.Reminder.ListReminders)
@@ -201,8 +207,17 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 
 		r.Route("/api/v1/delivery-services", func(r chi.Router) {
 			r.Get("/", s.handler.DeliveryService.List)
-			r.Post("/", s.handler.DeliveryService.Create)
-			r.Delete("/{service_id}", s.handler.DeliveryService.Delete)
+			r.With(mw.RequirePermission("product", "manage")).Post("/", s.handler.DeliveryService.Create)
+			r.With(mw.RequirePermission("product", "manage")).Patch("/{service_id}", s.handler.DeliveryService.Update)
+			r.With(mw.RequirePermission("product", "manage")).Delete("/{service_id}", s.handler.DeliveryService.Delete)
+		})
+
+		// Products catalog — requires Pro plan for management; all roles can list.
+		r.Route("/api/v1/products", func(r chi.Router) {
+			r.Get("/", s.handler.Product.List)
+			r.With(mw.RequirePlan("pro"), mw.RequirePermission("product", "manage")).Post("/", s.handler.Product.Create)
+			r.With(mw.RequirePlan("pro"), mw.RequirePermission("product", "manage")).Patch("/{product_id}", s.handler.Product.Update)
+			r.With(mw.RequirePlan("pro"), mw.RequirePermission("product", "manage")).Delete("/{product_id}", s.handler.Product.Deactivate)
 		})
 
 		r.Route("/api/v1/payments", func(r chi.Router) {
@@ -210,7 +225,34 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.With(mw.Idempotency(s.store)).Post("/", s.handler.Payment.RecordPayment)
 			r.Get("/", s.handler.Payment.ListPayments)
 			r.Get("/{payment_id}", s.handler.Payment.GetPayment)
-			r.Post("/{payment_id}/void", s.handler.Payment.VoidPayment)
+			r.With(mw.RequirePermission("payment", "void")).
+				Post("/{payment_id}/void", s.handler.Payment.VoidPayment)
+		})
+
+		// Team management — requires Pro plan.
+		r.Route("/api/v1/teams", func(r chi.Router) {
+			r.Use(mw.RequirePlan("pro"))
+			r.Use(mw.RequirePermission("team", "view"))
+			r.Get("/", s.handler.Team.ListTeams)
+			r.Post("/", s.handler.Team.CreateTeam)
+		})
+
+		r.Route("/api/v1/team/users", func(r chi.Router) {
+			r.Use(mw.RequirePlan("pro"))
+			r.Use(mw.RequirePermission("team", "view"))
+			r.Get("/", s.handler.Team.ListTeamUsers)
+			r.Post("/", s.handler.Team.CreateTeamUser)
+			r.Patch("/{user_id}", s.handler.Team.UpdateTeamUser)
+			r.Delete("/{user_id}", s.handler.Team.DeactivateTeamUser)
+			r.Post("/{user_id}/reset-pin", s.handler.Team.ResetMemberPIN)
+
+			// Permission grants — super_admin only.
+			r.With(mw.RequirePermission("team", "grant_permission")).
+				Get("/{user_id}/grants", s.handler.Team.ListGrants)
+			r.With(mw.RequirePermission("team", "grant_permission")).
+				Post("/{user_id}/grants", s.handler.Team.GrantPermission)
+			r.With(mw.RequirePermission("team", "grant_permission")).
+				Delete("/{user_id}/grants/{grant_id}", s.handler.Team.RevokeGrant)
 		})
 	})
 }

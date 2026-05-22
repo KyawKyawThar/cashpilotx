@@ -626,6 +626,72 @@ func (q *Queries) ListInvoicesByStatus(ctx context.Context, arg ListInvoicesBySt
 	return items, nil
 }
 
+const listInvoicesCurrentMonth = `-- name: ListInvoicesCurrentMonth :many
+SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
+FROM invoices
+WHERE user_id = $1
+  AND issued_at >= date_trunc('month', now())
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListInvoicesCurrentMonthParams struct {
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+	Limit  int32     `db:"limit" json:"limit"`
+	Offset int32     `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListInvoicesCurrentMonth(ctx context.Context, arg ListInvoicesCurrentMonthParams) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, listInvoicesCurrentMonth, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Invoice{}
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CustomerID,
+			&i.Amount,
+			&i.Currency,
+			&i.PaidAmount,
+			&i.PaidAt,
+			&i.Description,
+			&i.DueDate,
+			&i.Status,
+			&i.Source,
+			&i.PhotoUrl,
+			&i.ExternalID,
+			&i.IssuedAt,
+			&i.Items,
+			&i.CollectionState,
+			&i.LastContactedAt,
+			&i.LastResponseAt,
+			&i.FollowUpCount,
+			&i.ConfidenceScore,
+			&i.ConfidenceFactors,
+			&i.OutcomeText,
+			&i.OutcomeTimeframe,
+			&i.ConfidenceComputedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInvoicesDueToday = `-- name: ListInvoicesDueToday :many
 SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
 FROM invoices
@@ -1162,4 +1228,58 @@ func (q *Queries) UpdateInvoiceConfidence(ctx context.Context, arg UpdateInvoice
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateInvoiceTracking = `-- name: UpdateInvoiceTracking :one
+UPDATE invoices
+SET
+    tracking_number = $3,
+    updated_at      = now()
+WHERE id = $1
+  AND user_id = $2
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number
+`
+
+type UpdateInvoiceTrackingParams struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	UserID         uuid.UUID `db:"user_id" json:"user_id"`
+	TrackingNumber *string   `db:"tracking_number" json:"tracking_number"`
+}
+
+func (q *Queries) UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTrackingParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, updateInvoiceTracking, arg.ID, arg.UserID, arg.TrackingNumber)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CustomerID,
+		&i.Amount,
+		&i.Currency,
+		&i.PaidAmount,
+		&i.PaidAt,
+		&i.Description,
+		&i.DueDate,
+		&i.Status,
+		&i.Source,
+		&i.PhotoUrl,
+		&i.ExternalID,
+		&i.IssuedAt,
+		&i.Items,
+		&i.CollectionState,
+		&i.LastContactedAt,
+		&i.LastResponseAt,
+		&i.FollowUpCount,
+		&i.ConfidenceScore,
+		&i.ConfidenceFactors,
+		&i.OutcomeText,
+		&i.OutcomeTimeframe,
+		&i.ConfidenceComputedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
+	)
+	return i, err
 }

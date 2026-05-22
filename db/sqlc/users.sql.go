@@ -11,6 +11,68 @@ import (
 	"github.com/google/uuid"
 )
 
+const createTeamUser = `-- name: CreateTeamUser :one
+INSERT INTO users (name, username, pin_hash, home_currency, plan, role, team_id, org_owner_id, created_by, force_pin_change, business_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10)
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+`
+
+type CreateTeamUserParams struct {
+	Name         string     `db:"name" json:"name"`
+	Username     *string    `db:"username" json:"username"`
+	PinHash      string     `db:"pin_hash" json:"pin_hash"`
+	HomeCurrency string     `db:"home_currency" json:"home_currency"`
+	Plan         string     `db:"plan" json:"plan"`
+	Role         UserRole   `db:"role" json:"role"`
+	TeamID       *uuid.UUID `db:"team_id" json:"team_id"`
+	OrgOwnerID   *uuid.UUID `db:"org_owner_id" json:"org_owner_id"`
+	CreatedBy    *uuid.UUID `db:"created_by" json:"created_by"`
+	BusinessName *string    `db:"business_name" json:"business_name"`
+}
+
+func (q *Queries) CreateTeamUser(ctx context.Context, arg CreateTeamUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createTeamUser,
+		arg.Name,
+		arg.Username,
+		arg.PinHash,
+		arg.HomeCurrency,
+		arg.Plan,
+		arg.Role,
+		arg.TeamID,
+		arg.OrgOwnerID,
+		arg.CreatedBy,
+		arg.BusinessName,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     phone,
@@ -23,11 +85,11 @@ INSERT INTO users (
     email
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 `
 
 type CreateUserParams struct {
-	Phone        string  `db:"phone" json:"phone"`
+	Phone        *string `db:"phone" json:"phone"`
 	PinHash      string  `db:"pin_hash" json:"pin_hash"`
 	Name         string  `db:"name" json:"name"`
 	BusinessName *string `db:"business_name" json:"business_name"`
@@ -68,6 +130,12 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
@@ -98,7 +166,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 FROM users
 WHERE email = $1
   AND is_active = true
@@ -128,12 +196,18 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, erro
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 FROM users
 WHERE id = $1
   AND is_active = true
@@ -162,19 +236,25 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 FROM users
 WHERE phone = $1
   AND is_active = true
 LIMIT 1
 `
 
-func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error) {
+func (q *Queries) GetUserByPhone(ctx context.Context, phone *string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByPhone, phone)
 	var i User
 	err := row.Scan(
@@ -196,8 +276,159 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
+}
+
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+FROM users
+WHERE username = $1
+  AND is_active = true
+LIMIT 1
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
+const listActiveOrgUsers = `-- name: ListActiveOrgUsers :many
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id FROM users
+WHERE org_owner_id = $1
+  AND id != $1
+  AND is_active = true
+ORDER BY role ASC, name ASC
+`
+
+func (q *Queries) ListActiveOrgUsers(ctx context.Context, orgOwnerID *uuid.UUID) ([]User, error) {
+	rows, err := q.db.Query(ctx, listActiveOrgUsers, orgOwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Phone,
+			&i.PinHash,
+			&i.Name,
+			&i.BusinessName,
+			&i.Locale,
+			&i.Plan,
+			&i.HomeCurrency,
+			&i.StreakDays,
+			&i.StreakBest,
+			&i.InvoiceSequence,
+			&i.OnboardingStep,
+			&i.OnboardingDoneAt,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Email,
+			&i.CustomerSequence,
+			&i.Username,
+			&i.ForcePinChange,
+			&i.Role,
+			&i.TeamID,
+			&i.CreatedBy,
+			&i.OrgOwnerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllOrgUsers = `-- name: ListAllOrgUsers :many
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id FROM users
+WHERE org_owner_id = $1
+  AND id != $1
+ORDER BY role ASC, name ASC
+`
+
+func (q *Queries) ListAllOrgUsers(ctx context.Context, orgOwnerID *uuid.UUID) ([]User, error) {
+	rows, err := q.db.Query(ctx, listAllOrgUsers, orgOwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Phone,
+			&i.PinHash,
+			&i.Name,
+			&i.BusinessName,
+			&i.Locale,
+			&i.Plan,
+			&i.HomeCurrency,
+			&i.StreakDays,
+			&i.StreakBest,
+			&i.InvoiceSequence,
+			&i.OnboardingStep,
+			&i.OnboardingDoneAt,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Email,
+			&i.CustomerSequence,
+			&i.Username,
+			&i.ForcePinChange,
+			&i.Role,
+			&i.TeamID,
+			&i.CreatedBy,
+			&i.OrgOwnerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsersForDigest = `-- name: ListUsersForDigest :many
@@ -279,6 +510,26 @@ func (q *Queries) NextInvoiceSequence(ctx context.Context, id uuid.UUID) (int32,
 	return invoice_sequence, err
 }
 
+const setForcePinChange = `-- name: SetForcePinChange :exec
+UPDATE users
+SET
+    pin_hash         = $2,
+    force_pin_change = true,
+    updated_at       = now()
+WHERE id = $1
+  AND is_active = true
+`
+
+type SetForcePinChangeParams struct {
+	ID      uuid.UUID `db:"id" json:"id"`
+	PinHash string    `db:"pin_hash" json:"pin_hash"`
+}
+
+func (q *Queries) SetForcePinChange(ctx context.Context, arg SetForcePinChangeParams) error {
+	_, err := q.db.Exec(ctx, setForcePinChange, arg.ID, arg.PinHash)
+	return err
+}
+
 const updateOnboardingStep = `-- name: UpdateOnboardingStep :one
 UPDATE users
 SET
@@ -287,7 +538,7 @@ SET
     updated_at         = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 `
 
 type UpdateOnboardingStepParams struct {
@@ -319,6 +570,71 @@ func (q *Queries) UpdateOnboardingStep(ctx context.Context, arg UpdateOnboarding
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
+const updateTeamUser = `-- name: UpdateTeamUser :one
+UPDATE users
+SET
+    name       = COALESCE($2, name),
+    username   = COALESCE($3, username),
+    phone      = COALESCE($4, phone),
+    team_id    = COALESCE($5, team_id),
+    updated_at = now()
+WHERE id = $1
+  AND is_active = true
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+`
+
+type UpdateTeamUserParams struct {
+	ID       uuid.UUID  `db:"id" json:"id"`
+	Name     *string    `db:"name" json:"name"`
+	Username *string    `db:"username" json:"username"`
+	Phone    *string    `db:"phone" json:"phone"`
+	TeamID   *uuid.UUID `db:"team_id" json:"team_id"`
+}
+
+func (q *Queries) UpdateTeamUser(ctx context.Context, arg UpdateTeamUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateTeamUser,
+		arg.ID,
+		arg.Name,
+		arg.Username,
+		arg.Phone,
+		arg.TeamID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
@@ -342,6 +658,26 @@ func (q *Queries) UpdateUserPIN(ctx context.Context, arg UpdateUserPINParams) er
 	return err
 }
 
+const updateUserPINAndClearForce = `-- name: UpdateUserPINAndClearForce :exec
+UPDATE users
+SET
+    pin_hash         = $2,
+    force_pin_change = false,
+    updated_at       = now()
+WHERE id = $1
+  AND is_active = true
+`
+
+type UpdateUserPINAndClearForceParams struct {
+	ID      uuid.UUID `db:"id" json:"id"`
+	PinHash string    `db:"pin_hash" json:"pin_hash"`
+}
+
+func (q *Queries) UpdateUserPINAndClearForce(ctx context.Context, arg UpdateUserPINAndClearForceParams) error {
+	_, err := q.db.Exec(ctx, updateUserPINAndClearForce, arg.ID, arg.PinHash)
+	return err
+}
+
 const updateUserPlan = `-- name: UpdateUserPlan :one
 UPDATE users
 SET
@@ -349,7 +685,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 `
 
 type UpdateUserPlanParams struct {
@@ -379,6 +715,12 @@ func (q *Queries) UpdateUserPlan(ctx context.Context, arg UpdateUserPlanParams) 
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
@@ -392,7 +734,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 `
 
 type UpdateUserProfileParams struct {
@@ -429,6 +771,12 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }
@@ -441,7 +789,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND is_active = true
-RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence
+RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 `
 
 type UpdateUserStreakParams struct {
@@ -471,6 +819,12 @@ func (q *Queries) UpdateUserStreak(ctx context.Context, arg UpdateUserStreakPara
 		&i.UpdatedAt,
 		&i.Email,
 		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
 	)
 	return i, err
 }

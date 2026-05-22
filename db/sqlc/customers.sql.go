@@ -19,7 +19,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 `
 
 type AddCustomerDebtParams struct {
@@ -50,6 +50,8 @@ func (q *Queries) AddCustomerDebt(ctx context.Context, arg AddCustomerDebtParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
@@ -63,7 +65,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 `
 
 type AddCustomerPaymentParams struct {
@@ -94,6 +96,8 @@ func (q *Queries) AddCustomerPayment(ctx context.Context, arg AddCustomerPayment
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
@@ -109,23 +113,25 @@ INSERT INTO customers (
     type,
     notes,
     tags,
-    customer_number
+    customer_number,
+    assigned_to
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 `
 
 type CreateCustomerParams struct {
-	UserID          uuid.UUID `db:"user_id" json:"user_id"`
-	Name            string    `db:"name" json:"name"`
-	NormalizedName  string    `db:"normalized_name" json:"normalized_name"`
-	Phone           *string   `db:"phone" json:"phone"`
-	NormalizedPhone *string   `db:"normalized_phone" json:"normalized_phone"`
-	Country         *string   `db:"country" json:"country"`
-	Type            string    `db:"type" json:"type"`
-	Notes           *string   `db:"notes" json:"notes"`
-	Tags            []string  `db:"tags" json:"tags"`
-	CustomerNumber  *string   `db:"customer_number" json:"customer_number"`
+	UserID          uuid.UUID  `db:"user_id" json:"user_id"`
+	Name            string     `db:"name" json:"name"`
+	NormalizedName  string     `db:"normalized_name" json:"normalized_name"`
+	Phone           *string    `db:"phone" json:"phone"`
+	NormalizedPhone *string    `db:"normalized_phone" json:"normalized_phone"`
+	Country         *string    `db:"country" json:"country"`
+	Type            string     `db:"type" json:"type"`
+	Notes           *string    `db:"notes" json:"notes"`
+	Tags            []string   `db:"tags" json:"tags"`
+	CustomerNumber  *string    `db:"customer_number" json:"customer_number"`
+	AssignedTo      *uuid.UUID `db:"assigned_to" json:"assigned_to"`
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
@@ -140,6 +146,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.Notes,
 		arg.Tags,
 		arg.CustomerNumber,
+		arg.AssignedTo,
 	)
 	var i Customer
 	err := row.Scan(
@@ -161,12 +168,14 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
 
 const getCustomerByID = `-- name: GetCustomerByID :one
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE id = $1
   AND user_id = $2
@@ -200,12 +209,14 @@ func (q *Queries) GetCustomerByID(ctx context.Context, arg GetCustomerByIDParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
 
 const getCustomerByPhone = `-- name: GetCustomerByPhone :one
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE user_id = $1
   AND normalized_phone = $2
@@ -239,12 +250,14 @@ func (q *Queries) GetCustomerByPhone(ctx context.Context, arg GetCustomerByPhone
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
 
 const listAllCustomers = `-- name: ListAllCustomers :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE user_id = $1
 ORDER BY status ASC, last_activity DESC NULLS LAST, created_at DESC
@@ -285,6 +298,8 @@ func (q *Queries) ListAllCustomers(ctx context.Context, arg ListAllCustomersPara
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -297,7 +312,7 @@ func (q *Queries) ListAllCustomers(ctx context.Context, arg ListAllCustomersPara
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE user_id = $1
   AND status = 'active'
@@ -339,6 +354,71 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomersAssigned = `-- name: ListCustomersAssigned :many
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
+FROM customers
+WHERE user_id = $1
+  AND assigned_to = $2
+  AND status = 'active'
+ORDER BY last_activity DESC NULLS LAST, created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListCustomersAssignedParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+	Limit      int32      `db:"limit" json:"limit"`
+	Offset     int32      `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListCustomersAssigned(ctx context.Context, arg ListCustomersAssignedParams) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listCustomersAssigned,
+		arg.UserID,
+		arg.AssignedTo,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.NormalizedName,
+			&i.Phone,
+			&i.NormalizedPhone,
+			&i.Country,
+			&i.Type,
+			&i.Status,
+			&i.TotalOwed,
+			&i.TotalPaid,
+			&i.CreditLimit,
+			&i.LastActivity,
+			&i.Notes,
+			&i.Tags,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -351,7 +431,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 }
 
 const searchCustomers = `-- name: SearchCustomers :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE user_id = $1
   AND status = 'active'
@@ -397,6 +477,8 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -437,7 +519,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 `
 
 type SubtractCustomerPaymentParams struct {
@@ -468,12 +550,14 @@ func (q *Queries) SubtractCustomerPayment(ctx context.Context, arg SubtractCusto
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }
 
 const topDebtors = `-- name: TopDebtors :many
-SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
 WHERE user_id = $1
   AND total_owed > 0
@@ -514,6 +598,8 @@ func (q *Queries) TopDebtors(ctx context.Context, arg TopDebtorsParams) ([]Custo
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -538,7 +624,7 @@ SET
     updated_at = now()
 WHERE id = $1
   AND user_id = $2
-RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 `
 
 type UpdateCustomerParams struct {
@@ -585,6 +671,8 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
 	)
 	return i, err
 }

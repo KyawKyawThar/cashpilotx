@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // CustomerHandler handles customer CRUD and channel config endpoints.
@@ -49,7 +50,7 @@ func (h *CustomerHandler) mustChannelParam(w http.ResponseWriter, r *http.Reques
 //	@Router       /api/v1/customers [post]
 //	@Security     BearerAuth
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -59,7 +60,14 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.svc.CreateCustomer(r.Context(), userID, &req)
+	// For scoped roles (sales), tag the customer as assigned to the creator
+	// so ListCustomersAssigned can filter by assignedTo = callerID.
+	var assignedTo *uuid.UUID
+	if scope.Scope == scopeOwn {
+		assignedTo = &scope.CallerID
+	}
+
+	resp, err := h.svc.CreateCustomer(r.Context(), effectiveUserID, assignedTo, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -83,7 +91,7 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Router       /api/v1/customers/{customer_id} [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -93,7 +101,7 @@ func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.GetCustomer(r.Context(), userID, customerID)
+	resp, err := h.svc.GetCustomer(r.Context(), effectiveUserID, customerID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -116,7 +124,7 @@ func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/customers [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -128,9 +136,14 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		err       error
 	)
 	if r.URL.Query().Get("all") == "true" {
-		customers, err = h.svc.ListAllCustomers(r.Context(), userID, pg)
+		customers, err = h.svc.ListAllCustomers(r.Context(), effectiveUserID, pg)
 	} else {
-		customers, err = h.svc.ListCustomers(r.Context(), userID, pg)
+		filter := &dto.ListCustomersFilter{}
+		// sales: only show customers assigned to them.
+		if scope.Scope == scopeOwn {
+			filter.AssignedTo = &scope.CallerID
+		}
+		customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
 	}
 	if err != nil {
 		h.HandleErr(w, r, err)
@@ -154,7 +167,7 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 //	@Router       /api/v1/customers/search [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -165,7 +178,7 @@ func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	customers, err := h.svc.SearchCustomers(r.Context(), userID, query)
+	customers, err := h.svc.SearchCustomers(r.Context(), effectiveUserID, query)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -193,7 +206,7 @@ func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request
 //
 //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +221,7 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.svc.UpdateCustomer(r.Context(), userID, customerID, &req)
+	resp, err := h.svc.UpdateCustomer(r.Context(), effectiveUserID, customerID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -231,7 +244,7 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Router       /api/v1/customers/{customer_id} [delete]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -241,7 +254,7 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.svc.ArchiveCustomer(r.Context(), userID, customerID); err != nil {
+	if err := h.svc.ArchiveCustomer(r.Context(), effectiveUserID, customerID); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -263,7 +276,7 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 //	@Router       /api/v1/customers/{customer_id}/reactivate [post]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -273,7 +286,7 @@ func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.svc.ReactivateCustomer(r.Context(), userID, customerID); err != nil {
+	if err := h.svc.ReactivateCustomer(r.Context(), effectiveUserID, customerID); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -300,7 +313,7 @@ func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Requ
 //	@Router       /api/v1/channel-configs [post]
 //	@Security     BearerAuth
 func (h *CustomerHandler) UpsertChannelConfig(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -310,7 +323,7 @@ func (h *CustomerHandler) UpsertChannelConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	resp, err := h.svc.UpsertChannelConfig(r.Context(), userID, &req)
+	resp, err := h.svc.UpsertChannelConfig(r.Context(), effectiveUserID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -331,12 +344,12 @@ func (h *CustomerHandler) UpsertChannelConfig(w http.ResponseWriter, r *http.Req
 //	@Router       /api/v1/channel-configs [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListChannelConfigs(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
 
-	configs, err := h.svc.ListChannelConfigs(r.Context(), userID)
+	configs, err := h.svc.ListChannelConfigs(r.Context(), effectiveUserID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -359,7 +372,7 @@ func (h *CustomerHandler) ListChannelConfigs(w http.ResponseWriter, r *http.Requ
 //	@Router       /api/v1/channel-configs/{channel} [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) GetChannelConfig(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -369,7 +382,7 @@ func (h *CustomerHandler) GetChannelConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	cfg, err := h.svc.GetChannelConfig(r.Context(), userID, channel)
+	cfg, err := h.svc.GetChannelConfig(r.Context(), effectiveUserID, channel)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -392,7 +405,7 @@ func (h *CustomerHandler) GetChannelConfig(w http.ResponseWriter, r *http.Reques
 //	@Router       /api/v1/channel-configs/{channel} [delete]
 //	@Security     BearerAuth
 func (h *CustomerHandler) DeleteChannelConfig(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -402,7 +415,7 @@ func (h *CustomerHandler) DeleteChannelConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.svc.DeleteChannelConfig(r.Context(), userID, channel); err != nil {
+	if err := h.svc.DeleteChannelConfig(r.Context(), effectiveUserID, channel); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -427,7 +440,7 @@ func (h *CustomerHandler) DeleteChannelConfig(w http.ResponseWriter, r *http.Req
 //	@Router       /api/v1/channel-configs/{channel}/active [patch]
 //	@Security     BearerAuth
 func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -442,7 +455,7 @@ func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := h.svc.SetChannelActive(r.Context(), userID, channel, *req.IsActive); err != nil {
+	if err := h.svc.SetChannelActive(r.Context(), effectiveUserID, channel, *req.IsActive); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -466,7 +479,7 @@ func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Reques
 //	@Router       /api/v1/customers/{customer_id}/events [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListCustomerEvents(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -478,7 +491,7 @@ func (h *CustomerHandler) ListCustomerEvents(w http.ResponseWriter, r *http.Requ
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.ListCustomerEvents(r.Context(), userID, customerID, pg)
+	resp, err := h.svc.ListCustomerEvents(r.Context(), effectiveUserID, customerID, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

@@ -9,6 +9,11 @@ import (
 const updateHomeCurrency = `
 UPDATE users
 SET    home_currency = $2,
+       locale        = CASE $2
+                         WHEN 'MMK' THEN 'my'
+                         WHEN 'CNY' THEN 'zh'
+                         ELSE 'th'
+                       END,
        updated_at    = now()
 WHERE  id = $1
 RETURNING id, phone, pin_hash, name, business_name, locale, plan, home_currency,

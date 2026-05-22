@@ -31,6 +31,14 @@ WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListInvoicesCurrentMonth :many
+SELECT *
+FROM invoices
+WHERE user_id = $1
+  AND issued_at >= date_trunc('month', now())
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: ListInvoicesByStatus :many
 SELECT *
 FROM invoices
@@ -98,6 +106,15 @@ SET
 WHERE id = $1
   AND user_id = $2
   AND status != 'cancelled'
+RETURNING *;
+
+-- name: UpdateInvoiceTracking :one
+UPDATE invoices
+SET
+    tracking_number = $3,
+    updated_at      = now()
+WHERE id = $1
+  AND user_id = $2
 RETURNING *;
 
 -- ─── Collection lifecycle ─────────────────────────────────────────────────────

@@ -163,6 +163,11 @@ Lead   Member
   - `selling_price BIGINT, currency CHAR(3)`
   - `is_active BOOLEAN NOT NULL DEFAULT true`
 
+- [ ] **Migration 000025b** — delivery services catalog
+  - `CREATE TABLE delivery_services (id, name, price BIGINT, currency CHAR(3), is_active BOOLEAN NOT NULL DEFAULT true, created_by UUID REFERENCES users(id), created_at)`
+  - Admin-managed, same pattern as products
+  - Used as a picker in invoice creation — no free-text entry
+
 - [ ] **Migration 000026** — permissions catalog
   - `CREATE TYPE data_scope AS ENUM ('global','team','own')`
   - `CREATE TABLE permissions (id, resource, action, qualifier, description)`
@@ -302,12 +307,21 @@ Full user lifecycle API. Username-based accounts only. Role boundary enforced se
   - `PATCH  /api/v1/products/:id` — edit (admin+ only)
   - `DELETE /api/v1/products/:id` — deactivate (admin+ only)
 
-- [ ] **Link products to invoice items**
-  - Invoice `items` JSONB already stores `{name, unit_price}` — add optional `product_id`
-  - When team_member picks a product, `selling_price` pre-fills and is not editable
+- [ ] **Delivery Services API** — `internal/service/delivery_service.service.go`
+  - `GET    /api/v1/delivery-services` — list active services (all roles)
+  - `POST   /api/v1/delivery-services` — create (admin+ only)
+  - `PATCH  /api/v1/delivery-services/:id` — edit (admin+ only)
+  - `DELETE /api/v1/delivery-services/:id` — deactivate (admin+ only)
+  - DTOs: `CreateDeliveryServiceRequest { name, price, currency }`, `DeliveryServiceResponse`
+
+- [ ] **Link products to invoice items** — catalog-enforced (no free text)
+  - Invoice `items` JSONB already stores `{name, unit_price}` — add `product_id` (required when product exists)
+  - Add `delivery_service_id UUID REFERENCES delivery_services(id)` to invoices table
+  - Frontend must pick from catalog; backend rejects invoice if `product_id` references a non-existent or inactive product
+  - `selling_price` pre-fills from product and is **not editable** by team_member
 
 ### Deliverable
-Product API live. Cost price never leaks to team_member or team_leader.
+Product and Delivery Service APIs live. All catalog fields are picker-only — no free-text entry. Cost price never leaks to team_member or team_leader.
 
 ---
 
@@ -404,9 +418,12 @@ Any page or element wrapped in `<Can>` correctly hides for unauthorized roles.
   - Hide history filter / date range for `team_member`
   - Hide Edit + Cancel buttons for `team_member`
   - Hide Export button for `team_member`
+  - **Invoice line items** — replace free-text product name with a **product picker** (searchable dropdown, active products only); `selling_price` auto-fills and is locked for `team_member`
+  - **Delivery service** — replace free-text/note field with a **delivery service picker** (dropdown from catalog); admin must add new services before they appear here
 
 - [ ] **Customers page**
   - Show `Assigned To` rep name on each customer card (visible to team_leader+)
+  - **Assigned To field** (new/edit customer form) — replace free-text with a **team member picker** (select from active users scoped to current org); `team_member` cannot change their own assignment
   - Hide risk profile card for `team_member`
   - Hide credit limit field for `team_leader` + `team_member`
   - Hide Delete / Block action for `team_member`
@@ -453,3 +470,4 @@ Full working UI. Each role sees exactly what the permission matrix allows.
 7. **Force PIN change** — JWT with `force_pin_change: true` cannot access any dashboard route until PIN is changed
 8. **Plan gate** — `RequirePlan("pro")` runs before permission check; returns `402` not `403` so frontend can show upgrade prompt instead of generic error
 9. **org_owner_id** — every team account stores the super_admin's id directly; plan check is a single join, not a chain traversal
+10. **Catalog-enforced entry** — products, delivery services, and assigned persons are always selected from a predefined list; free-text entry is not allowed. Admin must add new catalog items before they can be used in invoices or customer forms. Backend validates that referenced IDs are active and belong to the same org.

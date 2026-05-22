@@ -307,6 +307,16 @@ func ErrLoginLocked(lockedUntil time.Time) *Error {
 	).WithDetail("locked_until", lockedUntil.UTC().Format(time.RFC3339))
 }
 
+// --- 402 Payment Required ---
+
+// ErrUpgradeRequired returns 402 with upgrade:true so the frontend can
+// show the plan-upgrade prompt instead of a generic error.
+func ErrUpgradeRequired() *Error {
+	e := NewError("UPGRADE_REQUIRED", "This feature requires a Pro plan. Contact us to upgrade.", http.StatusPaymentRequired)
+	e.Details = []ErrorDetail{{Field: "upgrade", Message: "true"}}
+	return e
+}
+
 // --- 403 Forbidden ---
 
 // ErrForbidden creates a new 403 Forbidden error.

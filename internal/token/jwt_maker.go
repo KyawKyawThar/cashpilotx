@@ -18,14 +18,18 @@ type JWTMaker struct {
 	issuer    string
 }
 
-// Claims wraps jwt.RegisteredClaims. Everything CashPilotX needs
-// (jti, sub, iss, iat, exp) is covered by the standard fields.
+// Claims extends jwt.RegisteredClaims with CashPilotX-specific fields.
 type Claims struct {
 	jwt.RegisteredClaims
+	ForcePinChange bool       `json:"force_pin_change"`
+	LoginType      string     `json:"login_type"`
+	Plan           string     `json:"plan"`
+	Role           string     `json:"role"`
+	TeamID         *uuid.UUID `json:"team_id,omitempty"`
+	OrgOwnerID     *uuid.UUID `json:"org_owner_id,omitempty"`
 }
 
-// NewJWTMaker returns a JWTMaker. secretKey must be at least 32 characters;
-// issuer is stamped as the "iss" claim on every token (e.g. "cashpilotx").
+// NewJWTMaker returns a JWTMaker. secretKey must be at least 32 characters.
 func NewJWTMaker(secretKey, issuer string) (Maker, error) {
 	if len(secretKey) < minSecretKeySize {
 		return nil, fmt.Errorf("invalid key size: must be at least %d characters", minSecretKeySize)
@@ -34,18 +38,26 @@ func NewJWTMaker(secretKey, issuer string) (Maker, error) {
 }
 
 // CreateToken mints a signed JWT for the given operator.
-func (j *JWTMaker) CreateToken(userID uuid.UUID, duration time.Duration) (string, *Payload, error) {
-	payload, err := NewPayload(userID, duration)
+func (j *JWTMaker) CreateToken(params CreateTokenParams) (string, *Payload, error) {
+	payload, err := NewPayload(params)
 	if err != nil {
 		return "", nil, err
 	}
 
-	claims := &jwt.RegisteredClaims{
-		ID:        payload.ID.String(),     // jti — blacklist key
-		Subject:   payload.UserID.String(), // sub — operator identity
-		Issuer:    j.issuer,
-		ExpiresAt: jwt.NewNumericDate(payload.ExpiredAt),
-		IssuedAt:  jwt.NewNumericDate(payload.IssuedAt),
+	claims := &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        payload.ID.String(),
+			Subject:   payload.UserID.String(),
+			Issuer:    j.issuer,
+			ExpiresAt: jwt.NewNumericDate(payload.ExpiredAt),
+			IssuedAt:  jwt.NewNumericDate(payload.IssuedAt),
+		},
+		ForcePinChange: payload.ForcePinChange,
+		LoginType:      payload.LoginType,
+		Plan:           payload.Plan,
+		Role:           payload.Role,
+		TeamID:         payload.TeamID,
+		OrgOwnerID:     payload.OrgOwnerID,
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -90,9 +102,15 @@ func (j *JWTMaker) VerifyToken(tokenString string) (*Payload, error) {
 	}
 
 	return &Payload{
-		ID:        tokenID,
-		UserID:    userID,
-		IssuedAt:  claims.IssuedAt.Time,
-		ExpiredAt: claims.ExpiresAt.Time,
+		ID:             tokenID,
+		UserID:         userID,
+		IssuedAt:       claims.IssuedAt.Time,
+		ExpiredAt:      claims.ExpiresAt.Time,
+		ForcePinChange: claims.ForcePinChange,
+		LoginType:      claims.LoginType,
+		Plan:           claims.Plan,
+		Role:           claims.Role,
+		TeamID:         claims.TeamID,
+		OrgOwnerID:     claims.OrgOwnerID,
 	}, nil
 }

@@ -21,6 +21,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const scopeOwn = "own"
+
 // Handlers is the main container for all HTTP handlers.
 type Handlers struct {
 	Auth            *AuthHandler
@@ -36,6 +38,8 @@ type Handlers struct {
 	Sync            *SyncHandler
 	Push            *PushHandler
 	DeliveryService *DeliveryServiceHandler
+	Team            *TeamHandler
+	Product         *ProductHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -100,6 +104,8 @@ func NewHandlers(
 	messageSvc := mustCast[service.MessageService](services.Message, "message")
 	reminderSvc := mustCast[service.ReminderService](services.Reminder, "reminder")
 	auditSvc := mustCast[service.AuditService](services.Audit, "audit")
+	teamSvc := mustCast[service.TeamService](services.Team, "team")
+	productSvc := mustCast[service.ProductService](services.Product, "product")
 
 	h := &Handlers{
 		Auth:      NewAuthHandler(authSvc, base),
@@ -111,6 +117,8 @@ func NewHandlers(
 		Reminder:  NewReminderHandler(reminderSvc, base),
 		Audit:     NewAuditHandler(auditSvc, base),
 		Sync:      NewSyncHandler(services.Sync, base),
+		Team:      NewTeamHandler(teamSvc, base),
+		Product:   NewProductHandler(productSvc, base),
 	}
 
 	if deps != nil && deps.RedisClient != nil {
@@ -242,6 +250,25 @@ func (h *BaseHandler) MustUserID(w http.ResponseWriter, r *http.Request) (uuid.U
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+// MustScope returns the resolved ScopeInfo and effective user ID for the request.
+// Falls back to the JWT user ID with global scope for super_admin / unauthenticated paths.
+func (h *BaseHandler) MustScope(w http.ResponseWriter, r *http.Request) (*mw.ScopeInfo, uuid.UUID, bool) {
+	callerID, ok := h.MustUserID(w, r)
+	if !ok {
+		return nil, uuid.Nil, false
+	}
+	scope := mw.GetScope(r.Context())
+	if scope == nil {
+		// ScopeContext not wired — treat as global/super_admin
+		scope = &mw.ScopeInfo{
+			Scope:           "global",
+			CallerID:        callerID,
+			EffectiveUserID: callerID,
+		}
+	}
+	return scope, scope.EffectiveUserID, true
 }
 
 // MustUUIDParam extracts a UUID path parameter. Returns false and writes an

@@ -168,6 +168,8 @@ func (s *InvoiceService) ListInvoices(
 	var rows []db.Invoice
 	var err error
 
+	currentMonthOnly := filter != nil && filter.CurrentMonthOnly
+
 	switch {
 	case filter != nil && filter.CustomerID != nil:
 		rows, err = s.store.ListInvoicesByCustomer(dbCtx, db.ListInvoicesByCustomerParams{
@@ -186,6 +188,12 @@ func (s *InvoiceService) ListInvoices(
 		rows, err = s.store.ListInvoicesByStatus(dbCtx, db.ListInvoicesByStatusParams{
 			UserID: userID,
 			Status: *filter.Status,
+			Limit:  pg.Limit32(),
+			Offset: pg.Offset32(),
+		})
+	case currentMonthOnly:
+		rows, err = s.store.ListInvoicesCurrentMonth(dbCtx, db.ListInvoicesCurrentMonthParams{
+			UserID: userID,
 			Limit:  pg.Limit32(),
 			Offset: pg.Offset32(),
 		})
@@ -417,4 +425,28 @@ func (s *InvoiceService) MoveCollectionState(
 	})
 
 	return dto.ToInvoiceResponse(result.Invoice), nil
+}
+
+// UpdateInvoiceTracking sets or clears the tracking number on an existing invoice.
+func (s *InvoiceService) UpdateInvoiceTracking(
+	ctx context.Context,
+	userID, invoiceID uuid.UUID,
+	req *dto.UpdateInvoiceTrackingRequest,
+) (*dto.InvoiceResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	updated, err := s.store.UpdateInvoiceTracking(dbCtx, db.UpdateInvoiceTrackingParams{
+		ID:             invoiceID,
+		UserID:         userID,
+		TrackingNumber: req.TrackingNumber,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	return dto.ToInvoiceResponse(updated), nil
 }

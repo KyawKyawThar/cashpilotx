@@ -19,8 +19,9 @@ func createTestUser(t *testing.T, store *SQLStore) User {
 
 	bn := utils.RandomString(8)
 	local := "en"
+	phone := utils.RandomPhone(9)
 	user, err := store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(9),
+		Phone:        &phone,
 		PinHash:      "test_hash",
 		Name:         utils.RandomString(6),
 		BusinessName: &bn,
@@ -39,7 +40,7 @@ func TestCreateUser_Success(t *testing.T) {
 	user := createTestUser(t, store)
 
 	require.NotZero(t, user.ID)
-	require.NotEmpty(t, user.Phone)
+	require.NotNil(t, user.Phone)
 	require.Equal(t, "pro", user.Plan)
 	require.Equal(t, "THB", user.HomeCurrency)
 
@@ -60,7 +61,7 @@ func TestCreateUser_DuplicatePhone_Fails(t *testing.T) {
 	local := "en"
 
 	_, err := store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        phone,
+		Phone:        &phone,
 		PinHash:      "test_hash",
 		Name:         utils.RandomString(6),
 		BusinessName: &bn,
@@ -71,7 +72,7 @@ func TestCreateUser_DuplicatePhone_Fails(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        phone,
+		Phone:        &phone,
 		PinHash:      "test_hash",
 		Name:         utils.RandomString(6),
 		BusinessName: &bn,
@@ -112,7 +113,8 @@ func TestGetUserByPhone_Success(t *testing.T) {
 
 func TestGetUserByPhone_NotFound_Fails(t *testing.T) {
 	t.Parallel()
-	_, err := testStore.GetUserByPhone(context.Background(), "not_exist")
+	notExist := "not_exist"
+	_, err := testStore.GetUserByPhone(context.Background(), &notExist)
 	require.Error(t, err)
 }
 
@@ -243,8 +245,9 @@ func TestCreateUser_InvalidPhone_Fails(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 
+	invalidPhone := "twewtew"
 	_, err := store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        "twewtew",
+		Phone:        &invalidPhone,
 		PinHash:      "hash",
 		Name:         "test",
 		Plan:         "basic",
@@ -258,45 +261,55 @@ func TestCreateUser_PhoneBoundary(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 
+	bn := utils.RandomString(6)
+
 	// min valid (8 digits)
+	p8 := utils.RandomPhone(8)
 	u1, err := store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(8),
+		Phone:        &p8,
 		PinHash:      "hash",
 		Name:         "min",
 		Plan:         "free",
 		HomeCurrency: "THB",
+		BusinessName: &bn,
 	})
 	require.NoError(t, err)
 	require.NotZero(t, u1.ID)
 
 	// max valid (15 digits)
+	p15 := utils.RandomPhone(15)
 	u2, err := store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(15),
+		Phone:        &p15,
 		PinHash:      "hash",
 		Name:         "max",
 		Plan:         "free",
 		HomeCurrency: "THB",
+		BusinessName: &bn,
 	})
 	require.NoError(t, err)
 	require.NotZero(t, u2.ID)
 
 	// below min (7 digits) → FAIL
+	p7 := utils.RandomPhone(7)
 	_, err = store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(7),
+		Phone:        &p7,
 		PinHash:      "hash",
 		Name:         "fail",
 		Plan:         "free",
 		HomeCurrency: "THB",
+		BusinessName: &bn,
 	})
 	require.Error(t, err)
 
 	// above max (16 digits) → FAIL
+	p16 := utils.RandomPhone(16)
 	_, err = store.CreateUser(context.Background(), CreateUserParams{
-		Phone:        utils.RandomPhone(16),
+		Phone:        &p16,
 		PinHash:      "hash",
 		Name:         "fail",
 		Plan:         "free",
 		HomeCurrency: "THB",
+		BusinessName: &bn,
 	})
 	require.Error(t, err)
 }

@@ -26,7 +26,7 @@ func TestJWTMaker(t *testing.T) {
 	issuedAt := time.Now()
 	expiresAt := issuedAt.Add(duration)
 
-	token, payload, err := maker.CreateToken(userID, duration)
+	token, payload, err := maker.CreateToken(CreateTokenParams{UserID: userID, Duration: duration, Plan: "free"})
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotEmpty(t, payload)
@@ -44,7 +44,7 @@ func TestJWTMaker(t *testing.T) {
 func TestExpiredJWTToken(t *testing.T) {
 	maker := newTestMaker(t)
 
-	token, payload, err := maker.CreateToken(uuid.New(), -time.Minute)
+	token, payload, err := maker.CreateToken(CreateTokenParams{UserID: uuid.New(), Duration: -time.Minute, Plan: "free"})
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotEmpty(t, payload)
@@ -57,7 +57,7 @@ func TestExpiredJWTToken(t *testing.T) {
 
 func TestInvalidJWTTokenAlgNone(t *testing.T) {
 	userID := uuid.New()
-	payload, err := NewPayload(userID, time.Minute)
+	payload, err := NewPayload(CreateTokenParams{UserID: userID, Duration: time.Minute, Plan: "free"})
 	require.NoError(t, err)
 
 	claims := &jwt.RegisteredClaims{

@@ -14,15 +14,39 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+const (
+	loginTypePhone    = "phone"
+	loginTypeUsername = "username"
+)
+
+var phonePattern = regexp.MustCompile(`^\+?\d{8,15}$`)
+
+// isPhoneIdentifier returns true if the string looks like a phone number.
+func isPhoneIdentifier(s string) bool {
+	return phonePattern.MatchString(s)
+}
+
+// localeFromCurrency maps a home_currency code to its language tag.
+// MMK → my (Burmese), CNY → zh (Chinese), THB and anything else → th (Thai).
+func localeFromCurrency(currency string) string {
+	switch currency {
+	case "MMK":
+		return "my"
+	case "CNY":
+		return "zh"
+	default:
+		return "th"
+	}
+}
+
 // generateRefreshToken creates a cryptographically random 64-character hex string.
-// Opaque tokens avoid the chicken-and-egg problem of needing a user ID before
-// RegisterUserTx has committed the new user row.
 func generateRefreshToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -64,7 +88,7 @@ func (s *AuthService) Register(
 	if storedOTP != req.EmailOTP {
 		return nil, api.ErrInvalidOTP()
 	}
-	s.cache.DeleteRegOTP(ctx, req.Email) //nolint:errcheck // best-effort cleanup; OTP already validated and consumed above
+	s.cache.DeleteRegOTP(ctx, req.Email) //nolint:errcheck // best-effort cleanup
 
 	pinHash, err := utils.HashPassword(req.PIN)
 	if err != nil {
@@ -80,12 +104,15 @@ func (s *AuthService) Register(
 	defer cancel()
 
 	email := req.Email
+	phone := req.Phone
+	locale := localeFromCurrency(req.HomeCurrency)
 	result, err := s.store.RegisterUserTx(dbCtx, db.RegisterUserTxParams{
 		User: db.CreateUserParams{
-			Phone:        req.Phone,
+			Phone:        &phone,
 			PinHash:      pinHash,
 			Name:         req.Name,
-			BusinessName: req.BusinessName,
+			BusinessName: &req.BusinessName,
+			Locale:       &locale,
 			Plan:         "free",
 			HomeCurrency: req.HomeCurrency,
 			Email:        &email,
@@ -108,7 +135,7 @@ func (s *AuthService) Register(
 		return nil, api.FromPgError(err)
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(result.User.ID, s.config.AccessTokenDuration)
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(result.User, s.config.AccessTokenDuration, loginTypePhone))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -129,8 +156,8 @@ func (s *AuthService) Login(
 	req *dto.LoginRequest,
 	ipAddress, userAgent string,
 ) (*dto.LoginResponse, error) {
-	// Cache check — no DB budget consumed yet.
-	locked, lockedUntil, err := s.cache.IsLoginLocked(ctx, req.Phone)
+	// Rate-limit check keyed on the identifier (phone or username).
+	locked, lockedUntil, err := s.cache.IsLoginLocked(ctx, req.Identifier)
 	if err == nil && locked {
 		if lockedUntil != nil {
 			return nil, api.ErrLoginLocked(*lockedUntil)
@@ -138,37 +165,32 @@ func (s *AuthService) Login(
 		return nil, api.ErrLoginLocked(time.Now().Add(5 * time.Minute))
 	}
 
-	dbCtx, cancel := withDBTimeout(ctx)
-	defer cancel()
-
-	user, err := s.store.GetUserByPhone(dbCtx, req.Phone)
+	user, loginType, err := s.lookupUserForLogin(ctx, req.Identifier)
 	if err != nil {
-		if api.IsRecordNotFound(err) {
-			// Unknown phone — record the failed attempt so brute-force lockout applies.
-			s.cache.RecordLoginAttempt(ctx, req.Phone, false) //nolint:errcheck // best-effort rate-limit tracking; a cache failure does not affect login correctness
-			return nil, api.ErrInvalidCredentials()
-		}
-		// DB timeout / connection failure — don't penalize the user's lockout counter.
-		return nil, api.FromPgError(err)
+		s.cache.RecordLoginAttempt(ctx, req.Identifier, false) //nolint:errcheck // best-effort
+		return nil, err
 	}
 	if !user.IsActive {
 		return nil, api.ErrForbidden("Account has been deactivated")
 	}
 
 	if err = utils.CheckPassword(req.PIN, user.PinHash); err != nil {
-		result, _ := s.cache.RecordLoginAttempt(ctx, req.Phone, false) //nolint:errcheck // on cache error result is nil; fallback is to allow the attempt
+		result, _ := s.cache.RecordLoginAttempt(ctx, req.Identifier, false) //nolint:errcheck // best-effort rate-limit tracking
 		if result != nil && !result.Allowed && result.LockoutDuration > 0 {
 			return nil, api.ErrLoginLocked(time.Now().Add(result.LockoutDuration))
 		}
 		return nil, api.ErrInvalidCredentials()
 	}
 
-	s.cache.RecordLoginAttempt(ctx, req.Phone, true) //nolint:errcheck // best-effort rate-limit reset; a cache failure does not affect a successful login
+	s.cache.RecordLoginAttempt(ctx, req.Identifier, true) //nolint:errcheck // best-effort reset
 
 	refreshToken, err := generateRefreshToken()
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("generate refresh token: %w", err))
 	}
+
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
 
 	rotateResult, err := s.store.RotateSessionTx(dbCtx, db.RotateSessionTxParams{
 		Session: db.CreateSessionParams{
@@ -183,7 +205,7 @@ func (s *AuthService) Login(
 		return nil, api.FromPgError(err)
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(user.ID, s.config.AccessTokenDuration)
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -226,11 +248,10 @@ func (s *AuthService) RefreshToken(
 		return nil, api.ErrForbidden("Account has been deactivated")
 	}
 
-	// Consume the old session before issuing a new one (token rotation).
 	if _, deleteErr := s.store.DeleteSessionByRefreshToken(dbCtx, req.RefreshToken); deleteErr != nil {
 		return nil, api.FromPgError(deleteErr)
 	}
-	s.cache.DeleteSession(ctx, session.ID.String(), session.UserID.String()) //nolint:errcheck // best-effort cache eviction; DB deletion already succeeded
+	s.cache.DeleteSession(ctx, session.ID.String(), session.UserID.String()) //nolint:errcheck // best-effort cache cleanup
 
 	newRefreshToken, err := generateRefreshToken()
 	if err != nil {
@@ -250,7 +271,13 @@ func (s *AuthService) RefreshToken(
 		return nil, api.FromPgError(err)
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(session.UserID, s.config.AccessTokenDuration)
+	// Derive login type from user data so the refreshed token stays consistent.
+	loginType := loginTypePhone
+	if user.Username != nil {
+		loginType = loginTypeUsername
+	}
+
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -269,7 +296,7 @@ func (s *AuthService) Logout(ctx context.Context, accessToken string, req *dto.L
 	payload, err := s.tokenMaker.VerifyToken(accessToken)
 	if err != nil {
 		if errors.Is(err, token.ErrInvalidToken) || errors.Is(err, token.ErrTokenExpired) {
-			return nil // Already invalid — treat as success
+			return nil
 		}
 		return api.ErrInternal(fmt.Errorf("verify token: %w", err))
 	}
@@ -281,9 +308,7 @@ func (s *AuthService) Logout(ctx context.Context, accessToken string, req *dto.L
 		if err := s.store.DeleteAllUserSessions(dbCtx, payload.UserID); err != nil {
 			return api.FromPgError(err)
 		}
-		// Cache eviction is best-effort: sessions are already gone from DB.
-		// A Redis failure here must not make the client think logout failed.
-		_ = s.cache.DeleteAllUserSessions(ctx, payload.UserID.String()) //nolint:errcheck // best-effort cache eviction; DB sessions are already deleted
+		_ = s.cache.DeleteAllUserSessions(ctx, payload.UserID.String()) //nolint:errcheck // best-effort cache cleanup
 		return nil
 	}
 
@@ -298,12 +323,11 @@ func (s *AuthService) Logout(ctx context.Context, accessToken string, req *dto.L
 			}
 			return api.FromPgError(err)
 		}
-		s.cache.DeleteSession(ctx, req.SessionID, payload.UserID.String()) //nolint:errcheck // best-effort cache eviction; DB deletion already succeeded
+		s.cache.DeleteSession(ctx, req.SessionID, payload.UserID.String()) //nolint:errcheck // best-effort cache cleanup
 		return nil
 	}
 
-	// Default: blacklist the current access token JTI (cache-only, no DB call).
-	s.cache.BlacklistToken(ctx, payload.ID.String(), payload.ExpiredAt) //nolint:errcheck // best-effort blacklist; token expires naturally on its TTL
+	s.cache.BlacklistToken(ctx, payload.ID.String(), payload.ExpiredAt) //nolint:errcheck // best-effort token blacklist
 	return nil
 }
 
@@ -322,7 +346,6 @@ func (s *AuthService) ValidateAccessToken(ctx context.Context, tokenStr string) 
 }
 
 func (s *AuthService) GetUserSessions(ctx context.Context, userID uuid.UUID) ([]*dto.SessionResponse, error) {
-	// Fast path: Redis (no DB budget needed).
 	cacheSessions, err := s.cache.GetUserSessions(ctx, userID.String())
 	if err == nil && len(cacheSessions) > 0 {
 		out := make([]*dto.SessionResponse, 0, len(cacheSessions))
@@ -332,7 +355,6 @@ func (s *AuthService) GetUserSessions(ctx context.Context, userID uuid.UUID) ([]
 		return out, nil
 	}
 
-	// Fallback: DB (e.g. after a Redis flush).
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
@@ -359,18 +381,31 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID uuid.UUID, sessi
 
 	if _, err := s.store.DeleteSessionByID(dbCtx, sessUUID); err != nil {
 		if api.IsRecordNotFound(err) {
-			// Session may exist only in cache (e.g. after a DB reset or cache-ahead write).
-			// Evict it so it cannot be listed again; if it's not in cache either, 404.
 			if _, cerr := s.cache.GetSession(ctx, sessionID); cerr != nil {
 				return api.ErrNotFound("Session")
 			}
-			s.cache.DeleteSession(ctx, sessionID, userID.String()) //nolint:errcheck // best-effort cache eviction; session treated as not-found
+			s.cache.DeleteSession(ctx, sessionID, userID.String()) //nolint:errcheck // best-effort cache cleanup
 			return nil
 		}
 		return api.FromPgError(err)
 	}
-	s.cache.DeleteSession(ctx, sessionID, userID.String()) //nolint:errcheck // best-effort cache eviction; DB deletion already succeeded
+	s.cache.DeleteSession(ctx, sessionID, userID.String()) //nolint:errcheck // best-effort cache cleanup
 	return nil
+}
+
+// tokenParamsFromUser builds CreateTokenParams from a db.User row.
+func tokenParamsFromUser(user db.User, duration time.Duration, loginType string) token.CreateTokenParams {
+	p := token.CreateTokenParams{
+		UserID:         user.ID,
+		Duration:       duration,
+		ForcePinChange: user.ForcePinChange,
+		LoginType:      loginType,
+		Plan:           user.Plan,
+		Role:           string(user.Role),
+		TeamID:         user.TeamID,
+		OrgOwnerID:     user.OrgOwnerID,
+	}
+	return p
 }
 
 // generateOTP creates a cryptographically random 6-digit numeric code.
@@ -382,7 +417,36 @@ func generateOTP() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-// lookupUserByIdentifier resolves a phone-or-email string to a DB user.
+// lookupUserForLogin resolves an identifier for the login flow only.
+// Phone pattern → super_admin via GetUserByPhone.
+// Anything else → team account via GetUserByUsername.
+// Returns the user and the login type ("phone" or "username").
+func (s *AuthService) lookupUserForLogin(ctx context.Context, identifier string) (db.User, string, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if isPhoneIdentifier(identifier) {
+		user, err := s.store.GetUserByPhone(dbCtx, &identifier)
+		if err != nil {
+			if api.IsRecordNotFound(err) {
+				return db.User{}, "", api.ErrInvalidCredentials()
+			}
+			return db.User{}, "", api.FromPgError(err)
+		}
+		return user, loginTypePhone, nil
+	}
+
+	user, err := s.store.GetUserByUsername(dbCtx, &identifier)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return db.User{}, "", api.ErrInvalidCredentials()
+		}
+		return db.User{}, "", api.FromPgError(err)
+	}
+	return user, loginTypeUsername, nil
+}
+
+// lookupUserByIdentifier resolves phone or email — used by ForgotPIN / ResetPIN flows.
 func (s *AuthService) lookupUserByIdentifier(ctx context.Context, identifier string) (db.User, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
@@ -398,7 +462,7 @@ func (s *AuthService) lookupUserByIdentifier(ctx context.Context, identifier str
 		return user, nil
 	}
 
-	user, err := s.store.GetUserByPhone(dbCtx, identifier)
+	user, err := s.store.GetUserByPhone(dbCtx, &identifier)
 	if err != nil {
 		if api.IsRecordNotFound(err) {
 			return db.User{}, api.ErrInvalidCredentials()
@@ -409,14 +473,19 @@ func (s *AuthService) lookupUserByIdentifier(ctx context.Context, identifier str
 }
 
 func (s *AuthService) ForgotPIN(ctx context.Context, req *dto.ForgotPINRequest) error {
+	// Username identifiers belong to team accounts — they cannot self-reset via OTP.
+	if !isPhoneIdentifier(req.Identifier) && !strings.Contains(req.Identifier, "@") {
+		return api.ErrForbidden("Contact your administrator to reset your PIN")
+	}
+
 	user, err := s.lookupUserByIdentifier(ctx, req.Identifier)
 	if err != nil {
-		// Return success even on not-found to prevent user enumeration.
-		return nil //nolint:nilerr // Return success even on not-found to prevent user enumeration.
+		// Silently succeed on not-found to prevent user enumeration.
+		return nil //nolint:nilerr // intentional: silently succeed to prevent user enumeration
 	}
 
 	if user.Email == nil || *user.Email == "" {
-		return nil // no email registered — silently succeed to prevent enumeration
+		return nil // no email registered — silently succeed
 	}
 
 	return s.sendPINResetEmail(ctx, user.ID.String(), *user.Email, user.Name)
@@ -459,16 +528,73 @@ func (s *AuthService) ResetPIN(ctx context.Context, req *dto.ResetPINRequest) er
 		return api.FromPgError(err)
 	}
 
-	// Consume the OTP and evict all sessions so the user must log in fresh.
-	s.cache.DeleteOTP(ctx, user.ID.String())             //nolint:errcheck // Best-effort cleanup; OTP is single-use and now invalid.
-	s.cache.DeleteAllUserSessions(ctx, user.ID.String()) //nolint:errcheck // Best-effort cleanup; user will log in fresh.
-	s.store.DeleteAllUserSessions(dbCtx, user.ID)        //nolint:errcheck // Best-effort cleanup; user will log in fresh.
+	s.cache.DeleteOTP(ctx, user.ID.String())             //nolint:errcheck // best-effort cache cleanup
+	s.cache.DeleteAllUserSessions(ctx, user.ID.String()) //nolint:errcheck // best-effort cache cleanup
+	s.store.DeleteAllUserSessions(dbCtx, user.ID)        //nolint:errcheck // best-effort DB cleanup after PIN reset
 
 	return nil
 }
 
+// ChangePIN verifies the current PIN, updates it, clears force_pin_change, and
+// returns a fresh access token so the client session is immediately up to date.
+// Only super_admin (phone-login) accounts may change their own PIN; team accounts
+// must have their PIN reset by a super_admin via the admin panel.
+func (s *AuthService) ChangePIN(ctx context.Context, userID uuid.UUID, req *dto.ChangePINRequest) (*dto.ChangePINResponse, error) {
+	if req.NewPIN != req.ConfirmPIN {
+		return nil, api.ErrValidation("new PIN and confirm PIN do not match")
+	}
+
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	user, err := s.store.GetUserByID(dbCtx, userID)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrUserNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	if user.Role != db.UserRoleSuperAdmin {
+		return nil, api.ErrForbidden("team accounts cannot change their own PIN — ask your super admin to reset it")
+	}
+
+	if checkErr := utils.CheckPassword(req.CurrentPIN, user.PinHash); checkErr != nil {
+		return nil, api.ErrInvalidCredentials()
+	}
+
+	pinHash, err := utils.HashPassword(req.NewPIN)
+	if err != nil {
+		return nil, api.ErrInternal(fmt.Errorf("hash PIN: %w", err))
+	}
+
+	if updateErr := s.store.UpdateUserPINAndClearForce(dbCtx, db.UpdateUserPINAndClearForceParams{
+		ID:      userID,
+		PinHash: pinHash,
+	}); updateErr != nil {
+		return nil, api.FromPgError(updateErr)
+	}
+
+	loginType := loginTypePhone
+	if user.Username != nil {
+		loginType = loginTypeUsername
+	}
+
+	// force_pin_change is already cleared by UpdateUserPINAndClearForce above.
+	user.ForcePinChange = false
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
+	if err != nil {
+		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
+	}
+
+	return &dto.ChangePINResponse{
+		AccessToken: accessToken,
+		ExpiresIn:   int64(s.config.AccessTokenDuration.Seconds()),
+		TokenType:   "Bearer",
+	}, nil
+}
+
 // DeleteUser cleans up all Redis keys for the user, then hard-deletes the DB row.
-// All child rows (sessions, customers, invoices, etc.) cascade automatically.
 func (s *AuthService) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
@@ -481,11 +607,15 @@ func (s *AuthService) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 		return api.FromPgError(err)
 	}
 
-	// Clear rate-limit keys keyed on the phone number before the row disappears.
-	s.cache.ClearLoginAttempts(ctx, user.Phone) //nolint:errcheck // best-effort; Redis cleanup does not affect correctness of the DB delete
+	// Clear rate-limit keys keyed on the identifier (phone for super_admin, username for team).
+	if user.Phone != nil {
+		s.cache.ClearLoginAttempts(ctx, *user.Phone) //nolint:errcheck // best-effort cache cleanup
+	}
+	if user.Username != nil {
+		s.cache.ClearLoginAttempts(ctx, *user.Username) //nolint:errcheck // best-effort cache cleanup
+	}
 
-	// Clear all session keys from Redis; DB sessions cascade from the DELETE below.
-	s.cache.DeleteAllUserSessions(ctx, userID.String()) //nolint:errcheck // best-effort; DB delete is the authoritative operation
+	s.cache.DeleteAllUserSessions(ctx, userID.String()) //nolint:errcheck // best-effort cache cleanup
 
 	return api.FromPgError(s.store.DeleteUser(dbCtx, userID))
 }

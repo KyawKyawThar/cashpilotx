@@ -31,7 +31,7 @@ func NewAuditHandler(svc service.AuditServicer, base *BaseHandler) *AuditHandler
 //	@Router       /api/v1/audit-log [get]
 //	@Security     BearerAuth
 func (h *AuditHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -39,7 +39,7 @@ func (h *AuditHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	pg := dto.GetPaginationFromRequest(r)
 	actionType := r.URL.Query().Get("action_type")
 
-	resp, err := h.svc.ListAuditLogs(r.Context(), userID, pg, actionType)
+	resp, err := h.svc.ListAuditLogs(r.Context(), effectiveUserID, pg, actionType)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

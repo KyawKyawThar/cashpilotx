@@ -124,9 +124,64 @@ WHERE id = $1;
 -- cascade automatically via ON DELETE CASCADE foreign keys.
 -- Callers must clear Redis keys before calling this.
 DELETE FROM users WHERE id = $1;
+-- name: GetUserByUsername :one
+SELECT *
+FROM users
+WHERE username = $1
+  AND is_active = true
+LIMIT 1;
+
+-- name: UpdateUserPINAndClearForce :exec
+UPDATE users
+SET
+    pin_hash         = $2,
+    force_pin_change = false,
+    updated_at       = now()
+WHERE id = $1
+  AND is_active = true;
+
 -- name: ListUsersForDigest :many
 -- Returns all active users who have an email address, for the daily digest job.
 SELECT id, name, email, home_currency
 FROM users
 WHERE is_active = true
   AND email IS NOT NULL;
+
+-- name: CreateTeamUser :one
+INSERT INTO users (name, username, pin_hash, home_currency, plan, role, team_id, org_owner_id, created_by, force_pin_change, business_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10)
+RETURNING *;
+
+-- name: ListActiveOrgUsers :many
+SELECT * FROM users
+WHERE org_owner_id = $1
+  AND id != $1
+  AND is_active = true
+ORDER BY role ASC, name ASC;
+
+-- name: ListAllOrgUsers :many
+SELECT * FROM users
+WHERE org_owner_id = $1
+  AND id != $1
+ORDER BY role ASC, name ASC;
+
+-- name: UpdateTeamUser :one
+UPDATE users
+SET
+    name       = COALESCE(sqlc.narg(name), name),
+    username   = COALESCE(sqlc.narg(username), username),
+    phone      = COALESCE(sqlc.narg(phone), phone),
+    team_id    = COALESCE(sqlc.narg(team_id), team_id),
+    updated_at = now()
+WHERE id = $1
+  AND is_active = true
+RETURNING *;
+
+-- name: SetForcePinChange :exec
+UPDATE users
+SET
+    pin_hash         = $2,
+    force_pin_change = true,
+    updated_at       = now()
+WHERE id = $1
+  AND is_active = true;

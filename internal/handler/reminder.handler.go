@@ -67,7 +67,7 @@ func (h *ReminderHandler) ListReminders(w http.ResponseWriter, r *http.Request) 
 //
 //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -82,7 +82,7 @@ func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.svc.CreateReminder(r.Context(), userID, invoiceID, &req)
+	resp, err := h.svc.CreateReminder(r.Context(), effectiveUserID, invoiceID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -105,14 +105,14 @@ func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request)
 //	@Router       /api/v1/reminders [get]
 //	@Security     BearerAuth
 func (h *ReminderHandler) ListAllReminders(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.ListAllReminders(r.Context(), userID, pg)
+	resp, err := h.svc.ListAllReminders(r.Context(), effectiveUserID, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

@@ -42,6 +42,7 @@ func normalizePhone(phone string) string {
 func (s *CustomerService) CreateCustomer(
 	ctx context.Context,
 	userID uuid.UUID,
+	assignedTo *uuid.UUID,
 	req *dto.CreateCustomerRequest,
 ) (*dto.CustomerResponse, error) {
 	normalizedName := normalizeName(req.Name)
@@ -72,6 +73,7 @@ func (s *CustomerService) CreateCustomer(
 			Type:            req.Type,
 			Notes:           req.Notes,
 			Tags:            tags,
+			AssignedTo:      assignedTo,
 		},
 	})
 	if err != nil {
@@ -105,20 +107,32 @@ func (s *CustomerService) GetCustomer(
 	return dto.ToCustomerResponse(customer), nil
 }
 
-//nolint:dupl // identical paginated-list pattern shared across services; abstraction adds no value
 func (s *CustomerService) ListCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
+	filter *dto.ListCustomersFilter,
 	pg *dto.Pagination,
 ) ([]*dto.CustomerResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
-	rows, err := s.store.ListCustomers(dbCtx, db.ListCustomersParams{
-		UserID: userID,
-		Limit:  pg.Limit32(),
-		Offset: pg.Offset32(),
-	})
+	var rows []db.Customer
+	var err error
+
+	if filter != nil && filter.AssignedTo != nil {
+		rows, err = s.store.ListCustomersAssigned(dbCtx, db.ListCustomersAssignedParams{
+			UserID:     userID,
+			AssignedTo: filter.AssignedTo,
+			Limit:      pg.Limit32(),
+			Offset:     pg.Offset32(),
+		})
+	} else {
+		rows, err = s.store.ListCustomers(dbCtx, db.ListCustomersParams{
+			UserID: userID,
+			Limit:  pg.Limit32(),
+			Offset: pg.Offset32(),
+		})
+	}
 	if err != nil {
 		return nil, api.FromPgError(err)
 	}

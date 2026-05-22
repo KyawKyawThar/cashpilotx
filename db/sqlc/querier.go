@@ -42,11 +42,17 @@ type Querier interface {
 	// ═══════════════════════════════════════════════════════
 	CreateOperatorAuditLog(ctx context.Context, arg CreateOperatorAuditLogParams) (OperatorAuditLog, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	CreatePermissionGrant(ctx context.Context, arg CreatePermissionGrantParams) (UserPermissionGrant, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateReminder(ctx context.Context, arg CreateReminderParams) (Reminder, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateTeam(ctx context.Context, arg CreateTeamParams) (Team, error)
+	CreateTeamUser(ctx context.Context, arg CreateTeamUserParams) (User, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWebhookEvent(ctx context.Context, arg CreateWebhookEventParams) (CreateWebhookEventRow, error)
 	DeactivateContact(ctx context.Context, id uuid.UUID) error
+	DeactivateDeliveryService(ctx context.Context, arg DeactivateDeliveryServiceParams) error
+	DeactivateProduct(ctx context.Context, arg DeactivateProductParams) error
 	DeactivateUser(ctx context.Context, id uuid.UUID) error
 	DeleteAllUserSessions(ctx context.Context, userID uuid.UUID) error
 	DeleteChannelConfig(ctx context.Context, id uuid.UUID) error
@@ -62,10 +68,12 @@ type Querier interface {
 	DeleteInsightByID(ctx context.Context, id uuid.UUID) error
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	DeleteOldProcessedWebhookEvents(ctx context.Context) error
+	DeletePermissionGrant(ctx context.Context, arg DeletePermissionGrantParams) error
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeleteSessionByID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	DeleteSessionByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, error)
 	DeleteStatsByDateRange(ctx context.Context, arg DeleteStatsByDateRangeParams) error
+	DeleteTeam(ctx context.Context, id uuid.UUID) error
 	// Hard-deletes the user row. All child rows (sessions, customers, invoices, etc.)
 	// cascade automatically via ON DELETE CASCADE foreign keys.
 	// Callers must clear Redis keys before calling this.
@@ -114,6 +122,9 @@ type Querier interface {
 	GetOperatorAuditLogByRequestID(ctx context.Context, arg GetOperatorAuditLogByRequestIDParams) (OperatorAuditLog, error)
 	GetOperatorAuditSummary(ctx context.Context, userID uuid.UUID) (GetOperatorAuditSummaryRow, error)
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (Payment, error)
+	GetPermissionByResourceAction(ctx context.Context, arg GetPermissionByResourceActionParams) (Permission, error)
+	GetPermissionGrant(ctx context.Context, arg GetPermissionGrantParams) (UserPermissionGrant, error)
+	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	// Powers GET /api/v1/recovery-queue — open invoices ranked by AI confidence score.
 	// Returns invoice + joined customer name/phone so the handler needs no second query.
 	GetRecoveryQueue(ctx context.Context, arg GetRecoveryQueueParams) ([]GetRecoveryQueueRow, error)
@@ -122,12 +133,18 @@ type Querier interface {
 	GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRecoveryStatsRow, error)
 	GetReminder(ctx context.Context, id uuid.UUID) (Reminder, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (Session, error)
+	GetTeam(ctx context.Context, id uuid.UUID) (Team, error)
 	GetUserByEmail(ctx context.Context, email *string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
-	GetUserByPhone(ctx context.Context, phone string) (User, error)
+	GetUserByPhone(ctx context.Context, phone *string) (User, error)
+	GetUserByUsername(ctx context.Context, username *string) (User, error)
 	GetWebhookEvent(ctx context.Context, arg GetWebhookEventParams) (WebhookEvent, error)
 	IncrementMessagesSent(ctx context.Context, arg IncrementMessagesSentParams) error
+	ListActiveOrgUsers(ctx context.Context, orgOwnerID *uuid.UUID) ([]User, error)
 	ListAllCustomers(ctx context.Context, arg ListAllCustomersParams) ([]Customer, error)
+	ListAllDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error)
+	ListAllOrgUsers(ctx context.Context, orgOwnerID *uuid.UUID) ([]User, error)
+	ListAllProducts(ctx context.Context, orgOwnerID uuid.UUID) ([]Product, error)
 	// =========================================
 	// READ: best customers
 	// =========================================
@@ -142,6 +159,7 @@ type Querier interface {
 	// =========================================
 	ListCustomerRiskProfiles(ctx context.Context, arg ListCustomerRiskProfilesParams) ([]CustomerRiskProfile, error)
 	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
+	ListCustomersAssigned(ctx context.Context, arg ListCustomersAssignedParams) ([]Customer, error)
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)
 	ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error)
 	ListEventsByType(ctx context.Context, arg ListEventsByTypeParams) ([]CustomerEvent, error)
@@ -155,6 +173,7 @@ type Querier interface {
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]Invoice, error)
 	ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesByCustomerParams) ([]Invoice, error)
 	ListInvoicesByStatus(ctx context.Context, arg ListInvoicesByStatusParams) ([]Invoice, error)
+	ListInvoicesCurrentMonth(ctx context.Context, arg ListInvoicesCurrentMonthParams) ([]Invoice, error)
 	ListInvoicesDueToday(ctx context.Context, userID uuid.UUID) ([]ListInvoicesDueTodayRow, error)
 	ListMessagesByCustomer(ctx context.Context, arg ListMessagesByCustomerParams) ([]Message, error)
 	ListMessagesByInvoice(ctx context.Context, invoiceID *uuid.UUID) ([]Message, error)
@@ -171,10 +190,14 @@ type Querier interface {
 	ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsByCustomerParams) ([]Payment, error)
 	ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByInvoiceParams) ([]Payment, error)
 	ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error)
+	ListPermissionGrants(ctx context.Context, userID uuid.UUID) ([]UserPermissionGrant, error)
+	ListPermissionGrantsWithPermission(ctx context.Context, userID uuid.UUID) ([]ListPermissionGrantsWithPermissionRow, error)
+	ListProducts(ctx context.Context, orgOwnerID uuid.UUID) ([]Product, error)
 	ListPushSubscriptionsForUser(ctx context.Context, userID uuid.UUID) ([]PushSubscription, error)
 	ListRemindersByInvoice(ctx context.Context, invoiceID uuid.UUID) ([]Reminder, error)
 	ListRemindersByUser(ctx context.Context, arg ListRemindersByUserParams) ([]Reminder, error)
 	ListRevertedOperatorAuditLogs(ctx context.Context, arg ListRevertedOperatorAuditLogsParams) ([]OperatorAuditLog, error)
+	ListTeams(ctx context.Context) ([]Team, error)
 	// Used by RefreshRecoveryQueueTx to find invoices that have never been scored
 	// or whose score is stale (not computed in the last 30 minutes).
 	ListUnscored(ctx context.Context, limit int32) ([]ListUnscoredRow, error)
@@ -219,6 +242,7 @@ type Querier interface {
 	SearchOperatorAuditLogs(ctx context.Context, arg SearchOperatorAuditLogsParams) ([]OperatorAuditLog, error)
 	SetChannelActive(ctx context.Context, arg SetChannelActiveParams) error
 	SetCustomerStatus(ctx context.Context, arg SetCustomerStatusParams) error
+	SetForcePinChange(ctx context.Context, arg SetForcePinChangeParams) error
 	// Called by FireReminderTx after a reminder is sent.
 	// Advances collection_state, stamps last_contacted_at, increments follow_up_count.
 	SetInvoiceContacted(ctx context.Context, arg SetInvoiceContactedParams) (Invoice, error)
@@ -245,6 +269,7 @@ type Querier interface {
 	// pattern without recomputing the full risk score.
 	UpdateContactWindow(ctx context.Context, arg UpdateContactWindowParams) error
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
+	UpdateDeliveryService(ctx context.Context, arg UpdateDeliveryServiceParams) (DeliveryService, error)
 	// ─── Collection lifecycle ─────────────────────────────────────────────────────
 	// General state move: used by MoveCollectionStateTx, RecordPaymentTx (paid),
 	// WriteOffInvoiceTx (defaulted), CreateInvoiceTx (pending init).
@@ -253,6 +278,7 @@ type Querier interface {
 	// Written by RefreshRecoveryQueueTx (background job, runs after each event).
 	// confidence_factors shape: [{label, signal, color: "green"|"amber"|"red"}]
 	UpdateInvoiceConfidence(ctx context.Context, arg UpdateInvoiceConfidenceParams) (int64, error)
+	UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTrackingParams) (Invoice, error)
 	// =========================================
 	// UPDATE: late fee settings (validated)
 	// =========================================
@@ -260,7 +286,12 @@ type Querier interface {
 	// Phase 1 flow: 0=new  1=currency set  2=channel set  3=complete
 	// (step 2 was "ai_key set" in arch doc — deferred to Phase 2 / BYOK)
 	UpdateOnboardingStep(ctx context.Context, arg UpdateOnboardingStepParams) (User, error)
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
+	UpdateTeamAdmin(ctx context.Context, arg UpdateTeamAdminParams) (Team, error)
+	UpdateTeamName(ctx context.Context, arg UpdateTeamNameParams) (Team, error)
+	UpdateTeamUser(ctx context.Context, arg UpdateTeamUserParams) (User, error)
 	UpdateUserPIN(ctx context.Context, arg UpdateUserPINParams) error
+	UpdateUserPINAndClearForce(ctx context.Context, arg UpdateUserPINAndClearForceParams) error
 	UpdateUserPlan(ctx context.Context, arg UpdateUserPlanParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpdateUserStreak(ctx context.Context, arg UpdateUserStreakParams) (User, error)

@@ -12,26 +12,55 @@ import (
 )
 
 const createDeliveryService = `-- name: CreateDeliveryService :one
-INSERT INTO delivery_services (user_id, name)
-VALUES ($1, $2)
-RETURNING id, user_id, name, created_at
+INSERT INTO delivery_services (user_id, name, price, currency, created_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, user_id, name, created_at, price, currency, is_active, created_by
 `
 
 type CreateDeliveryServiceParams struct {
-	UserID uuid.UUID `db:"user_id" json:"user_id"`
-	Name   string    `db:"name" json:"name"`
+	UserID    uuid.UUID  `db:"user_id" json:"user_id"`
+	Name      string     `db:"name" json:"name"`
+	Price     int64      `db:"price" json:"price"`
+	Currency  string     `db:"currency" json:"currency"`
+	CreatedBy *uuid.UUID `db:"created_by" json:"created_by"`
 }
 
 func (q *Queries) CreateDeliveryService(ctx context.Context, arg CreateDeliveryServiceParams) (DeliveryService, error) {
-	row := q.db.QueryRow(ctx, createDeliveryService, arg.UserID, arg.Name)
+	row := q.db.QueryRow(ctx, createDeliveryService,
+		arg.UserID,
+		arg.Name,
+		arg.Price,
+		arg.Currency,
+		arg.CreatedBy,
+	)
 	var i DeliveryService
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Name,
 		&i.CreatedAt,
+		&i.Price,
+		&i.Currency,
+		&i.IsActive,
+		&i.CreatedBy,
 	)
 	return i, err
+}
+
+const deactivateDeliveryService = `-- name: DeactivateDeliveryService :exec
+UPDATE delivery_services
+SET is_active = false
+WHERE id = $1 AND user_id = $2
+`
+
+type DeactivateDeliveryServiceParams struct {
+	ID     uuid.UUID `db:"id" json:"id"`
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) DeactivateDeliveryService(ctx context.Context, arg DeactivateDeliveryServiceParams) error {
+	_, err := q.db.Exec(ctx, deactivateDeliveryService, arg.ID, arg.UserID)
+	return err
 }
 
 const deleteDeliveryService = `-- name: DeleteDeliveryService :exec
@@ -49,10 +78,46 @@ func (q *Queries) DeleteDeliveryService(ctx context.Context, arg DeleteDeliveryS
 	return err
 }
 
-const listDeliveryServices = `-- name: ListDeliveryServices :many
-SELECT id, user_id, name, created_at FROM delivery_services
+const listAllDeliveryServices = `-- name: ListAllDeliveryServices :many
+SELECT id, user_id, name, created_at, price, currency, is_active, created_by FROM delivery_services
 WHERE user_id = $1
-ORDER BY created_at ASC
+ORDER BY name ASC
+`
+
+func (q *Queries) ListAllDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error) {
+	rows, err := q.db.Query(ctx, listAllDeliveryServices, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DeliveryService{}
+	for rows.Next() {
+		var i DeliveryService
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.Price,
+			&i.Currency,
+			&i.IsActive,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDeliveryServices = `-- name: ListDeliveryServices :many
+SELECT id, user_id, name, created_at, price, currency, is_active, created_by FROM delivery_services
+WHERE user_id = $1
+  AND is_active = true
+ORDER BY name ASC
 `
 
 func (q *Queries) ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error) {
@@ -69,6 +134,10 @@ func (q *Queries) ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([
 			&i.UserID,
 			&i.Name,
 			&i.CreatedAt,
+			&i.Price,
+			&i.Currency,
+			&i.IsActive,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -78,4 +147,44 @@ func (q *Queries) ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateDeliveryService = `-- name: UpdateDeliveryService :one
+UPDATE delivery_services
+SET
+    name     = COALESCE($3, name),
+    price    = COALESCE($4, price),
+    currency = COALESCE($5, currency)
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, name, created_at, price, currency, is_active, created_by
+`
+
+type UpdateDeliveryServiceParams struct {
+	ID       uuid.UUID `db:"id" json:"id"`
+	UserID   uuid.UUID `db:"user_id" json:"user_id"`
+	Name     *string   `db:"name" json:"name"`
+	Price    *int64    `db:"price" json:"price"`
+	Currency *string   `db:"currency" json:"currency"`
+}
+
+func (q *Queries) UpdateDeliveryService(ctx context.Context, arg UpdateDeliveryServiceParams) (DeliveryService, error) {
+	row := q.db.QueryRow(ctx, updateDeliveryService,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Price,
+		arg.Currency,
+	)
+	var i DeliveryService
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Price,
+		&i.Currency,
+		&i.IsActive,
+		&i.CreatedBy,
+	)
+	return i, err
 }

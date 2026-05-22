@@ -22,11 +22,21 @@ func NewDeliveryServiceHandler(store db.Store, base *BaseHandler) *DeliveryServi
 type deliveryServiceResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
+	Price     int64     `json:"price"`
+	Currency  string    `json:"currency"`
+	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func toDeliveryServiceResponse(s db.DeliveryService) deliveryServiceResponse {
-	return deliveryServiceResponse{ID: s.ID, Name: s.Name, CreatedAt: s.CreatedAt}
+	return deliveryServiceResponse{
+		ID:        s.ID,
+		Name:      s.Name,
+		Price:     s.Price,
+		Currency:  s.Currency,
+		IsActive:  s.IsActive,
+		CreatedAt: s.CreatedAt,
+	}
 }
 
 // List godoc
@@ -77,8 +87,11 @@ func (h *DeliveryServiceHandler) Create(w http.ResponseWriter, r *http.Request) 
 	}
 
 	svc, err := h.store.CreateDeliveryService(r.Context(), db.CreateDeliveryServiceParams{
-		UserID: userID,
-		Name:   req.Name,
+		UserID:    userID,
+		Name:      req.Name,
+		Price:     req.Price,
+		Currency:  req.Currency,
+		CreatedBy: &userID,
 	})
 	if err != nil {
 		if api.IsUniqueViolation(err) {
@@ -90,6 +103,48 @@ func (h *DeliveryServiceHandler) Create(w http.ResponseWriter, r *http.Request) 
 	}
 
 	h.WriteCreated(w, r, toDeliveryServiceResponse(svc))
+}
+
+// Update godoc
+//
+//	@Summary  Update delivery service
+//	@Tags     delivery-services
+//	@Accept   json
+//	@Produce  json
+//	@Param    service_id  path      string                          true  "Delivery service UUID"
+//	@Param    body        body      dto.UpdateDeliveryServiceRequest  true  "Update payload"
+//	@Success  200         {object}  map[string]interface{}
+//	@Router   /api/v1/delivery-services/{service_id} [patch]
+//	@Security BearerAuth
+func (h *DeliveryServiceHandler) Update(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	serviceID, ok := h.MustUUIDParam(w, r, "service_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateDeliveryServiceRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	svc, err := h.store.UpdateDeliveryService(r.Context(), db.UpdateDeliveryServiceParams{
+		ID:       serviceID,
+		UserID:   userID,
+		Name:     req.Name,
+		Price:    req.Price,
+		Currency: req.Currency,
+	})
+	if err != nil {
+		h.HandleErr(w, r, api.FromPgError(err))
+		return
+	}
+
+	h.WriteSuccess(w, r, toDeliveryServiceResponse(svc))
 }
 
 // Delete godoc

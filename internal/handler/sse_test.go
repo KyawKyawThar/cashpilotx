@@ -66,7 +66,7 @@ func TestSSEHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	userID := uuid.MustParse("bf1f54dc-3b44-4d7a-8f01-0530e05020bb")
-	accessToken, _, err := tokenMaker.CreateToken(userID, time.Hour)
+	accessToken, _, err := tokenMaker.CreateToken(token.CreateTokenParams{UserID: userID, Duration: time.Hour, Plan: "free"})
 	require.NoError(t, err)
 
 	// 5. Open SSE stream

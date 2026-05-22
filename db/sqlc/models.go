@@ -393,6 +393,67 @@ func AllCustomerEventTypeValues() []CustomerEventType {
 	}
 }
 
+type DataScope string
+
+const (
+	DataScopeGlobal DataScope = "global"
+	DataScopeTeam   DataScope = "team"
+	DataScopeOwn    DataScope = "own"
+)
+
+func (e *DataScope) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DataScope(s)
+	case string:
+		*e = DataScope(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DataScope: %T", src)
+	}
+	return nil
+}
+
+type NullDataScope struct {
+	DataScope DataScope `json:"data_scope"`
+	Valid     bool      `json:"valid"` // Valid is true if DataScope is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDataScope) Scan(value interface{}) error {
+	if value == nil {
+		ns.DataScope, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DataScope.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDataScope) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DataScope), nil
+}
+
+func (e DataScope) Valid() bool {
+	switch e {
+	case DataScopeGlobal,
+		DataScopeTeam,
+		DataScopeOwn:
+		return true
+	}
+	return false
+}
+
+func AllDataScopeValues() []DataScope {
+	return []DataScope{
+		DataScopeGlobal,
+		DataScopeTeam,
+		DataScopeOwn,
+	}
+}
+
 type InsightTypeEnum string
 
 const (
@@ -838,6 +899,67 @@ func AllMessageToneValues() []MessageTone {
 	}
 }
 
+type ProductOrigin string
+
+const (
+	ProductOriginThai    ProductOrigin = "thai"
+	ProductOriginChinese ProductOrigin = "chinese"
+	ProductOriginOther   ProductOrigin = "other"
+)
+
+func (e *ProductOrigin) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProductOrigin(s)
+	case string:
+		*e = ProductOrigin(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProductOrigin: %T", src)
+	}
+	return nil
+}
+
+type NullProductOrigin struct {
+	ProductOrigin ProductOrigin `json:"product_origin"`
+	Valid         bool          `json:"valid"` // Valid is true if ProductOrigin is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProductOrigin) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProductOrigin, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProductOrigin.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProductOrigin) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProductOrigin), nil
+}
+
+func (e ProductOrigin) Valid() bool {
+	switch e {
+	case ProductOriginThai,
+		ProductOriginChinese,
+		ProductOriginOther:
+		return true
+	}
+	return false
+}
+
+func AllProductOriginValues() []ProductOrigin {
+	return []ProductOrigin{
+		ProductOriginThai,
+		ProductOriginChinese,
+		ProductOriginOther,
+	}
+}
+
 type RateSource string
 
 const (
@@ -899,6 +1021,73 @@ func AllRateSourceValues() []RateSource {
 	}
 }
 
+type UserRole string
+
+const (
+	UserRoleSuperAdmin UserRole = "super_admin"
+	UserRoleAdmin      UserRole = "admin"
+	UserRoleAccountant UserRole = "accountant"
+	UserRoleCsTeam     UserRole = "cs_team"
+	UserRoleSales      UserRole = "sales"
+)
+
+func (e *UserRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserRole(s)
+	case string:
+		*e = UserRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+	}
+	return nil
+}
+
+type NullUserRole struct {
+	UserRole UserRole `json:"user_role"`
+	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserRole), nil
+}
+
+func (e UserRole) Valid() bool {
+	switch e {
+	case UserRoleSuperAdmin,
+		UserRoleAdmin,
+		UserRoleAccountant,
+		UserRoleCsTeam,
+		UserRoleSales:
+		return true
+	}
+	return false
+}
+
+func AllUserRoleValues() []UserRole {
+	return []UserRole{
+		UserRoleSuperAdmin,
+		UserRoleAdmin,
+		UserRoleAccountant,
+		UserRoleCsTeam,
+		UserRoleSales,
+	}
+}
+
 type ChannelConfig struct {
 	ID              uuid.UUID  `db:"id" json:"id"`
 	UserID          uuid.UUID  `db:"user_id" json:"user_id"`
@@ -918,24 +1107,26 @@ type ChannelConfig struct {
 }
 
 type Customer struct {
-	ID              uuid.UUID  `db:"id" json:"id"`
-	UserID          uuid.UUID  `db:"user_id" json:"user_id"`
-	Name            string     `db:"name" json:"name"`
-	NormalizedName  string     `db:"normalized_name" json:"normalized_name"`
-	Phone           *string    `db:"phone" json:"phone"`
-	NormalizedPhone *string    `db:"normalized_phone" json:"normalized_phone"`
-	Country         *string    `db:"country" json:"country"`
-	Type            string     `db:"type" json:"type"`
-	Status          string     `db:"status" json:"status"`
-	TotalOwed       int64      `db:"total_owed" json:"total_owed"`
-	TotalPaid       int64      `db:"total_paid" json:"total_paid"`
-	CreditLimit     int64      `db:"credit_limit" json:"credit_limit"`
-	LastActivity    *time.Time `db:"last_activity" json:"last_activity"`
-	Notes           *string    `db:"notes" json:"notes"`
-	Tags            []string   `db:"tags" json:"tags"`
-	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
-	CustomerNumber  *string    `db:"customer_number" json:"customer_number"`
+	ID                    uuid.UUID  `db:"id" json:"id"`
+	UserID                uuid.UUID  `db:"user_id" json:"user_id"`
+	Name                  string     `db:"name" json:"name"`
+	NormalizedName        string     `db:"normalized_name" json:"normalized_name"`
+	Phone                 *string    `db:"phone" json:"phone"`
+	NormalizedPhone       *string    `db:"normalized_phone" json:"normalized_phone"`
+	Country               *string    `db:"country" json:"country"`
+	Type                  string     `db:"type" json:"type"`
+	Status                string     `db:"status" json:"status"`
+	TotalOwed             int64      `db:"total_owed" json:"total_owed"`
+	TotalPaid             int64      `db:"total_paid" json:"total_paid"`
+	CreditLimit           int64      `db:"credit_limit" json:"credit_limit"`
+	LastActivity          *time.Time `db:"last_activity" json:"last_activity"`
+	Notes                 *string    `db:"notes" json:"notes"`
+	Tags                  []string   `db:"tags" json:"tags"`
+	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
+	CustomerNumber        *string    `db:"customer_number" json:"customer_number"`
+	AssignedTo            *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+	CreditLimitApprovedBy *uuid.UUID `db:"credit_limit_approved_by" json:"credit_limit_approved_by"`
 }
 
 type CustomerContact struct {
@@ -1017,10 +1208,14 @@ type DailyStat struct {
 }
 
 type DeliveryService struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"user_id"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        uuid.UUID  `db:"id" json:"id"`
+	UserID    uuid.UUID  `db:"user_id" json:"user_id"`
+	Name      string     `db:"name" json:"name"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	Price     int64      `db:"price" json:"price"`
+	Currency  string     `db:"currency" json:"currency"`
+	IsActive  bool       `db:"is_active" json:"is_active"`
+	CreatedBy *uuid.UUID `db:"created_by" json:"created_by"`
 }
 
 type ExchangeRate struct {
@@ -1133,6 +1328,31 @@ type Payment struct {
 	VoidedAt  *time.Time `db:"voided_at" json:"voided_at"`
 }
 
+type Permission struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	Resource    string    `db:"resource" json:"resource"`
+	Action      string    `db:"action" json:"action"`
+	Qualifier   string    `db:"qualifier" json:"qualifier"`
+	Description string    `db:"description" json:"description"`
+}
+
+type Product struct {
+	ID           uuid.UUID     `db:"id" json:"id"`
+	OrgOwnerID   uuid.UUID     `db:"org_owner_id" json:"org_owner_id"`
+	Name         string        `db:"name" json:"name"`
+	Sku          *string       `db:"sku" json:"sku"`
+	Origin       ProductOrigin `db:"origin" json:"origin"`
+	Category     *string       `db:"category" json:"category"`
+	Unit         *string       `db:"unit" json:"unit"`
+	CostPrice    int64         `db:"cost_price" json:"cost_price"`
+	SellingPrice int64         `db:"selling_price" json:"selling_price"`
+	Currency     string        `db:"currency" json:"currency"`
+	IsActive     bool          `db:"is_active" json:"is_active"`
+	CreatedBy    *uuid.UUID    `db:"created_by" json:"created_by"`
+	CreatedAt    time.Time     `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time     `db:"updated_at" json:"updated_at"`
+}
+
 type PushSubscription struct {
 	ID        uuid.UUID `db:"id" json:"id"`
 	UserID    uuid.UUID `db:"user_id" json:"user_id"`
@@ -1162,6 +1382,13 @@ type Reminder struct {
 	UpdatedAt         time.Time  `db:"updated_at" json:"updated_at"`
 }
 
+type RolePermission struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	Role         UserRole  `db:"role" json:"role"`
+	PermissionID uuid.UUID `db:"permission_id" json:"permission_id"`
+	Scope        DataScope `db:"scope" json:"scope"`
+}
+
 type Session struct {
 	ID           uuid.UUID `db:"id" json:"id"`
 	UserID       uuid.UUID `db:"user_id" json:"user_id"`
@@ -1173,9 +1400,16 @@ type Session struct {
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 }
 
+type Team struct {
+	ID        uuid.UUID  `db:"id" json:"id"`
+	Name      string     `db:"name" json:"name"`
+	AdminID   *uuid.UUID `db:"admin_id" json:"admin_id"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+}
+
 type User struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
-	Phone            string     `db:"phone" json:"phone"`
+	Phone            *string    `db:"phone" json:"phone"`
 	PinHash          string     `db:"pin_hash" json:"pin_hash"`
 	Name             string     `db:"name" json:"name"`
 	BusinessName     *string    `db:"business_name" json:"business_name"`
@@ -1192,6 +1426,24 @@ type User struct {
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 	Email            *string    `db:"email" json:"email"`
 	CustomerSequence int32      `db:"customer_sequence" json:"customer_sequence"`
+	Username         *string    `db:"username" json:"username"`
+	ForcePinChange   bool       `db:"force_pin_change" json:"force_pin_change"`
+	Role             UserRole   `db:"role" json:"role"`
+	TeamID           *uuid.UUID `db:"team_id" json:"team_id"`
+	CreatedBy        *uuid.UUID `db:"created_by" json:"created_by"`
+	OrgOwnerID       *uuid.UUID `db:"org_owner_id" json:"org_owner_id"`
+}
+
+type UserPermissionGrant struct {
+	ID           uuid.UUID  `db:"id" json:"id"`
+	UserID       uuid.UUID  `db:"user_id" json:"user_id"`
+	PermissionID uuid.UUID  `db:"permission_id" json:"permission_id"`
+	Scope        DataScope  `db:"scope" json:"scope"`
+	ScopeTeamID  *uuid.UUID `db:"scope_team_id" json:"scope_team_id"`
+	GrantedBy    uuid.UUID  `db:"granted_by" json:"granted_by"`
+	Reason       *string    `db:"reason" json:"reason"`
+	ExpiresAt    *time.Time `db:"expires_at" json:"expires_at"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
 }
 
 type WebhookEvent struct {

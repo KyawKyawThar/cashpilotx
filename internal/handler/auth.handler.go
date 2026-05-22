@@ -325,6 +325,41 @@ func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	h.WriteNoContent(w)
 }
 
+// ChangePIN godoc
+//
+//	@Summary      Change PIN
+//	@Description  Verify the current PIN and set a new one. Clears force_pin_change and returns a fresh access token.
+//	@Tags         auth
+//	@Accept       json
+//	@Produce      json
+//	@Param        body  body      dto.ChangePINRequest  true  "Current and new PIN"
+//	@Success      200   {object}  dto.ChangePINResponse
+//	@Failure      400   {object}  dto.ErrorResponse
+//	@Failure      401   {object}  dto.ErrorResponse
+//	@Failure      422   {object}  dto.ErrorResponse
+//	@Failure      500   {object}  dto.ErrorResponse
+//	@Router       /api/v1/auth/change-pin [post]
+//	@Security     BearerAuth
+func (h *AuthHandler) ChangePIN(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.MustUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req dto.ChangePINRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.ChangePIN(r.Context(), userID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // UpdateUserSettings godoc
 //
 //	@Summary      Update user settings

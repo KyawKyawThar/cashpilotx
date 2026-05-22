@@ -1,6 +1,7 @@
 package service
 
 import (
+	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/token"
 	"context"
@@ -23,6 +24,7 @@ type AuthServicer interface {
 	GetMe(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateHomeCurrency(ctx context.Context, userID uuid.UUID, currency string) (*dto.UserResponse, error)
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
+	ChangePIN(ctx context.Context, userID uuid.UUID, req *dto.ChangePINRequest) (*dto.ChangePINResponse, error)
 }
 
 type InvoiceServicer interface {
@@ -33,6 +35,7 @@ type InvoiceServicer interface {
 	ReactivateInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	WriteOffInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	MoveCollectionState(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.MoveCollectionStateRequest) (*dto.InvoiceResponse, error)
+	UpdateInvoiceTracking(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.UpdateInvoiceTrackingRequest) (*dto.InvoiceResponse, error)
 	GetDashboardStats(ctx context.Context, userID uuid.UUID) (*dto.DashboardResponse, error)
 	GetCollectedSummary(ctx context.Context, userID uuid.UUID, from, to time.Time) (*dto.CollectedSummaryResponse, error)
 	GetRecoveryQueue(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.RecoveryQueueItemResponse, error)
@@ -72,11 +75,36 @@ type SyncServicer interface {
 	GetSyncData(ctx context.Context, userID uuid.UUID, since time.Time) (*dto.SyncResponse, error)
 }
 
+type TeamServicer interface {
+	// Teams
+	CreateTeam(ctx context.Context, req *dto.CreateTeamRequest) (*dto.TeamResponse, error)
+	ListTeams(ctx context.Context) ([]*dto.TeamResponse, error)
+
+	// Team users
+	CreateTeamUser(ctx context.Context, callerID uuid.UUID, callerRole db.UserRole, orgOwnerID uuid.UUID, req *dto.CreateTeamUserRequest) (*dto.TeamMemberResponse, error)
+	ListTeamMembers(ctx context.Context, callerRole db.UserRole, callerTeamID *uuid.UUID, orgOwnerID uuid.UUID, activeOnly bool) ([]*dto.TeamMemberResponse, error)
+	UpdateTeamMember(ctx context.Context, callerRole db.UserRole, memberID uuid.UUID, req *dto.UpdateTeamUserRequest) (*dto.TeamMemberResponse, error)
+	DeactivateMember(ctx context.Context, callerRole db.UserRole, memberID uuid.UUID) error
+	ResetMemberPIN(ctx context.Context, callerRole db.UserRole, memberID uuid.UUID, req *dto.AdminResetPINRequest) error
+
+	// Permission grants (super_admin only)
+	GrantPermission(ctx context.Context, callerID uuid.UUID, targetUserID uuid.UUID, req *dto.GrantPermissionRequest) (*dto.PermissionGrantResponse, error)
+	ListGrants(ctx context.Context, targetUserID uuid.UUID) ([]*dto.PermissionGrantResponse, error)
+	RevokeGrant(ctx context.Context, targetUserID uuid.UUID, grantID uuid.UUID) error
+}
+
+type ProductServicer interface {
+	ListProducts(ctx context.Context, orgOwnerID uuid.UUID, role db.UserRole, activeOnly bool) ([]*dto.ProductResponse, error)
+	CreateProduct(ctx context.Context, callerID, orgOwnerID uuid.UUID, req *dto.CreateProductRequest) (*dto.ProductResponse, error)
+	UpdateProduct(ctx context.Context, productID, orgOwnerID uuid.UUID, req *dto.UpdateProductRequest) (*dto.ProductResponse, error)
+	DeactivateProduct(ctx context.Context, productID, orgOwnerID uuid.UUID) error
+}
+
 type CustomerServicer interface {
 	// Customer CRUD
-	CreateCustomer(ctx context.Context, userID uuid.UUID, req *dto.CreateCustomerRequest) (*dto.CustomerResponse, error)
+	CreateCustomer(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID, req *dto.CreateCustomerRequest) (*dto.CustomerResponse, error)
 	GetCustomer(ctx context.Context, userID, customerID uuid.UUID) (*dto.CustomerResponse, error)
-	ListCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
+	ListCustomers(ctx context.Context, userID uuid.UUID, filter *dto.ListCustomersFilter, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	ListAllCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	SearchCustomers(ctx context.Context, userID uuid.UUID, query string) ([]*dto.CustomerResponse, error)
 	UpdateCustomer(ctx context.Context, userID, customerID uuid.UUID, req *dto.UpdateCustomerRequest) (*dto.CustomerResponse, error)

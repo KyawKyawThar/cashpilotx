@@ -53,6 +53,9 @@ type Store interface {
 
 	// User settings (hand-written — see user_settings.go)
 	UpdateHomeCurrency(ctx context.Context, arg UpdateHomeCurrencyParams) (User, error)
+
+	// Team user role (hand-written — see update_user_role.go)
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 }
 
 type SQLStore struct {

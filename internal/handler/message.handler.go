@@ -64,7 +64,7 @@ func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/messages/manual [post]
 //	@Security     BearerAuth
 func (h *MessageHandler) CreateManualMessage(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -74,7 +74,7 @@ func (h *MessageHandler) CreateManualMessage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp, err := h.svc.CreateManualMessage(r.Context(), userID, &req)
+	resp, err := h.svc.CreateManualMessage(r.Context(), effectiveUserID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
