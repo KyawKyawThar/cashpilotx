@@ -1266,7 +1266,7 @@ type Invoice struct {
 	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
 	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
 	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
-	AssignedTo           *string          `db:"assigned_to" json:"assigned_to"`
+	AssignedTo           *uuid.UUID       `db:"assigned_to" json:"assigned_to"`
 	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
 	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
 }

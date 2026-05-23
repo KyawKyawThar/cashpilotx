@@ -96,7 +96,7 @@ func (s *PaymentService) RecordPayment(
 
 	return &dto.RecordPaymentResponse{
 		Payment: dto.ToPaymentResponse(result.Payment),
-		Invoice: dto.ToInvoiceResponse(result.Invoice),
+		Invoice: dto.ToInvoiceResponse(result.Invoice, nil),
 	}, nil
 }
 

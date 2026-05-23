@@ -42,6 +42,46 @@ func formatExternalID(seq int32) string {
 	return fmt.Sprintf("INV-%d-%03d", time.Now().Year(), seq)
 }
 
+// resolveAssigneeName looks up the username for a single assignee UUID.
+// Returns nil if the UUID is nil or the user cannot be found.
+func (s *InvoiceService) resolveAssigneeName(ctx context.Context, id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	u, err := s.store.GetUserByID(ctx, *id)
+	if err != nil {
+		return nil
+	}
+	if u.Username != nil && *u.Username != "" {
+		return u.Username
+	}
+	return &u.Name
+}
+
+// resolveAssigneeNames batch-resolves unique assignee UUIDs from a slice of invoices.
+// Returns a map of UUID → display name (username preferred, falls back to name).
+func (s *InvoiceService) resolveAssigneeNames(ctx context.Context, rows []db.Invoice) map[uuid.UUID]string {
+	seen := make(map[uuid.UUID]struct{})
+	for _, r := range rows {
+		if r.AssignedTo != nil {
+			seen[*r.AssignedTo] = struct{}{}
+		}
+	}
+	result := make(map[uuid.UUID]string, len(seen))
+	for id := range seen {
+		u, err := s.store.GetUserByID(ctx, id)
+		if err != nil {
+			continue
+		}
+		if u.Username != nil && *u.Username != "" {
+			result[id] = *u.Username
+		} else {
+			result[id] = u.Name
+		}
+	}
+	return result
+}
+
 // CreateInvoice atomically creates an invoice and its first reminder, generating
 // the external_id (INV-YYYY-NNN) via the user's atomic invoice_sequence counter.
 func (s *InvoiceService) CreateInvoice(
@@ -126,7 +166,7 @@ func (s *InvoiceService) CreateInvoice(
 	}
 
 	return &dto.CreateInvoiceResponse{
-		Invoice:  dto.ToInvoiceResponse(result.Invoice),
+		Invoice:  dto.ToInvoiceResponse(result.Invoice, s.resolveAssigneeName(dbCtx, result.Invoice.AssignedTo)),
 		Reminder: dto.ToReminderResponse(result.Reminder),
 	}, nil
 }
@@ -150,7 +190,7 @@ func (s *InvoiceService) GetInvoice(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToInvoiceResponse(inv), nil
+	return dto.ToInvoiceResponse(inv, s.resolveAssigneeName(dbCtx, inv.AssignedTo)), nil
 }
 
 // ListInvoices returns a paginated list of invoices with optional filters.
@@ -220,9 +260,16 @@ func (s *InvoiceService) ListInvoices(
 		rows = filtered
 	}
 
+	nameMap := s.resolveAssigneeNames(dbCtx, rows)
 	out := make([]*dto.InvoiceResponse, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, dto.ToInvoiceResponse(r))
+		var assigneeName *string
+		if r.AssignedTo != nil {
+			if name, ok := nameMap[*r.AssignedTo]; ok {
+				assigneeName = &name
+			}
+		}
+		out = append(out, dto.ToInvoiceResponse(r, assigneeName))
 	}
 	return out, nil
 }
@@ -262,7 +309,7 @@ func (s *InvoiceService) CancelInvoice(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToInvoiceResponse(result.Invoice), nil
+	return dto.ToInvoiceResponse(result.Invoice, nil), nil
 }
 
 // ReactivateInvoice is the mirror of CancelInvoice — restores a canceled invoice
@@ -300,7 +347,7 @@ func (s *InvoiceService) ReactivateInvoice(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToInvoiceResponse(result.Invoice), nil
+	return dto.ToInvoiceResponse(result.Invoice, nil), nil
 }
 
 // WriteOffInvoice marks an invoice as defaulted and canceled, cancels its
@@ -337,7 +384,7 @@ func (s *InvoiceService) WriteOffInvoice(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToInvoiceResponse(result.Invoice), nil
+	return dto.ToInvoiceResponse(result.Invoice, nil), nil
 }
 
 // MoveCollectionState validates and applies a manual collection-state transition,
@@ -424,7 +471,7 @@ func (s *InvoiceService) MoveCollectionState(
 		Metadata:      meta,
 	})
 
-	return dto.ToInvoiceResponse(result.Invoice), nil
+	return dto.ToInvoiceResponse(result.Invoice, nil), nil
 }
 
 // UpdateInvoiceTracking sets or clears the tracking number on an existing invoice.
@@ -448,5 +495,5 @@ func (s *InvoiceService) UpdateInvoiceTracking(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToInvoiceResponse(updated), nil
+	return dto.ToInvoiceResponse(updated, nil), nil
 }

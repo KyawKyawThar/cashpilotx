@@ -40,7 +40,7 @@ func (s *SyncService) GetSyncData(ctx context.Context, userID uuid.UUID, since t
 
 	invDTOs := make([]*dto.InvoiceResponse, len(invoices))
 	for i, inv := range invoices {
-		invDTOs[i] = dto.ToInvoiceResponse(inv)
+		invDTOs[i] = dto.ToInvoiceResponse(inv, nil)
 	}
 
 	custDTOs := make([]*dto.CustomerResponse, len(customers))

@@ -24,7 +24,7 @@ type CreateInvoiceRequest struct {
 	DueDate         time.Time       `json:"due_date"     validate:"required"                        example:"2026-06-01T00:00:00Z"`
 	Source          *string         `json:"source"       validate:"omitempty,max=100"               example:"manual"`
 	PhotoURL        *string         `json:"photo_url"    validate:"omitempty,url"                   example:"https://example.com/invoice.jpg"`
-	AssignedTo      *string         `json:"assigned_to"       validate:"omitempty,max=100"   example:"Ko Aung"`
+	AssignedTo      *uuid.UUID      `json:"assigned_to"       validate:"omitempty"`
 	DeliveryService *string         `json:"delivery_service"  validate:"omitempty,max=100"   example:"Flash Express"`
 	TrackingNumber  *string         `json:"tracking_number"   validate:"omitempty,max=100"   example:"10661980LZR"`
 
@@ -92,7 +92,8 @@ type InvoiceResponse struct {
 	ConfidenceFactors *json.RawMessage `json:"confidence_factors,omitempty" swaggertype:"object"`
 	OutcomeText       *string          `json:"outcome_text,omitempty"`
 	OutcomeTimeframe  *string          `json:"outcome_timeframe,omitempty"`
-	AssignedTo        *string          `json:"assigned_to,omitempty"`
+	AssignedTo        *uuid.UUID       `json:"assigned_to,omitempty"`
+	AssignedToUsername *string         `json:"assigned_to_username,omitempty"`
 	DeliveryService   *string          `json:"delivery_service,omitempty"`
 	TrackingNumber    *string          `json:"tracking_number,omitempty"`
 	CreatedAt         time.Time        `json:"created_at"`
@@ -123,7 +124,8 @@ type CreateInvoiceResponse struct {
 // =============================================================================
 
 // ToInvoiceResponse maps db.Invoice to a client-facing InvoiceResponse.
-func ToInvoiceResponse(i db.Invoice) *InvoiceResponse {
+// Pass assigneeName as the resolved username for the assigned_to UUID; nil if unknown or unassigned.
+func ToInvoiceResponse(i db.Invoice, assigneeName *string) *InvoiceResponse {
 	items := i.Items
 	if items == nil {
 		items = json.RawMessage("[]")
@@ -152,7 +154,8 @@ func ToInvoiceResponse(i db.Invoice) *InvoiceResponse {
 		ConfidenceFactors: i.ConfidenceFactors,
 		OutcomeText:       i.OutcomeText,
 		OutcomeTimeframe:  i.OutcomeTimeframe,
-		AssignedTo:        i.AssignedTo,
+		AssignedTo:         i.AssignedTo,
+		AssignedToUsername: assigneeName,
 		DeliveryService:   i.DeliveryService,
 		TrackingNumber:    i.TrackingNumber,
 		CreatedAt:         i.CreatedAt,

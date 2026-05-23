@@ -152,7 +152,7 @@ type CreateInvoiceParams struct {
 	PhotoUrl        *string         `db:"photo_url" json:"photo_url"`
 	ExternalID      *string         `db:"external_id" json:"external_id"`
 	Column10        json.RawMessage `db:"column_10" json:"column_10"`
-	AssignedTo      *string         `db:"assigned_to" json:"assigned_to"`
+	AssignedTo      *uuid.UUID      `db:"assigned_to" json:"assigned_to"`
 	DeliveryService *string         `db:"delivery_service" json:"delivery_service"`
 	TrackingNumber  *string         `db:"tracking_number" json:"tracking_number"`
 }
