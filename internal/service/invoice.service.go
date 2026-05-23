@@ -194,8 +194,6 @@ func (s *InvoiceService) GetInvoice(
 }
 
 // ListInvoices returns a paginated list of invoices with optional filters.
-// Collection-state filtering is applied in Go after the DB query because there
-// is no dedicated SQL query for that filter combination.
 func (s *InvoiceService) ListInvoices(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -205,60 +203,12 @@ func (s *InvoiceService) ListInvoices(
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
-	var rows []db.Invoice
-	var err error
-
-	currentMonthOnly := filter != nil && filter.CurrentMonthOnly
-
-	switch {
-	case filter != nil && filter.CustomerID != nil:
-		rows, err = s.store.ListInvoicesByCustomer(dbCtx, db.ListInvoicesByCustomerParams{
-			UserID:     userID,
-			CustomerID: *filter.CustomerID,
-			Limit:      pg.Limit32(),
-			Offset:     pg.Offset32(),
-		})
-	case filter != nil && filter.Overdue:
-		rows, err = s.store.ListOverdueInvoices(dbCtx, db.ListOverdueInvoicesParams{
-			UserID: userID,
-			Limit:  pg.Limit32(),
-			Offset: pg.Offset32(),
-		})
-	case filter != nil && filter.Status != nil:
-		rows, err = s.store.ListInvoicesByStatus(dbCtx, db.ListInvoicesByStatusParams{
-			UserID: userID,
-			Status: *filter.Status,
-			Limit:  pg.Limit32(),
-			Offset: pg.Offset32(),
-		})
-	case currentMonthOnly:
-		rows, err = s.store.ListInvoicesCurrentMonth(dbCtx, db.ListInvoicesCurrentMonthParams{
-			UserID: userID,
-			Limit:  pg.Limit32(),
-			Offset: pg.Offset32(),
-		})
-	default:
-		rows, err = s.store.ListInvoices(dbCtx, db.ListInvoicesParams{
-			UserID: userID,
-			Limit:  pg.Limit32(),
-			Offset: pg.Offset32(),
-		})
-	}
+	rows, err := s.queryInvoices(dbCtx, userID, filter, pg)
 	if err != nil {
 		return nil, api.FromPgError(err)
 	}
 
-	// Apply collection_state filter in Go — no dedicated SQL query for this field.
-	if filter != nil && filter.CollectionState != nil {
-		target := *filter.CollectionState
-		filtered := rows[:0]
-		for _, r := range rows {
-			if r.CollectionState == target {
-				filtered = append(filtered, r)
-			}
-		}
-		rows = filtered
-	}
+	rows = applyCollectionStateFilter(rows, filter)
 
 	nameMap := s.resolveAssigneeNames(dbCtx, rows)
 	out := make([]*dto.InvoiceResponse, 0, len(rows))
@@ -272,6 +222,66 @@ func (s *InvoiceService) ListInvoices(
 		out = append(out, dto.ToInvoiceResponse(r, assigneeName))
 	}
 	return out, nil
+}
+
+// queryInvoices selects the right DB query based on the active filter.
+func (s *InvoiceService) queryInvoices(
+	ctx context.Context,
+	userID uuid.UUID,
+	filter *dto.ListInvoicesFilter,
+	pg *dto.Pagination,
+) ([]db.Invoice, error) {
+	if filter != nil {
+		switch {
+		case filter.CustomerID != nil:
+			return s.store.ListInvoicesByCustomer(ctx, db.ListInvoicesByCustomerParams{
+				UserID:     userID,
+				CustomerID: *filter.CustomerID,
+				Limit:      pg.Limit32(),
+				Offset:     pg.Offset32(),
+			})
+		case filter.Overdue:
+			return s.store.ListOverdueInvoices(ctx, db.ListOverdueInvoicesParams{
+				UserID: userID,
+				Limit:  pg.Limit32(),
+				Offset: pg.Offset32(),
+			})
+		case filter.Status != nil:
+			return s.store.ListInvoicesByStatus(ctx, db.ListInvoicesByStatusParams{
+				UserID: userID,
+				Status: *filter.Status,
+				Limit:  pg.Limit32(),
+				Offset: pg.Offset32(),
+			})
+		case filter.CurrentMonthOnly:
+			return s.store.ListInvoicesCurrentMonth(ctx, db.ListInvoicesCurrentMonthParams{
+				UserID: userID,
+				Limit:  pg.Limit32(),
+				Offset: pg.Offset32(),
+			})
+		}
+	}
+	return s.store.ListInvoices(ctx, db.ListInvoicesParams{
+		UserID: userID,
+		Limit:  pg.Limit32(),
+		Offset: pg.Offset32(),
+	})
+}
+
+// applyCollectionStateFilter filters invoices by collection_state in Go because
+// there is no dedicated SQL query for that filter combination.
+func applyCollectionStateFilter(rows []db.Invoice, filter *dto.ListInvoicesFilter) []db.Invoice {
+	if filter == nil || filter.CollectionState == nil {
+		return rows
+	}
+	target := *filter.CollectionState
+	filtered := rows[:0]
+	for _, r := range rows {
+		if r.CollectionState == target {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 // CancelInvoice cancels an invoice, kills its pending reminders, and reverses

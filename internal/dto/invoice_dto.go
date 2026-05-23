@@ -69,35 +69,35 @@ type ListInvoicesFilter struct {
 
 // InvoiceResponse is the public representation of an invoice.
 type InvoiceResponse struct {
-	ID                uuid.UUID        `json:"id"`
-	CustomerID        uuid.UUID        `json:"customer_id"`
-	ExternalID        *string          `json:"external_id,omitempty"`
-	Description       *string          `json:"description,omitempty"`
-	Items             json.RawMessage  `json:"items" swaggertype:"array,object"`
-	Amount            int64            `json:"amount"`
-	PaidAmount        int64            `json:"paid_amount"`
-	Currency          string           `json:"currency"`
-	Status            string           `json:"status"`
-	Source            *string          `json:"source,omitempty"`
-	PhotoURL          *string          `json:"photo_url,omitempty"`
-	DueDate           time.Time        `json:"due_date"`
-	IssuedAt          *time.Time       `json:"issued_at,omitempty"`
-	PaidAt            *time.Time       `json:"paid_at,omitempty"`
-	CollectionState   string           `json:"collection_state"`
-	LastContactedAt   *time.Time       `json:"last_contacted_at,omitempty"`
-	LastResponseAt    *time.Time       `json:"last_response_at,omitempty"`
-	PromisedAt        *time.Time       `json:"promised_at,omitempty"`
-	FollowUpCount     int32            `json:"follow_up_count"`
-	ConfidenceScore   *float64         `json:"confidence_score,omitempty"`
-	ConfidenceFactors *json.RawMessage `json:"confidence_factors,omitempty" swaggertype:"object"`
-	OutcomeText       *string          `json:"outcome_text,omitempty"`
-	OutcomeTimeframe  *string          `json:"outcome_timeframe,omitempty"`
-	AssignedTo        *uuid.UUID       `json:"assigned_to,omitempty"`
-	AssignedToUsername *string         `json:"assigned_to_username,omitempty"`
-	DeliveryService   *string          `json:"delivery_service,omitempty"`
-	TrackingNumber    *string          `json:"tracking_number,omitempty"`
-	CreatedAt         time.Time        `json:"created_at"`
-	UpdatedAt         time.Time        `json:"updated_at"`
+	ID                 uuid.UUID        `json:"id"`
+	CustomerID         uuid.UUID        `json:"customer_id"`
+	ExternalID         *string          `json:"external_id,omitempty"`
+	Description        *string          `json:"description,omitempty"`
+	Items              json.RawMessage  `json:"items" swaggertype:"array,object"`
+	Amount             int64            `json:"amount"`
+	PaidAmount         int64            `json:"paid_amount"`
+	Currency           string           `json:"currency"`
+	Status             string           `json:"status"`
+	Source             *string          `json:"source,omitempty"`
+	PhotoURL           *string          `json:"photo_url,omitempty"`
+	DueDate            time.Time        `json:"due_date"`
+	IssuedAt           *time.Time       `json:"issued_at,omitempty"`
+	PaidAt             *time.Time       `json:"paid_at,omitempty"`
+	CollectionState    string           `json:"collection_state"`
+	LastContactedAt    *time.Time       `json:"last_contacted_at,omitempty"`
+	LastResponseAt     *time.Time       `json:"last_response_at,omitempty"`
+	PromisedAt         *time.Time       `json:"promised_at,omitempty"`
+	FollowUpCount      int32            `json:"follow_up_count"`
+	ConfidenceScore    *float64         `json:"confidence_score,omitempty"`
+	ConfidenceFactors  *json.RawMessage `json:"confidence_factors,omitempty" swaggertype:"object"`
+	OutcomeText        *string          `json:"outcome_text,omitempty"`
+	OutcomeTimeframe   *string          `json:"outcome_timeframe,omitempty"`
+	AssignedTo         *uuid.UUID       `json:"assigned_to,omitempty"`
+	AssignedToUsername *string          `json:"assigned_to_username,omitempty"`
+	DeliveryService    *string          `json:"delivery_service,omitempty"`
+	TrackingNumber     *string          `json:"tracking_number,omitempty"`
+	CreatedAt          time.Time        `json:"created_at"`
+	UpdatedAt          time.Time        `json:"updated_at"`
 }
 
 // ReminderResponse is the public representation of a reminder.
@@ -131,35 +131,35 @@ func ToInvoiceResponse(i db.Invoice, assigneeName *string) *InvoiceResponse {
 		items = json.RawMessage("[]")
 	}
 	return &InvoiceResponse{
-		ID:                i.ID,
-		CustomerID:        i.CustomerID,
-		ExternalID:        i.ExternalID,
-		Description:       i.Description,
-		Items:             items,
-		Amount:            i.Amount,
-		PaidAmount:        i.PaidAmount,
-		Currency:          i.Currency,
-		Status:            i.Status,
-		Source:            i.Source,
-		PhotoURL:          i.PhotoUrl,
-		DueDate:           i.DueDate,
-		IssuedAt:          i.IssuedAt,
-		PaidAt:            i.PaidAt,
-		CollectionState:   i.CollectionState,
-		LastContactedAt:   i.LastContactedAt,
-		LastResponseAt:    i.LastResponseAt,
-		PromisedAt:        i.PromisedAt,
-		FollowUpCount:     i.FollowUpCount,
-		ConfidenceScore:   i.ConfidenceScore,
-		ConfidenceFactors: i.ConfidenceFactors,
-		OutcomeText:       i.OutcomeText,
-		OutcomeTimeframe:  i.OutcomeTimeframe,
+		ID:                 i.ID,
+		CustomerID:         i.CustomerID,
+		ExternalID:         i.ExternalID,
+		Description:        i.Description,
+		Items:              items,
+		Amount:             i.Amount,
+		PaidAmount:         i.PaidAmount,
+		Currency:           i.Currency,
+		Status:             i.Status,
+		Source:             i.Source,
+		PhotoURL:           i.PhotoUrl,
+		DueDate:            i.DueDate,
+		IssuedAt:           i.IssuedAt,
+		PaidAt:             i.PaidAt,
+		CollectionState:    i.CollectionState,
+		LastContactedAt:    i.LastContactedAt,
+		LastResponseAt:     i.LastResponseAt,
+		PromisedAt:         i.PromisedAt,
+		FollowUpCount:      i.FollowUpCount,
+		ConfidenceScore:    i.ConfidenceScore,
+		ConfidenceFactors:  i.ConfidenceFactors,
+		OutcomeText:        i.OutcomeText,
+		OutcomeTimeframe:   i.OutcomeTimeframe,
 		AssignedTo:         i.AssignedTo,
 		AssignedToUsername: assigneeName,
-		DeliveryService:   i.DeliveryService,
-		TrackingNumber:    i.TrackingNumber,
-		CreatedAt:         i.CreatedAt,
-		UpdatedAt:         i.UpdatedAt,
+		DeliveryService:    i.DeliveryService,
+		TrackingNumber:     i.TrackingNumber,
+		CreatedAt:          i.CreatedAt,
+		UpdatedAt:          i.UpdatedAt,
 	}
 }
 
