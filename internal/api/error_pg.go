@@ -301,7 +301,7 @@ func handlePgError(pgErr *pgconn.PgError) *Error {
 }
 
 // FromPgError converts a PostgreSQL error to an API error
-func FromPgError(err error) *Error {
+func FromPgError(err error) error {
 	if err == nil {
 		return nil
 	}

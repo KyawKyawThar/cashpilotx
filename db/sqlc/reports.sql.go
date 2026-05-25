@@ -12,6 +12,93 @@ import (
 	"github.com/google/uuid"
 )
 
+const getAgingReport = `-- name: GetAgingReport :one
+SELECT
+  COALESCE(SUM(i.amount - i.paid_amount) FILTER (
+    WHERE (CURRENT_DATE - i.issued_at::date) <= 30
+  ), 0)::BIGINT AS days_0_30,
+  COALESCE(SUM(i.amount - i.paid_amount) FILTER (
+    WHERE (CURRENT_DATE - i.issued_at::date) BETWEEN 31 AND 60
+  ), 0)::BIGINT AS days_31_60,
+  COALESCE(SUM(i.amount - i.paid_amount) FILTER (
+    WHERE (CURRENT_DATE - i.issued_at::date) BETWEEN 61 AND 90
+  ), 0)::BIGINT AS days_61_90,
+  COALESCE(SUM(i.amount - i.paid_amount) FILTER (
+    WHERE (CURRENT_DATE - i.issued_at::date) > 90
+  ), 0)::BIGINT AS days_90_plus
+FROM invoices i
+WHERE i.user_id          = $1
+  AND i.issued_at::date >= $2
+  AND i.issued_at::date  < $3
+  AND i.status NOT IN ('cancelled', 'returned')
+  AND i.paid_amount      < i.amount
+`
+
+type GetAgingReportParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	IssuedAt   *time.Time `db:"issued_at" json:"issued_at"`
+	IssuedAt_2 *time.Time `db:"issued_at_2" json:"issued_at_2"`
+}
+
+type GetAgingReportRow struct {
+	Days030    int64 `db:"days_0_30" json:"days_0_30"`
+	Days3160   int64 `db:"days_31_60" json:"days_31_60"`
+	Days6190   int64 `db:"days_61_90" json:"days_61_90"`
+	Days90Plus int64 `db:"days_90_plus" json:"days_90_plus"`
+}
+
+// Outstanding amounts for invoices issued in the date range, bucketed by age as of today.
+func (q *Queries) GetAgingReport(ctx context.Context, arg GetAgingReportParams) (GetAgingReportRow, error) {
+	row := q.db.QueryRow(ctx, getAgingReport, arg.UserID, arg.IssuedAt, arg.IssuedAt_2)
+	var i GetAgingReportRow
+	err := row.Scan(
+		&i.Days030,
+		&i.Days3160,
+		&i.Days6190,
+		&i.Days90Plus,
+	)
+	return i, err
+}
+
+const getCollectionStats = `-- name: GetCollectionStats :one
+SELECT
+  COUNT(*) FILTER (WHERE collection_state NOT IN ('pending', 'defaulted'))::BIGINT AS total_in_collection,
+  COUNT(*) FILTER (WHERE collection_state = 'paid')::BIGINT                        AS collection_paid,
+  COUNT(*) FILTER (WHERE collection_state = 'promised')::BIGINT                   AS currently_promised,
+  COUNT(*) FILTER (WHERE collection_state = 'defaulted')::BIGINT                  AS defaulted_count
+FROM invoices
+WHERE user_id          = $1
+  AND issued_at::date >= $2
+  AND issued_at::date  < $3
+  AND status NOT IN ('cancelled', 'returned')
+`
+
+type GetCollectionStatsParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	IssuedAt   *time.Time `db:"issued_at" json:"issued_at"`
+	IssuedAt_2 *time.Time `db:"issued_at_2" json:"issued_at_2"`
+}
+
+type GetCollectionStatsRow struct {
+	TotalInCollection int64 `db:"total_in_collection" json:"total_in_collection"`
+	CollectionPaid    int64 `db:"collection_paid" json:"collection_paid"`
+	CurrentlyPromised int64 `db:"currently_promised" json:"currently_promised"`
+	DefaultedCount    int64 `db:"defaulted_count" json:"defaulted_count"`
+}
+
+// Collection pipeline statistics for invoices in the date range.
+func (q *Queries) GetCollectionStats(ctx context.Context, arg GetCollectionStatsParams) (GetCollectionStatsRow, error) {
+	row := q.db.QueryRow(ctx, getCollectionStats, arg.UserID, arg.IssuedAt, arg.IssuedAt_2)
+	var i GetCollectionStatsRow
+	err := row.Scan(
+		&i.TotalInCollection,
+		&i.CollectionPaid,
+		&i.CurrentlyPromised,
+		&i.DefaultedCount,
+	)
+	return i, err
+}
+
 const getInvoiceReport = `-- name: GetInvoiceReport :many
 SELECT
   u.name                                          AS sale_name,
@@ -23,7 +110,7 @@ FROM users u
 LEFT JOIN invoices i ON i.assigned_to    = u.id
                     AND i.user_id        = u.org_owner_id
                     AND i.issued_at::date >= $2 AND i.issued_at::date < $3
-                    AND i.status         != 'cancelled'
+                    AND i.status         NOT IN ('cancelled', 'returned')
                     AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
 WHERE u.org_owner_id = $1
   AND u.role         IN ('cs_team', 'sales')
@@ -161,6 +248,10 @@ WITH item_agg AS (
       GREATEST((item->>'qty')::NUMERIC,        0) *
       GREATEST((item->>'unit_price')::NUMERIC, 0) -
       COALESCE(GREATEST((item->>'discount')::NUMERIC, 0), 0)
+    ), 0)                                                      AS revenue,
+    COALESCE(SUM(
+      GREATEST((item->>'qty')::NUMERIC,        0) *
+      GREATEST((item->>'unit_price')::NUMERIC, 0)
     ), 0)                                                      AS total_value
   FROM invoices i
   CROSS JOIN LATERAL jsonb_array_elements(i.items) AS item
@@ -174,7 +265,7 @@ SELECT
   p.name                                  AS product_name,
   COALESCE(a.total_order, 0)::BIGINT      AS total_order,
   COALESCE(a.total_qty,   0)::BIGINT      AS total_qty,
-  COALESCE(a.total_value, 0)::BIGINT      AS revenue,
+  COALESCE(a.revenue,     0)::BIGINT      AS revenue,
   COALESCE(a.total_value, 0)::BIGINT      AS total_value
 FROM products p
 LEFT JOIN item_agg a ON a.product_name = p.name
@@ -206,6 +297,8 @@ type GetProductListReportRow struct {
 // Optional text filters use ” to mean "no filter".
 // Shows all active products for the org with aggregated sales in the date range.
 // Products with no sales in the period appear with zero values.
+// revenue    = qty * unit_price - discount  (actual income after discount)
+// total_value = qty * unit_price            (income before discount)
 func (q *Queries) GetProductListReport(ctx context.Context, arg GetProductListReportParams) ([]GetProductListReportRow, error) {
 	rows, err := q.db.Query(ctx, getProductListReport,
 		arg.OrgOwnerID,
@@ -309,36 +402,67 @@ func (q *Queries) GetRecoverCashReport(ctx context.Context, arg GetRecoverCashRe
 }
 
 const getSaleReport = `-- name: GetSaleReport :many
+WITH
+cust_agg AS (
+  SELECT
+    c.assigned_to                   AS user_id,
+    COUNT(c.id)::BIGINT             AS total_customer
+  FROM customers c
+  WHERE c.user_id        = $1
+    AND c.assigned_to    IS NOT NULL
+    AND c.created_at::date >= $2 AND c.created_at::date < $3
+  GROUP BY c.assigned_to
+),
+pay_agg AS (
+  SELECT
+    i.assigned_to                       AS user_id,
+    COALESCE(SUM(p.amount), 0)::BIGINT  AS cash_revenue
+  FROM payments p
+  JOIN invoices i ON i.id = p.invoice_id AND i.user_id = $1
+  WHERE p.paid_on   >= $2 AND p.paid_on  < $3
+    AND p.voided_at IS NULL
+    AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
+  GROUP BY i.assigned_to
+),
+inv_agg AS (
+  SELECT
+    i.assigned_to                                  AS user_id,
+    COUNT(DISTINCT i.id)::BIGINT                   AS invoice_count,
+    COALESCE(SUM(i.amount), 0)::BIGINT             AS invoice_revenue,
+    COUNT(DISTINCT i.id)::BIGINT                   AS total_order,
+    COALESCE(SUM(i.amount), 0)::BIGINT             AS total_value
+  FROM invoices i
+  WHERE i.user_id        = $1
+    AND i.issued_at::date >= $2 AND i.issued_at::date < $3
+    AND i.status          != 'cancelled'
+    AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
+  GROUP BY i.assigned_to
+)
 SELECT
-  u.name                                                                  AS sale_name,
-  COUNT(DISTINCT i.customer_id)::BIGINT                                   AS total_customer,
-  COALESCE(SUM(p.amount) FILTER (WHERE p.voided_at IS NULL), 0)::BIGINT  AS cash_revenue,
-  COUNT(DISTINCT i.id)::BIGINT                                            AS invoice_count,
-  COALESCE(SUM(i.amount), 0)::BIGINT                                      AS invoice_revenue,
-  COUNT(DISTINCT i.id)::BIGINT                                            AS total_order,
-  COALESCE(SUM(i.amount), 0)::BIGINT                                      AS total_value
+  u.name                                              AS sale_name,
+  COALESCE(ca.total_customer,  0)::BIGINT             AS total_customer,
+  COALESCE(pa.cash_revenue,    0)::BIGINT             AS cash_revenue,
+  COALESCE(ia.invoice_count,   0)::BIGINT             AS invoice_count,
+  COALESCE(ia.invoice_revenue, 0)::BIGINT             AS invoice_revenue,
+  COALESCE(ia.total_order,     0)::BIGINT             AS total_order,
+  COALESCE(ia.total_value,     0)::BIGINT             AS total_value
 FROM users u
-LEFT JOIN invoices i ON i.assigned_to    = u.id
-                    AND i.user_id        = u.org_owner_id
-                    AND i.issued_at::date >= $2 AND i.issued_at::date < $3
-                    AND i.status         != 'cancelled'
-                    AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
-LEFT JOIN payments p ON p.invoice_id     = i.id
-                    AND p.voided_at      IS NULL
+LEFT JOIN cust_agg ca ON ca.user_id = u.id
+LEFT JOIN pay_agg  pa ON pa.user_id = u.id
+LEFT JOIN inv_agg  ia ON ia.user_id = u.id
 WHERE u.org_owner_id = $1
   AND u.role         IN ('cs_team', 'sales')
   AND u.is_active    = true
   AND ($5::text = '' OR u.name ILIKE '%' || $5 || '%')
-GROUP BY u.id, u.name
 ORDER BY u.name
 `
 
 type GetSaleReportParams struct {
-	OrgOwnerID *uuid.UUID `db:"org_owner_id" json:"org_owner_id"`
-	IssuedAt   *time.Time `db:"issued_at" json:"issued_at"`
-	IssuedAt_2 *time.Time `db:"issued_at_2" json:"issued_at_2"`
-	Column4    string     `db:"column_4" json:"column_4"`
-	Column5    string     `db:"column_5" json:"column_5"`
+	OrgOwnerID  *uuid.UUID `db:"org_owner_id" json:"org_owner_id"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	CreatedAt_2 time.Time  `db:"created_at_2" json:"created_at_2"`
+	Column4     string     `db:"column_4" json:"column_4"`
+	Column5     string     `db:"column_5" json:"column_5"`
 }
 
 type GetSaleReportRow struct {
@@ -351,13 +475,13 @@ type GetSaleReportRow struct {
 	TotalValue     int64  `db:"total_value" json:"total_value"`
 }
 
-// Shows all active team members with their invoice and payment totals.
+// Shows all active team members with new-customer count, cash collected, and invoice totals.
 // Members with no activity in the period appear with zero values.
 func (q *Queries) GetSaleReport(ctx context.Context, arg GetSaleReportParams) ([]GetSaleReportRow, error) {
 	rows, err := q.db.Query(ctx, getSaleReport,
 		arg.OrgOwnerID,
-		arg.IssuedAt,
-		arg.IssuedAt_2,
+		arg.CreatedAt,
+		arg.CreatedAt_2,
 		arg.Column4,
 		arg.Column5,
 	)
@@ -444,6 +568,70 @@ func (q *Queries) GetScheduleReport(ctx context.Context, arg GetScheduleReportPa
 			&i.TotalOrder,
 			&i.Count,
 			&i.TotalValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTopOverdueCustomers = `-- name: GetTopOverdueCustomers :many
+SELECT
+  c.name                                              AS customer_name,
+  COALESCE(c.phone, '')                               AS phone,
+  COALESCE(u.name,  '')                               AS sale_name,
+  COUNT(DISTINCT i.id)::BIGINT                        AS invoice_count,
+  COALESCE(SUM(i.amount - i.paid_amount), 0)::BIGINT  AS outstanding_amount,
+  MAX(CURRENT_DATE - i.issued_at::date)::BIGINT       AS max_days_overdue
+FROM invoices i
+JOIN customers c ON c.id = i.customer_id AND c.user_id = $1
+LEFT JOIN users u ON u.id = i.assigned_to
+WHERE i.user_id          = $1
+  AND i.issued_at::date >= $2
+  AND i.issued_at::date  < $3
+  AND i.status NOT IN ('cancelled', 'returned', 'paid')
+  AND i.paid_amount      < i.amount
+GROUP BY c.id, c.name, c.phone, u.name
+ORDER BY outstanding_amount DESC
+LIMIT 10
+`
+
+type GetTopOverdueCustomersParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	IssuedAt   *time.Time `db:"issued_at" json:"issued_at"`
+	IssuedAt_2 *time.Time `db:"issued_at_2" json:"issued_at_2"`
+}
+
+type GetTopOverdueCustomersRow struct {
+	CustomerName      string `db:"customer_name" json:"customer_name"`
+	Phone             string `db:"phone" json:"phone"`
+	SaleName          string `db:"sale_name" json:"sale_name"`
+	InvoiceCount      int64  `db:"invoice_count" json:"invoice_count"`
+	OutstandingAmount int64  `db:"outstanding_amount" json:"outstanding_amount"`
+	MaxDaysOverdue    int64  `db:"max_days_overdue" json:"max_days_overdue"`
+}
+
+// Top 10 customers with the largest outstanding balance from invoices in the date range.
+func (q *Queries) GetTopOverdueCustomers(ctx context.Context, arg GetTopOverdueCustomersParams) ([]GetTopOverdueCustomersRow, error) {
+	rows, err := q.db.Query(ctx, getTopOverdueCustomers, arg.UserID, arg.IssuedAt, arg.IssuedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTopOverdueCustomersRow{}
+	for rows.Next() {
+		var i GetTopOverdueCustomersRow
+		if err := rows.Scan(
+			&i.CustomerName,
+			&i.Phone,
+			&i.SaleName,
+			&i.InvoiceCount,
+			&i.OutstandingAmount,
+			&i.MaxDaysOverdue,
 		); err != nil {
 			return nil, err
 		}

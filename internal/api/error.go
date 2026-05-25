@@ -488,6 +488,9 @@ func WriteError(w http.ResponseWriter, err *Error) {
 
 // WriteErrorWithContext writes an Error to the response with context.
 func WriteErrorWithContext(w http.ResponseWriter, r *http.Request, err *Error) {
+	if err == nil {
+		err = ErrInternal(errors.New("unknown internal error"))
+	}
 	requestID := r.Header.Get("X-Request-ID")
 	if requestID == "" {
 		requestID = uuid.New().String()

@@ -84,7 +84,11 @@ type Querier interface {
 	GetActiveInsightsByUser(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	// Used by FireReminderTx to check for an already-active reminder before creating a new one.
 	GetActiveReminderByInvoice(ctx context.Context, invoiceID uuid.UUID) (Reminder, error)
+	// Outstanding amounts for invoices issued in the date range, bucketed by age as of today.
+	GetAgingReport(ctx context.Context, arg GetAgingReportParams) (GetAgingReportRow, error)
 	GetChannelConfig(ctx context.Context, arg GetChannelConfigParams) (ChannelConfig, error)
+	// Collection pipeline statistics for invoices in the date range.
+	GetCollectionStats(ctx context.Context, arg GetCollectionStatsParams) (GetCollectionStatsRow, error)
 	GetContactByPlatform(ctx context.Context, arg GetContactByPlatformParams) (CustomerContact, error)
 	GetCurrentInsight(ctx context.Context, arg GetCurrentInsightParams) (CustomerInsight, error)
 	GetCustomerByID(ctx context.Context, arg GetCustomerByIDParams) (Customer, error)
@@ -135,6 +139,8 @@ type Querier interface {
 	// Optional text filters use '' to mean "no filter".
 	// Shows all active products for the org with aggregated sales in the date range.
 	// Products with no sales in the period appear with zero values.
+	// revenue    = qty * unit_price - discount  (actual income after discount)
+	// total_value = qty * unit_price            (income before discount)
 	GetProductListReport(ctx context.Context, arg GetProductListReportParams) ([]GetProductListReportRow, error)
 	// Cash collected on invoices that went through the collection flow,
 	// grouped by the assigned salesperson.
@@ -146,13 +152,15 @@ type Querier interface {
 	// "Recovered this month" comes from GetMonthlyStats in daily_stats.sql.
 	GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRecoveryStatsRow, error)
 	GetReminder(ctx context.Context, id uuid.UUID) (Reminder, error)
-	// Shows all active team members with their invoice and payment totals.
+	// Shows all active team members with new-customer count, cash collected, and invoice totals.
 	// Members with no activity in the period appear with zero values.
 	GetSaleReport(ctx context.Context, arg GetSaleReportParams) ([]GetSaleReportRow, error)
 	// Reminders scheduled in the date range, grouped by the invoice's assigned salesperson.
 	GetScheduleReport(ctx context.Context, arg GetScheduleReportParams) ([]GetScheduleReportRow, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (Session, error)
 	GetTeam(ctx context.Context, id uuid.UUID) (Team, error)
+	// Top 10 customers with the largest outstanding balance from invoices in the date range.
+	GetTopOverdueCustomers(ctx context.Context, arg GetTopOverdueCustomersParams) ([]GetTopOverdueCustomersRow, error)
 	GetUserByEmail(ctx context.Context, email *string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone *string) (User, error)

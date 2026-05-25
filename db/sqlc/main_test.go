@@ -51,11 +51,6 @@ func TestMain(m *testing.M) {
 
 	testStore = NewStore(testDB)
 
-	// Truncate users table to cascade deletes and ensure clean state for tests
-	if _, err := testDB.Exec(context.Background(), "TRUNCATE TABLE users RESTART IDENTITY CASCADE"); err != nil {
-		log.Fatal("failed to truncate tables:", err)
-	}
-
 	code := m.Run()
 	testDB.Close()
 	os.Exit(code)

@@ -5,6 +5,7 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"context"
+	"math"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
@@ -12,7 +13,7 @@ import (
 
 const totalLabel = "Total"
 
-// GetDailyReport runs all 6 report queries concurrently and returns the
+// GetDailyReport runs all 9 report queries concurrently and returns the
 // combined response. cs_team callers see only their own team's rows.
 func (s *ReportService) GetDailyReport(
 	ctx context.Context,
@@ -33,112 +34,8 @@ func (s *ReportService) GetDailyReport(
 		}
 	}
 
-	orgPtr := &orgOwnerID
-	fromPtr := &filter.FromDate
-	toPtr := &filter.ToDate
-
-	var (
-		productRows     []db.GetProductListReportRow
-		saleRows        []db.GetSaleReportRow
-		recoverCashRows []db.GetRecoverCashReportRow
-		invoiceRows     []db.GetInvoiceReportRow
-		scheduleRows    []db.GetScheduleReportRow
-		paymentRows     []db.GetPaymentReportRow
-	)
-
-	g, gCtx := errgroup.WithContext(dbCtx)
-
-	g.Go(func() error {
-		rows, err := s.store.GetProductListReport(gCtx, db.GetProductListReportParams{
-			OrgOwnerID: orgOwnerID,
-			IssuedAt:   fromPtr,
-			IssuedAt_2: toPtr,
-			Column4:    filter.TrackingCode,
-			Column5:    filter.ProductName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		productRows = rows
-		return nil
-	})
-
-	g.Go(func() error {
-		rows, err := s.store.GetSaleReport(gCtx, db.GetSaleReportParams{
-			OrgOwnerID: orgPtr,
-			IssuedAt:   fromPtr,
-			IssuedAt_2: toPtr,
-			Column4:    filter.TrackingCode,
-			Column5:    filter.SaleName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		saleRows = rows
-		return nil
-	})
-
-	g.Go(func() error {
-		rows, err := s.store.GetRecoverCashReport(gCtx, db.GetRecoverCashReportParams{
-			OrgOwnerID: orgPtr,
-			PaidOn:     filter.FromDate,
-			PaidOn_2:   filter.ToDate,
-			Column4:    filter.TrackingCode,
-			Column5:    filter.SaleName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		recoverCashRows = rows
-		return nil
-	})
-
-	g.Go(func() error {
-		rows, err := s.store.GetInvoiceReport(gCtx, db.GetInvoiceReportParams{
-			OrgOwnerID: orgPtr,
-			IssuedAt:   fromPtr,
-			IssuedAt_2: toPtr,
-			Column4:    filter.TrackingCode,
-			Column5:    filter.SaleName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		invoiceRows = rows
-		return nil
-	})
-
-	g.Go(func() error {
-		rows, err := s.store.GetScheduleReport(gCtx, db.GetScheduleReportParams{
-			OrgOwnerID:    orgPtr,
-			ScheduledAt:   filter.FromDate,
-			ScheduledAt_2: filter.ToDate,
-			Column4:       filter.TrackingCode,
-			Column5:       filter.SaleName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		scheduleRows = rows
-		return nil
-	})
-
-	g.Go(func() error {
-		rows, err := s.store.GetPaymentReport(gCtx, db.GetPaymentReportParams{
-			OrgOwnerID: orgPtr,
-			PaidOn:     filter.FromDate,
-			PaidOn_2:   filter.ToDate,
-			Column4:    filter.TrackingCode,
-			Column5:    filter.SaleName,
-		})
-		if err != nil {
-			return api.FromPgError(err)
-		}
-		paymentRows = rows
-		return nil
-	})
-
-	if err := g.Wait(); err != nil {
+	data, err := s.fetchDailyReportData(dbCtx, orgOwnerID, filter)
+	if err != nil {
 		return nil, err
 	}
 
@@ -147,14 +44,192 @@ func (s *ReportService) GetDailyReport(
 		ToDate:   filter.ToDate.Format("2006-01-02"),
 	}
 
-	resp.ProductList, resp.Totals.ProductList = mapProductRows(productRows)
-	resp.Sale, resp.Totals.Sale = mapSaleRows(saleRows, teamNames)
-	resp.RecoverCash, resp.Totals.RecoverCash = mapRecoverCashRows(recoverCashRows, teamNames)
-	resp.Invoice, resp.Totals.Invoice = mapInvoiceRows(invoiceRows, teamNames)
-	resp.Schedule, resp.Totals.Schedule = mapScheduleRows(scheduleRows, teamNames)
-	resp.Payment, resp.Totals.Payment = mapPaymentRows(paymentRows, teamNames)
+	resp.ProductList, resp.Totals.ProductList = mapProductRows(data.productRows)
+	resp.Sale, resp.Totals.Sale = mapSaleRows(data.saleRows, teamNames)
+	resp.RecoverCash, resp.Totals.RecoverCash = mapRecoverCashRows(data.recoverCashRows, teamNames)
+	resp.Invoice, resp.Totals.Invoice = mapInvoiceRows(data.invoiceRows, teamNames)
+	resp.Schedule, resp.Totals.Schedule = mapScheduleRows(data.scheduleRows, teamNames)
+	resp.Payment, resp.Totals.Payment = mapPaymentRows(data.paymentRows, teamNames)
+	resp.TopOverdueCustomers = mapOverdueCustomers(data.overdueRows, teamNames)
+	daysInPeriod := filter.ToDate.Sub(filter.FromDate).Hours() / 24
+	resp.Summary = buildSummary(resp.Totals.Invoice, data.agingRow, data.collectionStats, daysInPeriod)
 
 	return resp, nil
+}
+
+type dailyReportData struct {
+	productRows     []db.GetProductListReportRow
+	saleRows        []db.GetSaleReportRow
+	recoverCashRows []db.GetRecoverCashReportRow
+	invoiceRows     []db.GetInvoiceReportRow
+	scheduleRows    []db.GetScheduleReportRow
+	paymentRows     []db.GetPaymentReportRow
+	agingRow        db.GetAgingReportRow
+	collectionStats db.GetCollectionStatsRow
+	overdueRows     []db.GetTopOverdueCustomersRow
+}
+
+func (s *ReportService) fetchDailyReportData(
+	ctx context.Context,
+	orgOwnerID uuid.UUID,
+	filter *dto.ReportFilter,
+) (*dailyReportData, error) {
+	orgPtr := &orgOwnerID
+	fromPtr := &filter.FromDate
+	toPtr := &filter.ToDate
+	data := &dailyReportData{}
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() (err error) {
+		data.productRows, err = s.store.GetProductListReport(gCtx, db.GetProductListReportParams{
+			OrgOwnerID: orgOwnerID,
+			IssuedAt:   fromPtr,
+			IssuedAt_2: toPtr,
+			Column4:    filter.TrackingCode,
+			Column5:    filter.ProductName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.saleRows, err = s.store.GetSaleReport(gCtx, db.GetSaleReportParams{
+			OrgOwnerID:  orgPtr,
+			CreatedAt:   filter.FromDate,
+			CreatedAt_2: filter.ToDate,
+			Column4:     filter.TrackingCode,
+			Column5:     filter.SaleName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.recoverCashRows, err = s.store.GetRecoverCashReport(gCtx, db.GetRecoverCashReportParams{
+			OrgOwnerID: orgPtr,
+			PaidOn:     filter.FromDate,
+			PaidOn_2:   filter.ToDate,
+			Column4:    filter.TrackingCode,
+			Column5:    filter.SaleName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.invoiceRows, err = s.store.GetInvoiceReport(gCtx, db.GetInvoiceReportParams{
+			OrgOwnerID: orgPtr,
+			IssuedAt:   fromPtr,
+			IssuedAt_2: toPtr,
+			Column4:    filter.TrackingCode,
+			Column5:    filter.SaleName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.scheduleRows, err = s.store.GetScheduleReport(gCtx, db.GetScheduleReportParams{
+			OrgOwnerID:    orgPtr,
+			ScheduledAt:   filter.FromDate,
+			ScheduledAt_2: filter.ToDate,
+			Column4:       filter.TrackingCode,
+			Column5:       filter.SaleName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.paymentRows, err = s.store.GetPaymentReport(gCtx, db.GetPaymentReportParams{
+			OrgOwnerID: orgPtr,
+			PaidOn:     filter.FromDate,
+			PaidOn_2:   filter.ToDate,
+			Column4:    filter.TrackingCode,
+			Column5:    filter.SaleName,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.agingRow, err = s.store.GetAgingReport(gCtx, db.GetAgingReportParams{
+			UserID:     orgOwnerID,
+			IssuedAt:   fromPtr,
+			IssuedAt_2: toPtr,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.collectionStats, err = s.store.GetCollectionStats(gCtx, db.GetCollectionStatsParams{
+			UserID:     orgOwnerID,
+			IssuedAt:   fromPtr,
+			IssuedAt_2: toPtr,
+		})
+		return api.FromPgError(err)
+	})
+
+	g.Go(func() (err error) {
+		data.overdueRows, err = s.store.GetTopOverdueCustomers(gCtx, db.GetTopOverdueCustomersParams{
+			UserID:     orgOwnerID,
+			IssuedAt:   fromPtr,
+			IssuedAt_2: toPtr,
+		})
+		return api.FromPgError(err)
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func mapOverdueCustomers(rows []db.GetTopOverdueCustomersRow, allowed map[string]struct{}) []dto.OverdueCustomerRow {
+	out := make([]dto.OverdueCustomerRow, 0, len(rows))
+	for _, r := range rows {
+		if allowed != nil {
+			if _, ok := allowed[r.SaleName]; !ok {
+				continue
+			}
+		}
+		out = append(out, dto.OverdueCustomerRow{
+			CustomerName:      r.CustomerName,
+			Phone:             r.Phone,
+			SaleName:          r.SaleName,
+			InvoiceCount:      r.InvoiceCount,
+			OutstandingAmount: r.OutstandingAmount,
+			MaxDaysOverdue:    r.MaxDaysOverdue,
+		})
+	}
+	return out
+}
+
+func buildSummary(inv dto.SaleReportRow, aging db.GetAgingReportRow, stats db.GetCollectionStatsRow, daysInPeriod float64) dto.ReportSummary {
+	collRate := 0.0
+	if inv.Amount > 0 {
+		collRate = math.Round(float64(inv.CollectedAmount)/float64(inv.Amount)*1000) / 10
+	}
+	dso := 0.0
+	if inv.Amount > 0 {
+		dso = math.Round(float64(inv.OutstandingAmount)/float64(inv.Amount)*daysInPeriod*10) / 10
+	}
+	p2p := 0.0
+	if stats.TotalInCollection > 0 {
+		p2p = math.Round(float64(stats.CollectionPaid)/float64(stats.TotalInCollection)*1000) / 10
+	}
+	return dto.ReportSummary{
+		TotalInvoiced:     inv.Amount,
+		TotalOutstanding:  inv.OutstandingAmount,
+		CollectionRate:    collRate,
+		DSO:               dso,
+		PromiseToPayRate:  p2p,
+		CurrentlyPromised: stats.CurrentlyPromised,
+		BadDebtAmount:     aging.Days90Plus,
+		DefaultedCount:    stats.DefaultedCount,
+		Aging: dto.AgingBreakdown{
+			Days0_30:   aging.Days030,
+			Days31_60:  aging.Days3160,
+			Days61_90:  aging.Days6190,
+			Days90Plus: aging.Days90Plus,
+		},
+	}
 }
 
 // buildTeamAllowlist returns the set of salesperson names for the given team.
