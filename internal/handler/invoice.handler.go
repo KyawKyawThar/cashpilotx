@@ -165,6 +165,47 @@ func (h *InvoiceHandler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, resp)
 }
 
+// ReturnInvoice godoc
+//
+//	@Summary      Return invoice
+//	@Description  Marks an invoice as returned (goods came back after delivery), cancels pending reminders, and reverses the unpaid balance from the customer's total_owed. If paid_amount > 0, the caller should prompt a refund.
+//	@Tags         invoices
+//	@Produce      json
+//	@Param        invoice_id  path      string  true  "Invoice UUID"
+//	@Success      200         {object}  dto.InvoiceResponse
+//	@Failure      401         {object}  dto.ErrorResponse
+//	@Failure      404         {object}  dto.ErrorResponse
+//	@Failure      409         {object}  dto.ErrorResponse
+//	@Failure      500         {object}  dto.ErrorResponse
+//	@Router       /api/v1/invoices/{invoice_id}/return [post]
+//	@Security     BearerAuth
+func (h *InvoiceHandler) ReturnInvoice(w http.ResponseWriter, r *http.Request) {
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	invoiceID, ok := h.MustUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
+
+	var req dto.ReturnInvoiceRequest
+	if r.ContentLength > 0 {
+		if !h.DecodeAndValidate(w, r, &req) {
+			return
+		}
+	}
+
+	resp, err := h.svc.ReturnInvoice(r.Context(), effectiveUserID, invoiceID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // ReactivateInvoice godoc
 //
 //	@Summary      Reactivate invoice
@@ -313,7 +354,7 @@ func invoiceFilterFromQuery(r *http.Request) *dto.ListInvoicesFilter {
 	if v := q.Get("status"); v != "" {
 		filter.Status = &v
 	}
-	if q.Get("overdue") == "true" {
+	if q.Get("overdue") == queryTrue {
 		filter.Overdue = true
 	}
 	if v := q.Get("collection_state"); v != "" {
@@ -322,6 +363,11 @@ func invoiceFilterFromQuery(r *http.Request) *dto.ListInvoicesFilter {
 	if v := q.Get("customer_id"); v != "" {
 		if id, err := parseUUID(v); err == nil {
 			filter.CustomerID = &id
+		}
+	}
+	if v := q.Get("assigned_to"); v != "" {
+		if id, err := parseUUID(v); err == nil {
+			filter.AssignedTo = &id
 		}
 	}
 

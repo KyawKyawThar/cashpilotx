@@ -104,6 +104,8 @@ type Querier interface {
 	GetIdempotencyKeyForUpdate(ctx context.Context, arg GetIdempotencyKeyForUpdateParams) (IdempotencyKey, error)
 	GetInsightsExpiringSoon(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	GetInvoiceByID(ctx context.Context, arg GetInvoiceByIDParams) (Invoice, error)
+	// Invoices issued in the date range, grouped by assigned salesperson.
+	GetInvoiceReport(ctx context.Context, arg GetInvoiceReportParams) ([]GetInvoiceReportRow, error)
 	// Powers GET /api/v1/invoices/{id}/timeline — History modal in v3.
 	// Returns all events for a specific invoice, newest first.
 	GetInvoiceTimeline(ctx context.Context, invoiceID *uuid.UUID) ([]CustomerEvent, error)
@@ -122,9 +124,21 @@ type Querier interface {
 	GetOperatorAuditLogByRequestID(ctx context.Context, arg GetOperatorAuditLogByRequestIDParams) (OperatorAuditLog, error)
 	GetOperatorAuditSummary(ctx context.Context, userID uuid.UUID) (GetOperatorAuditSummaryRow, error)
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (Payment, error)
+	// All non-voided payments recorded in the date range, grouped by the invoice's salesperson.
+	GetPaymentReport(ctx context.Context, arg GetPaymentReportParams) ([]GetPaymentReportRow, error)
 	GetPermissionByResourceAction(ctx context.Context, arg GetPermissionByResourceActionParams) (Permission, error)
 	GetPermissionGrant(ctx context.Context, arg GetPermissionGrantParams) (UserPermissionGrant, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
+	// ─── Daily Report Queries ────────────────────────────────────────────────────
+	// All queries scope to a single org via org_owner_id ($1).
+	// Date range: $2 = from_date (DATE), $3 = to_date (DATE).
+	// Optional text filters use '' to mean "no filter".
+	// Shows all active products for the org with aggregated sales in the date range.
+	// Products with no sales in the period appear with zero values.
+	GetProductListReport(ctx context.Context, arg GetProductListReportParams) ([]GetProductListReportRow, error)
+	// Cash collected on invoices that went through the collection flow,
+	// grouped by the assigned salesperson.
+	GetRecoverCashReport(ctx context.Context, arg GetRecoverCashReportParams) ([]GetRecoverCashReportRow, error)
 	// Powers GET /api/v1/recovery-queue — open invoices ranked by AI confidence score.
 	// Returns invoice + joined customer name/phone so the handler needs no second query.
 	GetRecoveryQueue(ctx context.Context, arg GetRecoveryQueueParams) ([]GetRecoveryQueueRow, error)
@@ -132,6 +146,11 @@ type Querier interface {
 	// "Recovered this month" comes from GetMonthlyStats in daily_stats.sql.
 	GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRecoveryStatsRow, error)
 	GetReminder(ctx context.Context, id uuid.UUID) (Reminder, error)
+	// Shows all active team members with their invoice and payment totals.
+	// Members with no activity in the period appear with zero values.
+	GetSaleReport(ctx context.Context, arg GetSaleReportParams) ([]GetSaleReportRow, error)
+	// Reminders scheduled in the date range, grouped by the invoice's assigned salesperson.
+	GetScheduleReport(ctx context.Context, arg GetScheduleReportParams) ([]GetScheduleReportRow, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (Session, error)
 	GetTeam(ctx context.Context, id uuid.UUID) (Team, error)
 	GetUserByEmail(ctx context.Context, email *string) (User, error)
@@ -171,6 +190,7 @@ type Querier interface {
 	ListHighRiskCustomers(ctx context.Context, arg ListHighRiskCustomersParams) ([]CustomerRiskProfile, error)
 	ListInsightsHistory(ctx context.Context, arg ListInsightsHistoryParams) ([]CustomerInsight, error)
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]Invoice, error)
+	ListInvoicesByAssignee(ctx context.Context, arg ListInvoicesByAssigneeParams) ([]Invoice, error)
 	ListInvoicesByCustomer(ctx context.Context, arg ListInvoicesByCustomerParams) ([]Invoice, error)
 	ListInvoicesByStatus(ctx context.Context, arg ListInvoicesByStatusParams) ([]Invoice, error)
 	ListInvoicesCurrentMonth(ctx context.Context, arg ListInvoicesCurrentMonthParams) ([]Invoice, error)
@@ -190,6 +210,8 @@ type Querier interface {
 	ListPaymentsByCustomer(ctx context.Context, arg ListPaymentsByCustomerParams) ([]Payment, error)
 	ListPaymentsByInvoice(ctx context.Context, arg ListPaymentsByInvoiceParams) ([]Payment, error)
 	ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnrichedParams) ([]ListPaymentsEnrichedRow, error)
+	// Payments recorded today (calendar day in UTC) — used to seed the "Done Today" strip.
+	ListPaymentsEnrichedToday(ctx context.Context, userID uuid.UUID) ([]ListPaymentsEnrichedTodayRow, error)
 	ListPermissionGrants(ctx context.Context, userID uuid.UUID) ([]UserPermissionGrant, error)
 	ListPermissionGrantsWithPermission(ctx context.Context, userID uuid.UUID) ([]ListPermissionGrantsWithPermissionRow, error)
 	ListProducts(ctx context.Context, orgOwnerID uuid.UUID) ([]Product, error)
@@ -235,6 +257,7 @@ type Querier interface {
 	ReplaceInsightAtomic(ctx context.Context, arg ReplaceInsightAtomicParams) (ReplaceInsightAtomicRow, error)
 	RequeueWebhookEvent(ctx context.Context, id uuid.UUID) error
 	RescheduleReminder(ctx context.Context, arg RescheduleReminderParams) error
+	ReturnInvoice(ctx context.Context, arg ReturnInvoiceParams) (Invoice, error)
 	SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]Customer, error)
 	// ═══════════════════════════════════════════════════════
 	// SEARCH

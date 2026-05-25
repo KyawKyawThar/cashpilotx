@@ -108,6 +108,20 @@ WHERE id = $1
   AND status != 'cancelled'
 RETURNING *;
 
+-- name: ReturnInvoice :one
+UPDATE invoices
+SET
+    status        = 'returned',
+    returned_at   = now(),
+    updated_at    = now(),
+    return_reason = $3,
+    return_items  = $4,
+    assigned_to   = COALESCE($5, assigned_to)
+WHERE id      = $1
+  AND user_id = $2
+  AND status NOT IN ('paid', 'cancelled', 'returned')
+RETURNING *;
+
 -- name: UpdateInvoiceTracking :one
 UPDATE invoices
 SET
@@ -181,7 +195,7 @@ SELECT
 FROM invoices i
 JOIN customers c ON i.customer_id = c.id
 WHERE i.user_id = $1
-  AND i.status NOT IN ('paid', 'cancelled')
+  AND i.status NOT IN ('paid', 'cancelled', 'returned')
 ORDER BY
     i.confidence_score DESC NULLS LAST,
     i.due_date ASC
@@ -192,7 +206,7 @@ LIMIT $2 OFFSET $3;
 -- or whose score is stale (not computed in the last 30 minutes).
 SELECT id, user_id, customer_id
 FROM invoices
-WHERE status NOT IN ('paid', 'cancelled')
+WHERE status NOT IN ('paid', 'cancelled', 'returned')
   AND (
         confidence_computed_at IS NULL
         OR confidence_computed_at < now() - INTERVAL '30 minutes'
@@ -220,20 +234,30 @@ RETURNING *;
 -- "Recovered this month" comes from GetMonthlyStats in daily_stats.sql.
 SELECT
     COALESCE(SUM(amount - paid_amount)
-        FILTER (WHERE status NOT IN ('paid','cancelled')), 0)::BIGINT  AS total_recoverable,
+        FILTER (WHERE status NOT IN ('paid','cancelled','returned')), 0)::BIGINT  AS total_recoverable,
     COALESCE(SUM(amount - paid_amount)
-        FILTER (WHERE collection_state = 'reminded'), 0)::BIGINT       AS waiting_for_reply,
+        FILTER (WHERE status NOT IN ('paid','cancelled','returned')
+            AND collection_state = 'reminded'), 0)::BIGINT       AS waiting_for_reply,
     COUNT(*)
-        FILTER (WHERE status NOT IN ('paid','cancelled')
+        FILTER (WHERE status NOT IN ('paid','cancelled','returned')
             AND collection_state NOT IN ('reminded','no_response','paid','defaulted'))::INT AS open_actions,
     COUNT(*)
-        FILTER (WHERE collection_state = 'reminded')::INT              AS reminded_count,
+        FILTER (WHERE status NOT IN ('paid','cancelled','returned')
+            AND collection_state = 'reminded')::INT              AS reminded_count,
     COUNT(*)
-        FILTER (WHERE status NOT IN ('paid','cancelled'))::INT         AS open_invoices_count,
-    COALESCE(SUM(amount)      FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_invoiced,
-    COALESCE(SUM(paid_amount) FILTER (WHERE status != 'cancelled'), 0)::BIGINT AS total_collected
+        FILTER (WHERE status NOT IN ('paid','cancelled','returned'))::INT         AS open_invoices_count,
+    COALESCE(SUM(amount)      FILTER (WHERE status NOT IN ('cancelled','returned')), 0)::BIGINT AS total_invoiced,
+    COALESCE(SUM(paid_amount) FILTER (WHERE status NOT IN ('cancelled','returned')), 0)::BIGINT AS total_collected
 FROM invoices
 WHERE user_id = $1;
+
+-- name: ListInvoicesByAssignee :many
+SELECT *
+FROM invoices
+WHERE user_id = $1
+  AND assigned_to = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4;
 
 -- name: ListInvoicesDueToday :many
 SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
@@ -241,5 +265,5 @@ FROM invoices
 WHERE user_id = $1
   AND paid_amount < amount
   AND due_date = CURRENT_DATE
-  AND status NOT IN ('cancelled', 'paid', 'written_off')
+  AND status NOT IN ('cancelled', 'paid', 'returned', 'written_off')
 ORDER BY due_date ASC;

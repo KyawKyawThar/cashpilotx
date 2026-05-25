@@ -176,6 +176,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/", s.handler.Invoice.ListInvoices)
 			r.Get("/{invoice_id}", s.handler.Invoice.GetInvoice)
 			r.Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
+			r.Post("/{invoice_id}/return", s.handler.Invoice.ReturnInvoice)
 			r.Post("/{invoice_id}/reactivate", s.handler.Invoice.ReactivateInvoice)
 			r.Post("/{invoice_id}/write-off", s.handler.Invoice.WriteOffInvoice)
 			r.With(mw.Idempotency(s.store)).Patch("/{invoice_id}/collection-state", s.handler.Invoice.MoveCollectionState)
@@ -227,6 +228,13 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Get("/{payment_id}", s.handler.Payment.GetPayment)
 			r.With(mw.RequirePermission("payment", "void")).
 				Post("/{payment_id}/void", s.handler.Payment.VoidPayment)
+		})
+
+		// Reports — blocked for sales role.
+		r.Route("/api/v1/reports", func(r chi.Router) {
+			r.Use(mw.RequirePermission("report", "view"))
+			r.Get("/daily", s.handler.Report.GetDailyReport)
+			r.Get("/daily/", s.handler.Report.GetDailyReport)
 		})
 
 		// Team management — requires Pro plan.

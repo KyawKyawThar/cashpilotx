@@ -60,7 +60,8 @@ type ListInvoicesFilter struct {
 	Overdue          bool
 	CollectionState  *string // pending | reminded | no_response | negotiating | promised | verifying | paid | defaulted
 	CustomerID       *uuid.UUID
-	CurrentMonthOnly bool // enforced for sales role by scope middleware
+	AssignedTo       *uuid.UUID // filter by assignee user ID — used for per-rep reporting
+	CurrentMonthOnly bool       // enforced for sales role by scope middleware
 }
 
 // =============================================================================
@@ -96,8 +97,18 @@ type InvoiceResponse struct {
 	AssignedToUsername *string          `json:"assigned_to_username,omitempty"`
 	DeliveryService    *string          `json:"delivery_service,omitempty"`
 	TrackingNumber     *string          `json:"tracking_number,omitempty"`
+	ReturnedAt         *time.Time       `json:"returned_at,omitempty"`
+	ReturnReason       *string          `json:"return_reason,omitempty"`
+	ReturnItems        json.RawMessage  `json:"return_items,omitempty" swaggertype:"array,object"`
 	CreatedAt          time.Time        `json:"created_at"`
 	UpdatedAt          time.Time        `json:"updated_at"`
+}
+
+// ReturnInvoiceRequest is the optional payload for POST /api/v1/invoices/{id}/return.
+type ReturnInvoiceRequest struct {
+	ReturnReason *string         `json:"return_reason" validate:"omitempty,oneof=damaged wrong_item customer_rejected change_of_mind other"`
+	ReturnItems  json.RawMessage `json:"return_items"  validate:"omitempty" swaggertype:"array,object"`
+	SoldBy       *uuid.UUID      `json:"sold_by"       validate:"omitempty"`
 }
 
 // ReminderResponse is the public representation of a reminder.
@@ -158,8 +169,16 @@ func ToInvoiceResponse(i db.Invoice, assigneeName *string) *InvoiceResponse {
 		AssignedToUsername: assigneeName,
 		DeliveryService:    i.DeliveryService,
 		TrackingNumber:     i.TrackingNumber,
-		CreatedAt:          i.CreatedAt,
-		UpdatedAt:          i.UpdatedAt,
+		ReturnedAt:         i.ReturnedAt,
+		ReturnReason:       i.ReturnReason,
+		ReturnItems: func() json.RawMessage {
+			if i.ReturnItems == nil {
+				return nil
+			}
+			return *i.ReturnItems
+		}(),
+		CreatedAt: i.CreatedAt,
+		UpdatedAt: i.UpdatedAt,
 	}
 }
 

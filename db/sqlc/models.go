@@ -302,6 +302,7 @@ const (
 	CustomerEventTypeCustomerCreated        CustomerEventType = "customer_created"
 	CustomerEventTypeInvoiceCreated         CustomerEventType = "invoice_created"
 	CustomerEventTypeInvoiceCanceled        CustomerEventType = "invoice_canceled"
+	CustomerEventTypeInvoiceReturned        CustomerEventType = "invoice_returned"
 	CustomerEventTypeInvoiceReactivated     CustomerEventType = "invoice_reactivated"
 	CustomerEventTypeInvoiceWrittenOff      CustomerEventType = "invoice_written_off"
 	CustomerEventTypePaymentReceived        CustomerEventType = "payment_received"
@@ -356,6 +357,7 @@ func (e CustomerEventType) Valid() bool {
 	case CustomerEventTypeCustomerCreated,
 		CustomerEventTypeInvoiceCreated,
 		CustomerEventTypeInvoiceCanceled,
+		CustomerEventTypeInvoiceReturned,
 		CustomerEventTypeInvoiceReactivated,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
@@ -378,6 +380,7 @@ func AllCustomerEventTypeValues() []CustomerEventType {
 		CustomerEventTypeCustomerCreated,
 		CustomerEventTypeInvoiceCreated,
 		CustomerEventTypeInvoiceCanceled,
+		CustomerEventTypeInvoiceReturned,
 		CustomerEventTypeInvoiceReactivated,
 		CustomerEventTypeInvoiceWrittenOff,
 		CustomerEventTypePaymentReceived,
@@ -1269,6 +1272,9 @@ type Invoice struct {
 	AssignedTo           *uuid.UUID       `db:"assigned_to" json:"assigned_to"`
 	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
 	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
+	ReturnedAt           *time.Time       `db:"returned_at" json:"returned_at"`
+	ReturnReason         *string          `db:"return_reason" json:"return_reason"`
+	ReturnItems          *json.RawMessage `db:"return_items" json:"return_items"`
 }
 
 type Message struct {

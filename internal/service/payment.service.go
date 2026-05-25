@@ -150,6 +150,27 @@ func (s *PaymentService) ListPayments(
 	return out, nil
 }
 
+// ListPaymentsToday returns all non-voided payments recorded today (UTC calendar day)
+// for the given user, enriched with customer name and invoice number.
+func (s *PaymentService) ListPaymentsToday(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]*dto.PaymentListItem, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	rows, err := s.store.ListPaymentsEnrichedToday(dbCtx, userID)
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	out := make([]*dto.PaymentListItem, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dto.ToPaymentListItemToday(r))
+	}
+	return out, nil
+}
+
 // VoidPayment marks a payment as voided, recomputes the invoice status from the
 // remaining non-voided payments, and updates the customer running totals.
 func (s *PaymentService) VoidPayment(

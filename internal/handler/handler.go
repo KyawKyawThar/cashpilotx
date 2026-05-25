@@ -21,7 +21,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const scopeOwn = "own"
+const (
+	scopeOwn  = "own"
+	queryTrue = "true"
+)
 
 // Handlers is the main container for all HTTP handlers.
 type Handlers struct {
@@ -40,6 +43,7 @@ type Handlers struct {
 	DeliveryService *DeliveryServiceHandler
 	Team            *TeamHandler
 	Product         *ProductHandler
+	Report          *ReportHandler
 }
 
 // BaseHandler provides common functionality for all handlers.
@@ -106,6 +110,7 @@ func NewHandlers(
 	auditSvc := mustCast[service.AuditService](services.Audit, "audit")
 	teamSvc := mustCast[service.TeamService](services.Team, "team")
 	productSvc := mustCast[service.ProductService](services.Product, "product")
+	reportSvc := mustCast[service.ReportService](services.Report, "report")
 
 	h := &Handlers{
 		Auth:      NewAuthHandler(authSvc, base),
@@ -119,6 +124,7 @@ func NewHandlers(
 		Sync:      NewSyncHandler(services.Sync, base),
 		Team:      NewTeamHandler(teamSvc, base),
 		Product:   NewProductHandler(productSvc, base),
+		Report:    NewReportHandler(reportSvc, base),
 	}
 
 	if deps != nil && deps.RedisClient != nil {

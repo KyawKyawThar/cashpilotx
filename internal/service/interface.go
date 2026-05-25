@@ -32,6 +32,7 @@ type InvoiceServicer interface {
 	GetInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	ListInvoices(ctx context.Context, userID uuid.UUID, filter *dto.ListInvoicesFilter, pg *dto.Pagination) ([]*dto.InvoiceResponse, error)
 	CancelInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
+	ReturnInvoice(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.ReturnInvoiceRequest) (*dto.InvoiceResponse, error)
 	ReactivateInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	WriteOffInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	MoveCollectionState(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.MoveCollectionStateRequest) (*dto.InvoiceResponse, error)
@@ -67,6 +68,7 @@ type PaymentServicer interface {
 	RecordPayment(ctx context.Context, userID uuid.UUID, req *dto.RecordPaymentRequest) (*dto.RecordPaymentResponse, error)
 	GetPayment(ctx context.Context, userID, paymentID uuid.UUID) (*dto.PaymentResponse, error)
 	ListPayments(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.PaymentListItem, error)
+	ListPaymentsToday(ctx context.Context, userID uuid.UUID) ([]*dto.PaymentListItem, error)
 	ListPaymentsByInvoice(ctx context.Context, userID, invoiceID uuid.UUID) ([]*dto.PaymentResponse, error)
 	VoidPayment(ctx context.Context, userID, paymentID uuid.UUID, customerID uuid.UUID) (*dto.PaymentResponse, error)
 }
@@ -91,6 +93,10 @@ type TeamServicer interface {
 	GrantPermission(ctx context.Context, callerID uuid.UUID, targetUserID uuid.UUID, req *dto.GrantPermissionRequest) (*dto.PermissionGrantResponse, error)
 	ListGrants(ctx context.Context, targetUserID uuid.UUID) ([]*dto.PermissionGrantResponse, error)
 	RevokeGrant(ctx context.Context, targetUserID uuid.UUID, grantID uuid.UUID) error
+}
+
+type ReportServicer interface {
+	GetDailyReport(ctx context.Context, orgOwnerID uuid.UUID, callerRole db.UserRole, teamID *uuid.UUID, filter *dto.ReportFilter) (*dto.DailyReportResponse, error)
 }
 
 type ProductServicer interface {

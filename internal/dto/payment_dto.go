@@ -86,14 +86,28 @@ func ToPaymentResponse(p db.Payment) *PaymentResponse {
 	}
 }
 
-// ToPaymentListItem maps a ListPaymentsEnrichedRow to the enriched list response.
-func ToPaymentListItem(row db.ListPaymentsEnrichedRow) *PaymentListItem {
-	invoiceNumber := ""
-	if row.InvoiceNumber != nil {
-		invoiceNumber = *row.InvoiceNumber
+func assemblePaymentListItem(
+	resp *PaymentResponse,
+	customerName string,
+	invoiceNumber *string,
+	invoiceStatus string,
+) *PaymentListItem {
+	invNum := ""
+	if invoiceNumber != nil {
+		invNum = *invoiceNumber
 	}
 	return &PaymentListItem{
-		PaymentResponse: &PaymentResponse{
+		PaymentResponse: resp,
+		CustomerName:    customerName,
+		InvoiceNumber:   invNum,
+		IsFullPayment:   invoiceStatus == "paid",
+	}
+}
+
+// ToPaymentListItem maps a ListPaymentsEnrichedRow to the enriched list response.
+func ToPaymentListItem(row db.ListPaymentsEnrichedRow) *PaymentListItem {
+	return assemblePaymentListItem(
+		&PaymentResponse{
 			ID:        row.ID,
 			InvoiceID: row.InvoiceID,
 			UserID:    row.UserID,
@@ -108,8 +122,32 @@ func ToPaymentListItem(row db.ListPaymentsEnrichedRow) *PaymentListItem {
 			UpdatedAt: row.UpdatedAt,
 			VoidedAt:  row.VoidedAt,
 		},
-		CustomerName:  row.CustomerName,
-		InvoiceNumber: invoiceNumber,
-		IsFullPayment: row.InvoiceStatus == "paid",
-	}
+		row.CustomerName,
+		row.InvoiceNumber,
+		row.InvoiceStatus,
+	)
+}
+
+// ToPaymentListItemToday maps a ListPaymentsEnrichedTodayRow to the enriched list response.
+func ToPaymentListItemToday(row db.ListPaymentsEnrichedTodayRow) *PaymentListItem {
+	return assemblePaymentListItem(
+		&PaymentResponse{
+			ID:        row.ID,
+			InvoiceID: row.InvoiceID,
+			UserID:    row.UserID,
+			PaidOn:    row.PaidOn,
+			Amount:    row.Amount,
+			Currency:  row.Currency,
+			Method:    row.Method,
+			Reference: row.Reference,
+			ProofURL:  row.ProofUrl,
+			Note:      row.Note,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+			VoidedAt:  row.VoidedAt,
+		},
+		row.CustomerName,
+		row.InvoiceNumber,
+		row.InvoiceStatus,
+	)
 }

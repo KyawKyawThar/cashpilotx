@@ -82,6 +82,22 @@ WHERE id      = $1
 RETURNING *;
 
 
+-- name: ListPaymentsEnrichedToday :many
+-- Payments recorded today (calendar day in UTC) — used to seed the "Done Today" strip.
+SELECT
+  p.*,
+  c.name        AS customer_name,
+  i.external_id AS invoice_number,
+  i.status      AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id   = $1
+  AND p.voided_at IS NULL
+  AND DATE(p.created_at) = CURRENT_DATE
+ORDER BY p.created_at DESC;
+
+
 -- name: ListPaymentsEnriched :many
 SELECT
   p.*,

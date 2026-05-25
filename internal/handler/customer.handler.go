@@ -135,7 +135,7 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		customers []*dto.CustomerResponse
 		err       error
 	)
-	if r.URL.Query().Get("all") == "true" {
+	if r.URL.Query().Get("all") == queryTrue {
 		customers, err = h.svc.ListAllCustomers(r.Context(), effectiveUserID, pg)
 	} else {
 		filter := &dto.ListCustomersFilter{}

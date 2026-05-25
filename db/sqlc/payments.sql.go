@@ -331,6 +331,78 @@ func (q *Queries) ListPaymentsEnriched(ctx context.Context, arg ListPaymentsEnri
 	return items, nil
 }
 
+const listPaymentsEnrichedToday = `-- name: ListPaymentsEnrichedToday :many
+SELECT
+  p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at, p.voided_at,
+  c.name        AS customer_name,
+  i.external_id AS invoice_number,
+  i.status      AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id   = $1
+  AND p.voided_at IS NULL
+  AND DATE(p.created_at) = CURRENT_DATE
+ORDER BY p.created_at DESC
+`
+
+type ListPaymentsEnrichedTodayRow struct {
+	ID            uuid.UUID  `db:"id" json:"id"`
+	InvoiceID     uuid.UUID  `db:"invoice_id" json:"invoice_id"`
+	UserID        uuid.UUID  `db:"user_id" json:"user_id"`
+	PaidOn        time.Time  `db:"paid_on" json:"paid_on"`
+	Amount        int64      `db:"amount" json:"amount"`
+	Currency      string     `db:"currency" json:"currency"`
+	Method        string     `db:"method" json:"method"`
+	Reference     *string    `db:"reference" json:"reference"`
+	ProofUrl      *string    `db:"proof_url" json:"proof_url"`
+	Note          *string    `db:"note" json:"note"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at" json:"updated_at"`
+	VoidedAt      *time.Time `db:"voided_at" json:"voided_at"`
+	CustomerName  string     `db:"customer_name" json:"customer_name"`
+	InvoiceNumber *string    `db:"invoice_number" json:"invoice_number"`
+	InvoiceStatus string     `db:"invoice_status" json:"invoice_status"`
+}
+
+// Payments recorded today (calendar day in UTC) — used to seed the "Done Today" strip.
+func (q *Queries) ListPaymentsEnrichedToday(ctx context.Context, userID uuid.UUID) ([]ListPaymentsEnrichedTodayRow, error) {
+	rows, err := q.db.Query(ctx, listPaymentsEnrichedToday, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPaymentsEnrichedTodayRow{}
+	for rows.Next() {
+		var i ListPaymentsEnrichedTodayRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceID,
+			&i.UserID,
+			&i.PaidOn,
+			&i.Amount,
+			&i.Currency,
+			&i.Method,
+			&i.Reference,
+			&i.ProofUrl,
+			&i.Note,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.VoidedAt,
+			&i.CustomerName,
+			&i.InvoiceNumber,
+			&i.InvoiceStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setPaymentVoided = `-- name: SetPaymentVoided :one
 UPDATE payments
 SET voided_at = now()

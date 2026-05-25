@@ -21,6 +21,7 @@ type Services struct {
 	Sync     SyncServicer
 	Team     TeamServicer
 	Product  ProductServicer
+	Report   ReportServicer
 }
 
 type AuthService struct {
@@ -70,6 +71,10 @@ type ProductService struct {
 type CustomerService struct {
 	store  db.Store
 	encKey []byte // 32-byte AES-256-GCM key for channel config encryption
+}
+
+type ReportService struct {
+	store db.Store
 }
 
 type CustomerConfig struct {
@@ -127,6 +132,10 @@ func NewProductService(store db.Store) *ProductService {
 	return &ProductService{store: store}
 }
 
+func NewReportService(store db.Store) *ReportService {
+	return &ReportService{store: store}
+}
+
 func NewCustomerService(store db.Store, cfg *CustomerConfig) *CustomerService {
 	var key []byte
 	if cfg != nil {
@@ -167,5 +176,6 @@ func NewServices(store db.Store, redisCache *cache.RedisClient, tokenMaker token
 		Sync:     NewSyncService(store),
 		Team:     NewTeamService(store),
 		Product:  NewProductService(store),
+		Report:   NewReportService(store),
 	}
 }

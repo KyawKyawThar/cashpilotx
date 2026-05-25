@@ -240,6 +240,13 @@ func (s *InvoiceService) queryInvoices(
 				Limit:      pg.Limit32(),
 				Offset:     pg.Offset32(),
 			})
+		case filter.AssignedTo != nil:
+			return s.store.ListInvoicesByAssignee(ctx, db.ListInvoicesByAssigneeParams{
+				UserID:     userID,
+				AssignedTo: filter.AssignedTo,
+				Limit:      pg.Limit32(),
+				Offset:     pg.Offset32(),
+			})
 		case filter.Overdue:
 			return s.store.ListOverdueInvoices(ctx, db.ListOverdueInvoicesParams{
 				UserID: userID,
@@ -390,6 +397,58 @@ func (s *InvoiceService) WriteOffInvoice(
 	if err != nil {
 		if errors.Is(err, db.ErrInvoiceAlreadyCanceled) {
 			return nil, api.ErrConflict("invoice is already written off")
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	return dto.ToInvoiceResponse(result.Invoice, nil), nil
+}
+
+// ReturnInvoice marks an invoice as returned (goods came back after delivery),
+// cancels pending reminders, and reverses the unpaid balance from customer total_owed.
+// If paid_amount > 0, the response still carries it so the caller can warn about a refund.
+func (s *InvoiceService) ReturnInvoice(
+	ctx context.Context,
+	userID, invoiceID uuid.UUID,
+	req *dto.ReturnInvoiceRequest,
+) (*dto.InvoiceResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	inv, err := s.store.GetInvoiceByID(dbCtx, db.GetInvoiceByIDParams{
+		ID:     invoiceID,
+		UserID: userID,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+	if inv.Status == "returned" {
+		return nil, api.ErrConflict("invoice is already returned")
+	}
+	if inv.Status == "paid" {
+		return nil, api.ErrConflict("paid invoice cannot be returned")
+	}
+	if inv.Status == "canceled" {
+		return nil, api.ErrConflict("canceled invoice cannot be returned")
+	}
+
+	txParams := db.ReturnInvoiceTxParams{
+		InvoiceID:  invoiceID,
+		UserID:     userID,
+		CustomerID: inv.CustomerID,
+	}
+	if req != nil {
+		txParams.ReturnReason = req.ReturnReason
+		txParams.ReturnItems = req.ReturnItems
+		txParams.AssignedTo = req.SoldBy
+	}
+	result, err := s.store.ReturnInvoiceTx(dbCtx, txParams)
+	if err != nil {
+		if errors.Is(err, db.ErrInvoiceAlreadyReturned) {
+			return nil, api.ErrConflict("invoice is already returned")
 		}
 		return nil, api.FromPgError(err)
 	}

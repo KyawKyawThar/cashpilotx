@@ -75,6 +75,16 @@ func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Query().Get("today") == queryTrue {
+		resp, err := h.svc.ListPaymentsToday(r.Context(), effectiveUserID)
+		if err != nil {
+			h.HandleErr(w, r, err)
+			return
+		}
+		h.WriteSuccess(w, r, resp)
+		return
+	}
+
 	pg := dto.GetPaginationFromRequest(r)
 
 	resp, err := h.svc.ListPayments(r.Context(), effectiveUserID, pg)

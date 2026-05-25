@@ -24,6 +24,7 @@ type Store interface {
 	CancelInvoiceTx(ctx context.Context, arg CancelInvoiceTxParams) (CancelInvoiceTxResult, error)
 	ReactivateInvoiceTx(ctx context.Context, arg ReactivateInvoiceTxParams) (ReactivateInvoiceTxResult, error)
 	WriteOffInvoiceTx(ctx context.Context, arg WriteOffInvoiceTxParams) (WriteOffInvoiceTxResult, error)
+	ReturnInvoiceTx(ctx context.Context, arg ReturnInvoiceTxParams) (ReturnInvoiceTxResult, error)
 
 	// Payments / webhooks
 	ProcessWebhookTx(ctx context.Context, arg ProcessWebhookTxParams) (ProcessWebhookTxResult, error)
