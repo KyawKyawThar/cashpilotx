@@ -270,11 +270,32 @@ func mapRecoverCashRows(rows []db.GetRecoverCashReportRow, allowed map[string]st
 }
 
 func mapInvoiceRows(rows []db.GetInvoiceReportRow, allowed map[string]struct{}) (out []dto.SaleReportRow, total dto.SaleReportRow) {
-	data := make([]saleReportRowData, len(rows))
-	for i, r := range rows {
-		data[i] = saleReportRowData{SaleName: r.SaleName, Amount: r.Amount, TotalOrder: r.TotalOrder, TotalValue: r.TotalValue}
+	out = make([]dto.SaleReportRow, 0, len(rows))
+	total.SaleName = totalLabel
+	for _, r := range rows {
+		if allowed != nil {
+			if _, ok := allowed[r.SaleName]; !ok {
+				continue
+			}
+		}
+		outstanding := r.Amount - r.PaidAmount
+		out = append(out, dto.SaleReportRow{
+			SaleName:          r.SaleName,
+			Count:             r.TotalOrder,
+			Amount:            r.Amount,
+			CollectedAmount:   r.PaidAmount,
+			OutstandingAmount: outstanding,
+			TotalOrder:        r.TotalOrder,
+			TotalValue:        r.TotalValue,
+		})
+		total.Count += r.TotalOrder
+		total.Amount += r.Amount
+		total.CollectedAmount += r.PaidAmount
+		total.OutstandingAmount += outstanding
+		total.TotalOrder += r.TotalOrder
+		total.TotalValue += r.TotalValue
 	}
-	return mapSaleReportRowData(data, allowed)
+	return
 }
 
 func mapPaymentRows(rows []db.GetPaymentReportRow, allowed map[string]struct{}) (out []dto.SaleReportRow, total dto.SaleReportRow) {

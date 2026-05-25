@@ -89,10 +89,11 @@ ORDER BY u.name;
 -- name: GetInvoiceReport :many
 -- Invoices issued in the date range, grouped by assigned salesperson.
 SELECT
-  u.name                                    AS sale_name,
-  COUNT(DISTINCT i.id)::BIGINT              AS total_order,
-  COALESCE(SUM(i.amount), 0)::BIGINT        AS amount,
-  COALESCE(SUM(i.amount), 0)::BIGINT        AS total_value
+  u.name                                          AS sale_name,
+  COUNT(DISTINCT i.id)::BIGINT                    AS total_order,
+  COALESCE(SUM(i.amount), 0)::BIGINT              AS amount,
+  COALESCE(SUM(i.paid_amount), 0)::BIGINT         AS paid_amount,
+  COALESCE(SUM(i.amount), 0)::BIGINT              AS total_value
 FROM users u
 LEFT JOIN invoices i ON i.assigned_to    = u.id
                     AND i.user_id        = u.org_owner_id

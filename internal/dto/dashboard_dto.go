@@ -41,6 +41,7 @@ type RecoveryQueueItemResponse struct {
 	CustomerName     string     `json:"customer_name"`
 	CustomerPhone    *string    `json:"customer_phone,omitempty"`
 	ExternalID       *string    `json:"external_id,omitempty"`
+	TrackingNumber   *string    `json:"tracking_number,omitempty"`
 	Amount           int64      `json:"amount"`
 	PaidAmount       int64      `json:"paid_amount"`
 	Currency         string     `json:"currency"`
@@ -62,6 +63,7 @@ func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemR
 		CustomerName:     row.CustomerName,
 		CustomerPhone:    row.CustomerPhone,
 		ExternalID:       row.ExternalID,
+		TrackingNumber:   row.TrackingNumber,
 		Amount:           row.Amount,
 		PaidAmount:       row.PaidAmount,
 		Currency:         row.Currency,

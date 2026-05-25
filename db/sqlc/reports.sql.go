@@ -14,10 +14,11 @@ import (
 
 const getInvoiceReport = `-- name: GetInvoiceReport :many
 SELECT
-  u.name                                    AS sale_name,
-  COUNT(DISTINCT i.id)::BIGINT              AS total_order,
-  COALESCE(SUM(i.amount), 0)::BIGINT        AS amount,
-  COALESCE(SUM(i.amount), 0)::BIGINT        AS total_value
+  u.name                                          AS sale_name,
+  COUNT(DISTINCT i.id)::BIGINT                    AS total_order,
+  COALESCE(SUM(i.amount), 0)::BIGINT              AS amount,
+  COALESCE(SUM(i.paid_amount), 0)::BIGINT         AS paid_amount,
+  COALESCE(SUM(i.amount), 0)::BIGINT              AS total_value
 FROM users u
 LEFT JOIN invoices i ON i.assigned_to    = u.id
                     AND i.user_id        = u.org_owner_id
@@ -44,6 +45,7 @@ type GetInvoiceReportRow struct {
 	SaleName   string `db:"sale_name" json:"sale_name"`
 	TotalOrder int64  `db:"total_order" json:"total_order"`
 	Amount     int64  `db:"amount" json:"amount"`
+	PaidAmount int64  `db:"paid_amount" json:"paid_amount"`
 	TotalValue int64  `db:"total_value" json:"total_value"`
 }
 
@@ -67,6 +69,7 @@ func (q *Queries) GetInvoiceReport(ctx context.Context, arg GetInvoiceReportPara
 			&i.SaleName,
 			&i.TotalOrder,
 			&i.Amount,
+			&i.PaidAmount,
 			&i.TotalValue,
 		); err != nil {
 			return nil, err

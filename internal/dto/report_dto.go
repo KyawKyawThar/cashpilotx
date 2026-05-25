@@ -29,12 +29,15 @@ type SaleRow struct {
 }
 
 // SaleReportRow is shared by Recover Cash, Invoice, Schedule, and Payment sections.
+// CollectedAmount and OutstandingAmount are only populated for the Invoice section.
 type SaleReportRow struct {
-	SaleName   string `json:"sale_name"`
-	Count      int64  `json:"count"`
-	Amount     int64  `json:"amount"`
-	TotalOrder int64  `json:"total_order"`
-	TotalValue int64  `json:"total_value"`
+	SaleName          string `json:"sale_name"`
+	Count             int64  `json:"count"`
+	Amount            int64  `json:"amount"`
+	CollectedAmount   int64  `json:"collected_amount"`
+	OutstandingAmount int64  `json:"outstanding_amount"`
+	TotalOrder        int64  `json:"total_order"`
+	TotalValue        int64  `json:"total_value"`
 }
 
 type ReportTotals struct {
