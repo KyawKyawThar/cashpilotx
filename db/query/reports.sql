@@ -177,7 +177,7 @@ LEFT JOIN invoices i  ON i.assigned_to = u.id
                      AND i.user_id     = u.org_owner_id
                      AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
 LEFT JOIN payments p  ON p.invoice_id  = i.id
-                     AND p.paid_on     BETWEEN $2 AND $3
+                     AND p.paid_on    >= $2 AND p.paid_on < $3
                      AND p.voided_at   IS NULL
 WHERE u.org_owner_id = $1
   AND u.role         IN ('cs_team', 'sales')
