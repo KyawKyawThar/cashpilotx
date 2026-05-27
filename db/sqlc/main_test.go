@@ -44,7 +44,17 @@ func TestMain(m *testing.M) {
 		log.Fatal("cannot create migrate instance:", err)
 	}
 	if err = migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		log.Fatal("failed to run migrate up:", err)
+		var dirtyErr migrate.ErrDirty
+		if errors.As(err, &dirtyErr) {
+			if forceErr := migration.Force(dirtyErr.Version - 1); forceErr != nil {
+				log.Fatal("failed to force migration version:", forceErr)
+			}
+			if err = migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+				log.Fatal("failed to run migrate up after dirty recovery:", err)
+			}
+		} else {
+			log.Fatal("failed to run migrate up:", err)
+		}
 	}
 
 	log.Println("db migrated successfully")

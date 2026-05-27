@@ -2,8 +2,8 @@
 INSERT INTO role_permissions (role, permission_id, scope)
 SELECT r.role, p.id, r.scope
 FROM (VALUES
-    ('cs_team'::user_role, 'global'),
-    ('sales'::user_role,   'own')
+    ('cs_team'::user_role, 'global'::data_scope),
+    ('sales'::user_role,   'own'::data_scope)
 ) AS r(role, scope)
 CROSS JOIN permissions p
 WHERE p.resource = 'delivery_service' AND p.action = 'manage'

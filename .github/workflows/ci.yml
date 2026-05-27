@@ -83,7 +83,6 @@ jobs:
     - name: Run database migrations
       run: |
         migrate -path db/migrations -database "postgres://testuser:testpassword@localhost:5432/cashpilotx_test?sslmode=disable" up
-      continue-on-error: true
 
     - name: Create test config
       run: |
@@ -161,7 +160,6 @@ jobs:
     - name: Run database migrations
       run: |
         migrate -path db/migrations -database "postgres://testuser:testpassword@localhost:5432/cashpilotx_test?sslmode=disable" up
-      continue-on-error: true
 
     - name: Download dependencies
       run: go mod download
