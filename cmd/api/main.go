@@ -185,8 +185,9 @@ func setupDatabase(dbSource string) (*pgxpool.Pool, error) {
 	}
 
 	// Configure connection pool
-	poolConfig.MaxConns = 25                       // Maximum connections
-	poolConfig.MinConns = 5                        // Keep warm connections
+	// Supabase session pooler is capped at 15 total; API + worker must stay under that.
+	poolConfig.MaxConns = 10                       // Maximum connections
+	poolConfig.MinConns = 2                        // Keep warm connections
 	poolConfig.MaxConnLifetime = 1 * time.Hour     // Recycle connections
 	poolConfig.MaxConnIdleTime = 30 * time.Minute  // Close idle connections
 	poolConfig.HealthCheckPeriod = 1 * time.Minute // Health check interval

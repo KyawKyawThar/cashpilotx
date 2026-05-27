@@ -19,13 +19,14 @@ type ProductListRow struct {
 }
 
 type SaleRow struct {
-	SaleName       string `json:"sale_name"`
-	TotalCustomer  int64  `json:"total_customer"`
-	CashRevenue    int64  `json:"cash_revenue"`
-	InvoiceCount   int64  `json:"invoice_count"`
-	InvoiceRevenue int64  `json:"invoice_revenue"`
-	TotalOrder     int64  `json:"total_order"`
-	TotalValue     int64  `json:"total_value"`
+	SaleName          string `json:"sale_name"`
+	TotalCustomer     int64  `json:"total_customer"`
+	CustomersSubtotal int64  `json:"customers_subtotal"`
+	CashRevenue       int64  `json:"cash_revenue"`
+	InvoiceCount      int64  `json:"invoice_count"`
+	InvoiceRevenue    int64  `json:"invoice_revenue"`
+	TotalOrder        int64  `json:"total_order"`
+	TotalValue        int64  `json:"total_value"`
 }
 
 // SaleReportRow is shared by Recover Cash, Invoice, Schedule, and Payment sections.

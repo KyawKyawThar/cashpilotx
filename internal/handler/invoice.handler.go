@@ -318,6 +318,31 @@ func (h *InvoiceHandler) MoveCollectionState(w http.ResponseWriter, r *http.Requ
 	h.WriteSuccess(w, r, resp)
 }
 
+func (h *InvoiceHandler) UpdateInvoice(w http.ResponseWriter, r *http.Request) { //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	invoiceID, ok := h.MustUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateInvoiceRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.UpdateInvoice(r.Context(), effectiveUserID, invoiceID, &req)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 func (h *InvoiceHandler) PatchInvoiceTracking(w http.ResponseWriter, r *http.Request) { //nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 	_, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {

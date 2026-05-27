@@ -125,7 +125,7 @@ func setupDatabase(dbSource string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
-	poolConfig.MaxConns = 5
+	poolConfig.MaxConns = 4
 	poolConfig.MinConns = 1
 	poolConfig.MaxConnLifetime = 1 * time.Hour
 	poolConfig.MaxConnIdleTime = 10 * time.Minute

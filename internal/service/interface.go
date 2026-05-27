@@ -36,6 +36,7 @@ type InvoiceServicer interface {
 	ReactivateInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	WriteOffInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	MoveCollectionState(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.MoveCollectionStateRequest) (*dto.InvoiceResponse, error)
+	UpdateInvoice(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.UpdateInvoiceRequest) (*dto.InvoiceResponse, error)
 	UpdateInvoiceTracking(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.UpdateInvoiceTrackingRequest) (*dto.InvoiceResponse, error)
 	GetDashboardStats(ctx context.Context, userID uuid.UUID) (*dto.DashboardResponse, error)
 	GetCollectedSummary(ctx context.Context, userID uuid.UUID, from, to time.Time) (*dto.CollectedSummaryResponse, error)

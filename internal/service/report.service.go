@@ -285,15 +285,17 @@ func mapSaleRows(rows []db.GetSaleReportRow, allowed map[string]struct{}) (out [
 			}
 		}
 		out = append(out, dto.SaleRow{
-			SaleName:       r.SaleName,
-			TotalCustomer:  r.TotalCustomer,
-			CashRevenue:    r.CashRevenue,
-			InvoiceCount:   r.InvoiceCount,
-			InvoiceRevenue: r.InvoiceRevenue,
-			TotalOrder:     r.TotalOrder,
-			TotalValue:     r.TotalValue,
+			SaleName:          r.SaleName,
+			TotalCustomer:     r.TotalCustomer,
+			CustomersSubtotal: r.CustomersSubtotal,
+			CashRevenue:       r.CashRevenue,
+			InvoiceCount:      r.InvoiceCount,
+			InvoiceRevenue:    r.InvoiceRevenue,
+			TotalOrder:        r.TotalOrder,
+			TotalValue:        r.TotalValue,
 		})
 		total.TotalCustomer += r.TotalCustomer
+		total.CustomersSubtotal += r.CustomersSubtotal
 		total.CashRevenue += r.CashRevenue
 		total.InvoiceCount += r.InvoiceCount
 		total.InvoiceRevenue += r.InvoiceRevenue

@@ -1481,3 +1481,86 @@ func (q *Queries) UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTr
 	)
 	return i, err
 }
+
+const updateInvoiceContent = `-- name: UpdateInvoiceContent :one
+UPDATE invoices
+SET
+    amount           = $3,
+    currency         = $4,
+    description      = $5,
+    items            = COALESCE($6::jsonb, '[]'::jsonb),
+    due_date         = $7,
+    assigned_to      = $8,
+    delivery_service = $9,
+    tracking_number  = $10,
+    updated_at       = now()
+WHERE id      = $1
+  AND user_id = $2
+  AND status NOT IN ('paid', 'cancelled', 'returned')
+RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number, returned_at, return_reason, return_items
+`
+
+type UpdateInvoiceContentParams struct {
+	ID              uuid.UUID       `db:"id"               json:"id"`
+	UserID          uuid.UUID       `db:"user_id"          json:"user_id"`
+	Amount          int64           `db:"amount"           json:"amount"`
+	Currency        string          `db:"currency"         json:"currency"`
+	Description     *string         `db:"description"      json:"description"`
+	Column6         json.RawMessage `db:"column_6"         json:"column_6"`
+	DueDate         time.Time       `db:"due_date"         json:"due_date"`
+	AssignedTo      *uuid.UUID      `db:"assigned_to"      json:"assigned_to"`
+	DeliveryService *string         `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber  *string         `db:"tracking_number"  json:"tracking_number"`
+}
+
+func (q *Queries) UpdateInvoiceContent(ctx context.Context, arg UpdateInvoiceContentParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, updateInvoiceContent,
+		arg.ID,
+		arg.UserID,
+		arg.Amount,
+		arg.Currency,
+		arg.Description,
+		arg.Column6,
+		arg.DueDate,
+		arg.AssignedTo,
+		arg.DeliveryService,
+		arg.TrackingNumber,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CustomerID,
+		&i.Amount,
+		&i.Currency,
+		&i.PaidAmount,
+		&i.PaidAt,
+		&i.Description,
+		&i.DueDate,
+		&i.Status,
+		&i.Source,
+		&i.PhotoUrl,
+		&i.ExternalID,
+		&i.IssuedAt,
+		&i.Items,
+		&i.CollectionState,
+		&i.LastContactedAt,
+		&i.LastResponseAt,
+		&i.FollowUpCount,
+		&i.ConfidenceScore,
+		&i.ConfidenceFactors,
+		&i.OutcomeText,
+		&i.OutcomeTimeframe,
+		&i.ConfidenceComputedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PromisedAt,
+		&i.AssignedTo,
+		&i.DeliveryService,
+		&i.TrackingNumber,
+		&i.ReturnedAt,
+		&i.ReturnReason,
+		&i.ReturnItems,
+	)
+	return i, err
+}

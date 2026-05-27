@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,13 +32,6 @@ func newTestStore(t *testing.T) *SQLStore {
 		connPool: testDB,
 	}
 }
-func cleanupUser(t *testing.T, userID uuid.UUID) {
-	t.Helper()
-	t.Cleanup(func() {
-		_, _ = testDB.Exec(context.Background(), "DELETE FROM users WHERE id = $1", userID)
-	})
-}
-
 func toJSON(t *testing.T, v interface{}) *json.RawMessage {
 	t.Helper()
 	b, err := json.Marshal(v)

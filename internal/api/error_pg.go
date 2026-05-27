@@ -163,9 +163,6 @@ var foreignKeyMap = map[string]string{
 	// channel_configs
 	"channel_configs_user_id_fkey": "user",
 
-	// exchange_rates
-	"exchange_rates_user_id_fkey": "user",
-
 	// customer_risk_profiles
 	"customer_risk_profiles_user_id_fkey":     "user",
 	"customer_risk_profiles_customer_id_fkey": "customer",
@@ -392,6 +389,8 @@ func isConnectionError(err error) bool {
 		"broken pipe",
 		"i/o timeout",
 		"network is unreachable",
+		"max clients reached", // Supabase pgbouncer: EMAXCONNSESSION
+		"emaxconn",            // Supabase pgbouncer session-mode limit
 	}
 
 	for _, connErr := range connectionErrors {

@@ -103,7 +103,7 @@ func validatePIN(fl validator.FieldLevel) bool {
 }
 
 // validateCurrencyCode mirrors the CHECK (char_length(currency) = 3) constraints
-// on invoices, payments, and exchange_rates. Accepts 3-letter ISO 4217 codes.
+// on invoices and payments. Accepts 3-letter ISO 4217 codes.
 var currencyRE = regexp.MustCompile(`^[A-Z]{3}$`)
 
 func validateCurrencyCode(fl validator.FieldLevel) bool {

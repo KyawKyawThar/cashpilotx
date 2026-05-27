@@ -48,7 +48,7 @@ func toDeliveryServiceResponse(s db.DeliveryService) deliveryServiceResponse {
 //	@Router   /api/v1/delivery-services [get]
 //	@Security BearerAuth
 func (h *DeliveryServiceHandler) List(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.MustUserID(w, r)
+	_, userID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}

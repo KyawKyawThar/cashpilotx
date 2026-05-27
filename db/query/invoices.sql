@@ -131,6 +131,23 @@ WHERE id = $1
   AND user_id = $2
 RETURNING *;
 
+-- name: UpdateInvoiceContent :one
+UPDATE invoices
+SET
+    amount           = $3,
+    currency         = $4,
+    description      = $5,
+    items            = COALESCE($6::jsonb, '[]'::jsonb),
+    due_date         = $7,
+    assigned_to      = $8,
+    delivery_service = $9,
+    tracking_number  = $10,
+    updated_at       = now()
+WHERE id      = $1
+  AND user_id = $2
+  AND status NOT IN ('paid', 'cancelled', 'returned')
+RETURNING *;
+
 -- ─── Collection lifecycle ─────────────────────────────────────────────────────
 
 -- name: UpdateInvoiceCollectionState :one

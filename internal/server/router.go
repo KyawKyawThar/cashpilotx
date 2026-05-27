@@ -175,6 +175,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Post("/", s.handler.Invoice.CreateInvoice)
 			r.Get("/", s.handler.Invoice.ListInvoices)
 			r.Get("/{invoice_id}", s.handler.Invoice.GetInvoice)
+			r.Patch("/{invoice_id}", s.handler.Invoice.UpdateInvoice)
 			r.Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
 			r.Post("/{invoice_id}/return", s.handler.Invoice.ReturnInvoice)
 			r.Post("/{invoice_id}/reactivate", s.handler.Invoice.ReactivateInvoice)
@@ -208,9 +209,9 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 
 		r.Route("/api/v1/delivery-services", func(r chi.Router) {
 			r.Get("/", s.handler.DeliveryService.List)
-			r.With(mw.RequirePermission("product", "manage")).Post("/", s.handler.DeliveryService.Create)
-			r.With(mw.RequirePermission("product", "manage")).Patch("/{service_id}", s.handler.DeliveryService.Update)
-			r.With(mw.RequirePermission("product", "manage")).Delete("/{service_id}", s.handler.DeliveryService.Delete)
+			r.With(mw.RequirePermission("delivery_service", "manage")).Post("/", s.handler.DeliveryService.Create)
+			r.With(mw.RequirePermission("delivery_service", "manage")).Patch("/{service_id}", s.handler.DeliveryService.Update)
+			r.With(mw.RequirePermission("delivery_service", "manage")).Delete("/{service_id}", s.handler.DeliveryService.Delete)
 		})
 
 		// Products catalog — requires Pro plan for management; all roles can list.

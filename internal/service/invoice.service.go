@@ -543,6 +543,71 @@ func (s *InvoiceService) MoveCollectionState(
 	return dto.ToInvoiceResponse(result.Invoice, nil), nil
 }
 
+// UpdateInvoice edits the content of an invoice (items, amount, currency, due date, etc.).
+// Only allowed when paid_amount == 0 (no payments have been recorded).
+func (s *InvoiceService) UpdateInvoice(
+	ctx context.Context,
+	userID, invoiceID uuid.UUID,
+	req *dto.UpdateInvoiceRequest,
+) (*dto.InvoiceResponse, error) {
+	items := req.Items
+	if len(items) == 0 {
+		items = []byte("[]")
+	}
+
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	// Fetch current invoice to check editability and compute the debt delta.
+	existing, err := s.store.GetInvoiceByID(dbCtx, db.GetInvoiceByIDParams{
+		ID:     invoiceID,
+		UserID: userID,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	if existing.PaidAmount > 0 {
+		return nil, api.ErrConflict("invoice with recorded payments cannot be edited")
+	}
+
+	updated, err := s.store.UpdateInvoiceContent(dbCtx, db.UpdateInvoiceContentParams{
+		ID:              invoiceID,
+		UserID:          userID,
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		Description:     req.Description,
+		Column6:         items,
+		DueDate:         req.DueDate,
+		AssignedTo:      req.AssignedTo,
+		DeliveryService: req.DeliveryService,
+		TrackingNumber:  req.TrackingNumber,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	// Adjust customer total_owed by the amount delta.
+	delta := req.Amount - existing.Amount
+	if delta != 0 {
+		if _, err := s.store.AddCustomerDebt(dbCtx, db.AddCustomerDebtParams{
+			ID:        existing.CustomerID,
+			UserID:    userID,
+			TotalOwed: delta,
+		}); err != nil {
+			return nil, api.FromPgError(err)
+		}
+	}
+
+	return dto.ToInvoiceResponse(updated, s.resolveAssigneeName(dbCtx, updated.AssignedTo)), nil
+}
+
 // UpdateInvoiceTracking sets or clears the tracking number on an existing invoice.
 func (s *InvoiceService) UpdateInvoiceTracking(
 	ctx context.Context,

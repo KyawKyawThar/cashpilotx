@@ -107,7 +107,9 @@ SELECT
   COALESCE(SUM(i.paid_amount), 0)::BIGINT         AS paid_amount,
   COALESCE(SUM(i.amount), 0)::BIGINT              AS total_value
 FROM users u
-LEFT JOIN invoices i ON i.assigned_to    = u.id
+LEFT JOIN customers c ON c.assigned_to   = u.id
+                     AND c.user_id       = u.org_owner_id
+LEFT JOIN invoices i ON i.customer_id    = c.id
                     AND i.user_id        = u.org_owner_id
                     AND i.issued_at::date >= $2 AND i.issued_at::date < $3
                     AND i.status         NOT IN ('cancelled', 'returned')
@@ -176,7 +178,9 @@ SELECT
   COALESCE(SUM(p.amount) FILTER (WHERE p.voided_at IS NULL), 0)::BIGINT  AS amount,
   COALESCE(SUM(p.amount) FILTER (WHERE p.voided_at IS NULL), 0)::BIGINT  AS total_value
 FROM users u
-LEFT JOIN invoices i  ON i.assigned_to = u.id
+LEFT JOIN customers c ON c.assigned_to = u.id
+                     AND c.user_id     = u.org_owner_id
+LEFT JOIN invoices i  ON i.customer_id = c.id
                      AND i.user_id     = u.org_owner_id
                      AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
 LEFT JOIN payments p  ON p.invoice_id  = i.id
@@ -338,7 +342,9 @@ SELECT
   COALESCE(SUM(p.amount) FILTER (WHERE p.voided_at IS NULL), 0)::BIGINT  AS amount,
   COALESCE(SUM(p.amount) FILTER (WHERE p.voided_at IS NULL), 0)::BIGINT  AS total_value
 FROM users u
-LEFT JOIN invoices i  ON i.assigned_to      = u.id
+LEFT JOIN customers c ON c.assigned_to      = u.id
+                     AND c.user_id          = u.org_owner_id
+LEFT JOIN invoices i  ON i.customer_id      = c.id
                      AND i.user_id          = u.org_owner_id
                      AND i.collection_state != 'pending'
                      AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
@@ -413,16 +419,41 @@ cust_agg AS (
     AND c.created_at::date >= $2 AND c.created_at::date < $3
   GROUP BY c.assigned_to
 ),
+cust_subtotal_agg AS (
+  SELECT
+    c.assigned_to AS user_id,
+    COALESCE(SUM(
+      CASE
+        WHEN c.notes IS NOT NULL
+          AND jsonb_typeof(c.notes::jsonb->'default_products') = 'array'
+        THEN (
+          SELECT COALESCE(SUM(
+            GREATEST((item->>'qty')::NUMERIC,        0) *
+            GREATEST((item->>'unit_price')::NUMERIC, 0) -
+            COALESCE(GREATEST((item->>'discount')::NUMERIC, 0), 0)
+          ), 0)
+          FROM jsonb_array_elements((c.notes::jsonb)->'default_products') AS item
+        )
+        ELSE 0
+      END
+    ), 0)::BIGINT AS customers_subtotal
+  FROM customers c
+  WHERE c.user_id        = $1
+    AND c.assigned_to    IS NOT NULL
+    AND c.created_at::date >= $2 AND c.created_at::date < $3
+  GROUP BY c.assigned_to
+),
 pay_agg AS (
   SELECT
-    i.assigned_to                       AS user_id,
+    c.assigned_to                       AS user_id,
     COALESCE(SUM(p.amount), 0)::BIGINT  AS cash_revenue
   FROM payments p
-  JOIN invoices i ON i.id = p.invoice_id AND i.user_id = $1
+  JOIN invoices i  ON i.id  = p.invoice_id AND i.user_id = $1
+  JOIN customers c ON c.id  = i.customer_id
   WHERE p.paid_on   >= $2 AND p.paid_on  < $3
     AND p.voided_at IS NULL
     AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
-  GROUP BY i.assigned_to
+  GROUP BY c.assigned_to
 ),
 inv_agg AS (
   SELECT
@@ -440,16 +471,18 @@ inv_agg AS (
 )
 SELECT
   u.name                                              AS sale_name,
-  COALESCE(ca.total_customer,  0)::BIGINT             AS total_customer,
-  COALESCE(pa.cash_revenue,    0)::BIGINT             AS cash_revenue,
-  COALESCE(ia.invoice_count,   0)::BIGINT             AS invoice_count,
-  COALESCE(ia.invoice_revenue, 0)::BIGINT             AS invoice_revenue,
-  COALESCE(ia.total_order,     0)::BIGINT             AS total_order,
-  COALESCE(ia.total_value,     0)::BIGINT             AS total_value
+  COALESCE(ca.total_customer,     0)::BIGINT          AS total_customer,
+  COALESCE(cs.customers_subtotal, 0)::BIGINT          AS customers_subtotal,
+  COALESCE(pa.cash_revenue,       0)::BIGINT          AS cash_revenue,
+  COALESCE(ia.invoice_count,      0)::BIGINT          AS invoice_count,
+  COALESCE(ia.invoice_revenue,    0)::BIGINT          AS invoice_revenue,
+  COALESCE(ia.total_order,        0)::BIGINT          AS total_order,
+  COALESCE(ia.total_value,        0)::BIGINT          AS total_value
 FROM users u
-LEFT JOIN cust_agg ca ON ca.user_id = u.id
-LEFT JOIN pay_agg  pa ON pa.user_id = u.id
-LEFT JOIN inv_agg  ia ON ia.user_id = u.id
+LEFT JOIN cust_agg          ca ON ca.user_id = u.id
+LEFT JOIN cust_subtotal_agg cs ON cs.user_id = u.id
+LEFT JOIN pay_agg           pa ON pa.user_id = u.id
+LEFT JOIN inv_agg           ia ON ia.user_id = u.id
 WHERE u.org_owner_id = $1
   AND u.role         IN ('cs_team', 'sales')
   AND u.is_active    = true
@@ -466,13 +499,14 @@ type GetSaleReportParams struct {
 }
 
 type GetSaleReportRow struct {
-	SaleName       string `db:"sale_name" json:"sale_name"`
-	TotalCustomer  int64  `db:"total_customer" json:"total_customer"`
-	CashRevenue    int64  `db:"cash_revenue" json:"cash_revenue"`
-	InvoiceCount   int64  `db:"invoice_count" json:"invoice_count"`
-	InvoiceRevenue int64  `db:"invoice_revenue" json:"invoice_revenue"`
-	TotalOrder     int64  `db:"total_order" json:"total_order"`
-	TotalValue     int64  `db:"total_value" json:"total_value"`
+	SaleName          string `db:"sale_name" json:"sale_name"`
+	TotalCustomer     int64  `db:"total_customer" json:"total_customer"`
+	CustomersSubtotal int64  `db:"customers_subtotal" json:"customers_subtotal"`
+	CashRevenue       int64  `db:"cash_revenue" json:"cash_revenue"`
+	InvoiceCount      int64  `db:"invoice_count" json:"invoice_count"`
+	InvoiceRevenue    int64  `db:"invoice_revenue" json:"invoice_revenue"`
+	TotalOrder        int64  `db:"total_order" json:"total_order"`
+	TotalValue        int64  `db:"total_value" json:"total_value"`
 }
 
 // Shows all active team members with new-customer count, cash collected, and invoice totals.
@@ -495,6 +529,7 @@ func (q *Queries) GetSaleReport(ctx context.Context, arg GetSaleReportParams) ([
 		if err := rows.Scan(
 			&i.SaleName,
 			&i.TotalCustomer,
+			&i.CustomersSubtotal,
 			&i.CashRevenue,
 			&i.InvoiceCount,
 			&i.InvoiceRevenue,
@@ -518,7 +553,9 @@ SELECT
   COUNT(r.id)::BIGINT          AS count,
   0::BIGINT                    AS total_value
 FROM users u
-LEFT JOIN invoices  i ON i.assigned_to    = u.id
+LEFT JOIN customers c ON c.assigned_to    = u.id
+                     AND c.user_id        = u.org_owner_id
+LEFT JOIN invoices  i ON i.customer_id    = c.id
                      AND i.user_id        = u.org_owner_id
                      AND ($4::text = '' OR i.tracking_number ILIKE '%' || $4 || '%')
 LEFT JOIN reminders r ON r.invoice_id     = i.id

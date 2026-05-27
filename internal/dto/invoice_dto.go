@@ -49,6 +49,19 @@ type MoveCollectionStateRequest struct {
 	PromisedAt *time.Time `json:"promised_at"` // only honored when State == "promised"
 }
 
+// UpdateInvoiceRequest is the payload for PATCH /api/v1/invoices/{id}.
+// Only allowed when the invoice has no recorded payments (paid_amount == 0).
+type UpdateInvoiceRequest struct {
+	Items           json.RawMessage `json:"items"            validate:"omitempty" swaggertype:"array,object"`
+	Amount          int64           `json:"amount"           validate:"required,min=1"`
+	Currency        string          `json:"currency"         validate:"required,len=3"`
+	DueDate         time.Time       `json:"due_date"         validate:"required"`
+	Description     *string         `json:"description"      validate:"omitempty,max=500"`
+	AssignedTo      *uuid.UUID      `json:"assigned_to"      validate:"omitempty"`
+	DeliveryService *string         `json:"delivery_service" validate:"omitempty,max=100"`
+	TrackingNumber  *string         `json:"tracking_number"  validate:"omitempty,max=100"`
+}
+
 // UpdateInvoiceTrackingRequest is the payload for PATCH /api/v1/invoices/{id}/tracking.
 type UpdateInvoiceTrackingRequest struct {
 	TrackingNumber *string `json:"tracking_number" validate:"omitempty,max=100" example:"10661980LZR"`

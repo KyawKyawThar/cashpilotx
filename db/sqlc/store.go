@@ -36,10 +36,6 @@ type Store interface {
 	ProcessInboundReplyTx(ctx context.Context, arg ProcessInboundReplyTxParams) (ProcessInboundReplyTxResult, error)
 	MoveCollectionStateTx(ctx context.Context, arg MoveCollectionStateTxParams) (MoveCollectionStateTxResult, error)
 
-	// Exchange rates
-	UpsertExchangeRateTx(ctx context.Context, arg UpsertExchangeRateTxParams) (UpsertExchangeRateTxResult, error)
-	ReplaceExchangeRateTx(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
-
 	// Stats / intelligence
 	RefreshDailyStatsTx(ctx context.Context, arg RefreshDailyStatsTxParams) (RefreshDailyStatsTxResult, error)
 	RefreshRiskProfileTx(ctx context.Context, arg RefreshRiskProfileTxParams) (RefreshRiskProfileTxResult, error)

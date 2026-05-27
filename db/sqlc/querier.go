@@ -19,9 +19,7 @@ type Querier interface {
 	CancelInvoice(ctx context.Context, arg CancelInvoiceParams) (Invoice, error)
 	CancelReminder(ctx context.Context, id uuid.UUID) error
 	CancelRemindersForInvoice(ctx context.Context, invoiceID uuid.UUID) error
-	CloseCurrentExchangeRate(ctx context.Context, arg CloseCurrentExchangeRateParams) error
 	CloseCurrentInsight(ctx context.Context, arg CloseCurrentInsightParams) error
-	CloseExchangeRateByID(ctx context.Context, id uuid.UUID) error
 	CountEventsByType(ctx context.Context, arg CountEventsByTypeParams) ([]CountEventsByTypeRow, error)
 	// ═══════════════════════════════════════════════════════
 	// ANALYTICS
@@ -33,7 +31,6 @@ type Querier interface {
 	CreateCustomerEvent(ctx context.Context, arg CreateCustomerEventParams) (CustomerEvent, error)
 	CreateCustomerInsight(ctx context.Context, arg CreateCustomerInsightParams) (CustomerInsight, error)
 	CreateDeliveryService(ctx context.Context, arg CreateDeliveryServiceParams) (DeliveryService, error)
-	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
 	CreateIdempotencyKey(ctx context.Context, arg CreateIdempotencyKeyParams) (IdempotencyKey, error)
 	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
@@ -80,7 +77,6 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	FetchApprovedMessages(ctx context.Context, limit int32) ([]Message, error)
 	GetActiveChannelConfig(ctx context.Context, arg GetActiveChannelConfigParams) (ChannelConfig, error)
-	GetActiveExchangeRate(ctx context.Context, arg GetActiveExchangeRateParams) (ExchangeRate, error)
 	GetActiveInsightsByUser(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
 	// Used by FireReminderTx to check for an already-active reminder before creating a new one.
 	GetActiveReminderByInvoice(ctx context.Context, invoiceID uuid.UUID) (Reminder, error)
@@ -103,7 +99,6 @@ type Querier interface {
 	// =========================================
 	GetCustomerRiskProfileForUpdate(ctx context.Context, arg GetCustomerRiskProfileForUpdateParams) (CustomerRiskProfile, error)
 	GetDailyStats(ctx context.Context, arg GetDailyStatsParams) (DailyStat, error)
-	GetExchangeRateAtTime(ctx context.Context, arg GetExchangeRateAtTimeParams) (ExchangeRate, error)
 	GetIdempotencyKey(ctx context.Context, arg GetIdempotencyKeyParams) (IdempotencyKey, error)
 	GetIdempotencyKeyForUpdate(ctx context.Context, arg GetIdempotencyKeyForUpdateParams) (IdempotencyKey, error)
 	GetInsightsExpiringSoon(ctx context.Context, userID uuid.UUID) ([]CustomerInsight, error)
@@ -190,7 +185,6 @@ type Querier interface {
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)
 	ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error)
 	ListEventsByType(ctx context.Context, arg ListEventsByTypeParams) ([]CustomerEvent, error)
-	ListExchangeRates(ctx context.Context, arg ListExchangeRatesParams) ([]ExchangeRate, error)
 	ListFailedWebhookEvents(ctx context.Context, arg ListFailedWebhookEventsParams) ([]WebhookEvent, error)
 	// =========================================
 	// READ: high risk customers
@@ -309,6 +303,7 @@ type Querier interface {
 	// Written by RefreshRecoveryQueueTx (background job, runs after each event).
 	// confidence_factors shape: [{label, signal, color: "green"|"amber"|"red"}]
 	UpdateInvoiceConfidence(ctx context.Context, arg UpdateInvoiceConfidenceParams) (int64, error)
+	UpdateInvoiceContent(ctx context.Context, arg UpdateInvoiceContentParams) (Invoice, error)
 	UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTrackingParams) (Invoice, error)
 	// =========================================
 	// UPDATE: late fee settings (validated)
