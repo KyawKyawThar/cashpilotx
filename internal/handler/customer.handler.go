@@ -142,14 +142,14 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		customers []*dto.CustomerResponse
 		err       error
 	)
-	if r.URL.Query().Get("all") == queryTrue {
+	filter := &dto.ListCustomersFilter{}
+	if scope.Scope == scopeOwn {
+		// sales: always scope to own customers — ignore all=true
+		filter.AssignedTo = &scope.CallerID
+		customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
+	} else if r.URL.Query().Get("all") == queryTrue {
 		customers, err = h.svc.ListAllCustomers(r.Context(), effectiveUserID, pg)
 	} else {
-		filter := &dto.ListCustomersFilter{}
-		// sales: only show customers assigned to them.
-		if scope.Scope == scopeOwn {
-			filter.AssignedTo = &scope.CallerID
-		}
 		customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
 	}
 	if err != nil {
