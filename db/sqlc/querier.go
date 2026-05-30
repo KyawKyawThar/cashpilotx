@@ -98,6 +98,7 @@ type Querier interface {
 	// LOCK: for transactional recalculation
 	// =========================================
 	GetCustomerRiskProfileForUpdate(ctx context.Context, arg GetCustomerRiskProfileForUpdateParams) (CustomerRiskProfile, error)
+	GetCustomersByIDs(ctx context.Context, arg GetCustomersByIDsParams) ([]GetCustomersByIDsRow, error)
 	GetDailyStats(ctx context.Context, arg GetDailyStatsParams) (DailyStat, error)
 	GetIdempotencyKey(ctx context.Context, arg GetIdempotencyKeyParams) (IdempotencyKey, error)
 	GetIdempotencyKeyForUpdate(ctx context.Context, arg GetIdempotencyKeyForUpdateParams) (IdempotencyKey, error)
@@ -261,6 +262,10 @@ type Querier interface {
 	RescheduleReminder(ctx context.Context, arg RescheduleReminderParams) error
 	ReturnInvoice(ctx context.Context, arg ReturnInvoiceParams) (Invoice, error)
 	SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]Customer, error)
+	// Full-text search across customer name/phone, tracking number, and external ID.
+	// $2 = lowercase text query  $3 = digits-only phone query (09xxx stripped to 9xxx)
+	// $4 = limit  $5 = offset
+	SearchInvoices(ctx context.Context, arg SearchInvoicesParams) ([]SearchInvoicesRow, error)
 	// ═══════════════════════════════════════════════════════
 	// SEARCH
 	// ═══════════════════════════════════════════════════════

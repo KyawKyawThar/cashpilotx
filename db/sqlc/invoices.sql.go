@@ -1139,6 +1139,137 @@ func (q *Queries) ReturnInvoice(ctx context.Context, arg ReturnInvoiceParams) (I
 	return i, err
 }
 
+const searchInvoices = `-- name: SearchInvoices :many
+SELECT i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number, i.returned_at, i.return_reason, i.return_items,
+    c.name           AS customer_name,
+    c.phone          AS customer_phone,
+    c.customer_number AS customer_number
+FROM invoices i
+JOIN customers c ON c.id = i.customer_id
+WHERE i.user_id = $1
+  AND (
+    c.normalized_name    ILIKE '%' || $2 || '%'
+    OR ($3 <> '' AND c.normalized_phone ILIKE '%' || $3 || '%')
+    OR i.tracking_number ILIKE '%' || $2 || '%'
+    OR i.external_id     ILIKE '%' || $2 || '%'
+  )
+ORDER BY i.created_at DESC
+LIMIT $4 OFFSET $5
+`
+
+type SearchInvoicesParams struct {
+	UserID  uuid.UUID   `db:"user_id" json:"user_id"`
+	Column2 *string     `db:"column_2" json:"column_2"`
+	Column3 interface{} `db:"column_3" json:"column_3"`
+	Limit   int32       `db:"limit" json:"limit"`
+	Offset  int32       `db:"offset" json:"offset"`
+}
+
+type SearchInvoicesRow struct {
+	ID                   uuid.UUID        `db:"id" json:"id"`
+	UserID               uuid.UUID        `db:"user_id" json:"user_id"`
+	CustomerID           uuid.UUID        `db:"customer_id" json:"customer_id"`
+	Amount               int64            `db:"amount" json:"amount"`
+	Currency             string           `db:"currency" json:"currency"`
+	PaidAmount           int64            `db:"paid_amount" json:"paid_amount"`
+	PaidAt               *time.Time       `db:"paid_at" json:"paid_at"`
+	Description          *string          `db:"description" json:"description"`
+	DueDate              time.Time        `db:"due_date" json:"due_date"`
+	Status               string           `db:"status" json:"status"`
+	Source               *string          `db:"source" json:"source"`
+	PhotoUrl             *string          `db:"photo_url" json:"photo_url"`
+	ExternalID           *string          `db:"external_id" json:"external_id"`
+	IssuedAt             *time.Time       `db:"issued_at" json:"issued_at"`
+	Items                json.RawMessage  `db:"items" json:"items"`
+	CollectionState      string           `db:"collection_state" json:"collection_state"`
+	LastContactedAt      *time.Time       `db:"last_contacted_at" json:"last_contacted_at"`
+	LastResponseAt       *time.Time       `db:"last_response_at" json:"last_response_at"`
+	FollowUpCount        int32            `db:"follow_up_count" json:"follow_up_count"`
+	ConfidenceScore      *float64         `db:"confidence_score" json:"confidence_score"`
+	ConfidenceFactors    *json.RawMessage `db:"confidence_factors" json:"confidence_factors"`
+	OutcomeText          *string          `db:"outcome_text" json:"outcome_text"`
+	OutcomeTimeframe     *string          `db:"outcome_timeframe" json:"outcome_timeframe"`
+	ConfidenceComputedAt *time.Time       `db:"confidence_computed_at" json:"confidence_computed_at"`
+	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
+	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
+	AssignedTo           *uuid.UUID       `db:"assigned_to" json:"assigned_to"`
+	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
+	ReturnedAt           *time.Time       `db:"returned_at" json:"returned_at"`
+	ReturnReason         *string          `db:"return_reason" json:"return_reason"`
+	ReturnItems          *json.RawMessage `db:"return_items" json:"return_items"`
+	CustomerName         string           `db:"customer_name" json:"customer_name"`
+	CustomerPhone        *string          `db:"customer_phone" json:"customer_phone"`
+	CustomerNumber       *string          `db:"customer_number" json:"customer_number"`
+}
+
+// Full-text search across customer name/phone, tracking number, and external ID.
+// $2 = lowercase text query  $3 = digits-only phone query (09xxx stripped to 9xxx)
+// $4 = limit  $5 = offset
+func (q *Queries) SearchInvoices(ctx context.Context, arg SearchInvoicesParams) ([]SearchInvoicesRow, error) {
+	rows, err := q.db.Query(ctx, searchInvoices,
+		arg.UserID,
+		arg.Column2,
+		arg.Column3,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchInvoicesRow{}
+	for rows.Next() {
+		var i SearchInvoicesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CustomerID,
+			&i.Amount,
+			&i.Currency,
+			&i.PaidAmount,
+			&i.PaidAt,
+			&i.Description,
+			&i.DueDate,
+			&i.Status,
+			&i.Source,
+			&i.PhotoUrl,
+			&i.ExternalID,
+			&i.IssuedAt,
+			&i.Items,
+			&i.CollectionState,
+			&i.LastContactedAt,
+			&i.LastResponseAt,
+			&i.FollowUpCount,
+			&i.ConfidenceScore,
+			&i.ConfidenceFactors,
+			&i.OutcomeText,
+			&i.OutcomeTimeframe,
+			&i.ConfidenceComputedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
+			&i.ReturnedAt,
+			&i.ReturnReason,
+			&i.ReturnItems,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.CustomerNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setInvoiceContacted = `-- name: SetInvoiceContacted :one
 UPDATE invoices
 SET
@@ -1425,24 +1556,50 @@ func (q *Queries) UpdateInvoiceConfidence(ctx context.Context, arg UpdateInvoice
 	return result.RowsAffected(), nil
 }
 
-const updateInvoiceTracking = `-- name: UpdateInvoiceTracking :one
+const updateInvoiceContent = `-- name: UpdateInvoiceContent :one
 UPDATE invoices
 SET
-    tracking_number = $3,
-    updated_at      = now()
-WHERE id = $1
+    amount           = $3,
+    currency         = $4,
+    description      = $5,
+    items            = COALESCE($6::jsonb, '[]'::jsonb),
+    due_date         = $7,
+    assigned_to      = $8,
+    delivery_service = $9,
+    tracking_number  = $10,
+    updated_at       = now()
+WHERE id      = $1
   AND user_id = $2
+  AND status NOT IN ('paid', 'cancelled', 'returned')
 RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number, returned_at, return_reason, return_items
 `
 
-type UpdateInvoiceTrackingParams struct {
-	ID             uuid.UUID `db:"id" json:"id"`
-	UserID         uuid.UUID `db:"user_id" json:"user_id"`
-	TrackingNumber *string   `db:"tracking_number" json:"tracking_number"`
+type UpdateInvoiceContentParams struct {
+	ID              uuid.UUID       `db:"id" json:"id"`
+	UserID          uuid.UUID       `db:"user_id" json:"user_id"`
+	Amount          int64           `db:"amount" json:"amount"`
+	Currency        string          `db:"currency" json:"currency"`
+	Description     *string         `db:"description" json:"description"`
+	Column6         json.RawMessage `db:"column_6" json:"column_6"`
+	DueDate         time.Time       `db:"due_date" json:"due_date"`
+	AssignedTo      *uuid.UUID      `db:"assigned_to" json:"assigned_to"`
+	DeliveryService *string         `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber  *string         `db:"tracking_number" json:"tracking_number"`
 }
 
-func (q *Queries) UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTrackingParams) (Invoice, error) {
-	row := q.db.QueryRow(ctx, updateInvoiceTracking, arg.ID, arg.UserID, arg.TrackingNumber)
+func (q *Queries) UpdateInvoiceContent(ctx context.Context, arg UpdateInvoiceContentParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, updateInvoiceContent,
+		arg.ID,
+		arg.UserID,
+		arg.Amount,
+		arg.Currency,
+		arg.Description,
+		arg.Column6,
+		arg.DueDate,
+		arg.AssignedTo,
+		arg.DeliveryService,
+		arg.TrackingNumber,
+	)
 	var i Invoice
 	err := row.Scan(
 		&i.ID,
@@ -1482,50 +1639,24 @@ func (q *Queries) UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTr
 	return i, err
 }
 
-const updateInvoiceContent = `-- name: UpdateInvoiceContent :one
+const updateInvoiceTracking = `-- name: UpdateInvoiceTracking :one
 UPDATE invoices
 SET
-    amount           = $3,
-    currency         = $4,
-    description      = $5,
-    items            = COALESCE($6::jsonb, '[]'::jsonb),
-    due_date         = $7,
-    assigned_to      = $8,
-    delivery_service = $9,
-    tracking_number  = $10,
-    updated_at       = now()
-WHERE id      = $1
+    tracking_number = $3,
+    updated_at      = now()
+WHERE id = $1
   AND user_id = $2
-  AND status NOT IN ('paid', 'cancelled', 'returned')
 RETURNING id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number, returned_at, return_reason, return_items
 `
 
-type UpdateInvoiceContentParams struct {
-	ID              uuid.UUID       `db:"id"               json:"id"`
-	UserID          uuid.UUID       `db:"user_id"          json:"user_id"`
-	Amount          int64           `db:"amount"           json:"amount"`
-	Currency        string          `db:"currency"         json:"currency"`
-	Description     *string         `db:"description"      json:"description"`
-	Column6         json.RawMessage `db:"column_6"         json:"column_6"`
-	DueDate         time.Time       `db:"due_date"         json:"due_date"`
-	AssignedTo      *uuid.UUID      `db:"assigned_to"      json:"assigned_to"`
-	DeliveryService *string         `db:"delivery_service" json:"delivery_service"`
-	TrackingNumber  *string         `db:"tracking_number"  json:"tracking_number"`
+type UpdateInvoiceTrackingParams struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	UserID         uuid.UUID `db:"user_id" json:"user_id"`
+	TrackingNumber *string   `db:"tracking_number" json:"tracking_number"`
 }
 
-func (q *Queries) UpdateInvoiceContent(ctx context.Context, arg UpdateInvoiceContentParams) (Invoice, error) {
-	row := q.db.QueryRow(ctx, updateInvoiceContent,
-		arg.ID,
-		arg.UserID,
-		arg.Amount,
-		arg.Currency,
-		arg.Description,
-		arg.Column6,
-		arg.DueDate,
-		arg.AssignedTo,
-		arg.DeliveryService,
-		arg.TrackingNumber,
-	)
+func (q *Queries) UpdateInvoiceTracking(ctx context.Context, arg UpdateInvoiceTrackingParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, updateInvoiceTracking, arg.ID, arg.UserID, arg.TrackingNumber)
 	var i Invoice
 	err := row.Scan(
 		&i.ID,

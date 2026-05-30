@@ -256,6 +256,51 @@ func (q *Queries) GetCustomerByPhone(ctx context.Context, arg GetCustomerByPhone
 	return i, err
 }
 
+const getCustomersByIDs = `-- name: GetCustomersByIDs :many
+SELECT id, name, phone, customer_number
+FROM customers
+WHERE user_id = $1
+  AND id = ANY($2::uuid[])
+ORDER BY name
+`
+
+type GetCustomersByIDsParams struct {
+	UserID  uuid.UUID   `db:"user_id" json:"user_id"`
+	Column2 []uuid.UUID `db:"column_2" json:"column_2"`
+}
+
+type GetCustomersByIDsRow struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	Name           string    `db:"name" json:"name"`
+	Phone          *string   `db:"phone" json:"phone"`
+	CustomerNumber *string   `db:"customer_number" json:"customer_number"`
+}
+
+func (q *Queries) GetCustomersByIDs(ctx context.Context, arg GetCustomersByIDsParams) ([]GetCustomersByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getCustomersByIDs, arg.UserID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetCustomersByIDsRow{}
+	for rows.Next() {
+		var i GetCustomersByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Phone,
+			&i.CustomerNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllCustomers = `-- name: ListAllCustomers :many
 SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers

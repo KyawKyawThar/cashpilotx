@@ -138,3 +138,10 @@ WHERE user_id = $1
   AND total_owed > 0
 ORDER BY total_owed DESC
 LIMIT $2;
+
+-- name: GetCustomersByIDs :many
+SELECT id, name, phone, customer_number
+FROM customers
+WHERE user_id = $1
+  AND id = ANY($2::uuid[])
+ORDER BY name;

@@ -276,6 +276,26 @@ WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4;
 
+-- name: SearchInvoices :many
+-- Full-text search across customer name/phone, tracking number, and external ID.
+-- $2 = lowercase text query  $3 = digits-only phone query (09xxx stripped to 9xxx)
+-- $4 = limit  $5 = offset
+SELECT i.*,
+    c.name           AS customer_name,
+    c.phone          AS customer_phone,
+    c.customer_number AS customer_number
+FROM invoices i
+JOIN customers c ON c.id = i.customer_id
+WHERE i.user_id = $1
+  AND (
+    c.normalized_name    ILIKE '%' || $2 || '%'
+    OR ($3 <> '' AND c.normalized_phone ILIKE '%' || $3 || '%')
+    OR i.tracking_number ILIKE '%' || $2 || '%'
+    OR i.external_id     ILIKE '%' || $2 || '%'
+  )
+ORDER BY i.created_at DESC
+LIMIT $4 OFFSET $5;
+
 -- name: ListInvoicesDueToday :many
 SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at
 FROM invoices

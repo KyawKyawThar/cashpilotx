@@ -75,6 +75,7 @@ type ListInvoicesFilter struct {
 	CustomerID       *uuid.UUID
 	AssignedTo       *uuid.UUID // filter by assignee user ID — used for per-rep reporting
 	CurrentMonthOnly bool       // enforced for sales role by scope middleware
+	Search           *string    // full-text: customer name/phone, tracking, external_id
 }
 
 // =============================================================================
@@ -115,6 +116,10 @@ type InvoiceResponse struct {
 	ReturnItems        json.RawMessage  `json:"return_items,omitempty" swaggertype:"array,object"`
 	CreatedAt          time.Time        `json:"created_at"`
 	UpdatedAt          time.Time        `json:"updated_at"`
+	// Customer fields — populated on list endpoints to avoid a separate /customers fetch.
+	CustomerName   *string `json:"customer_name,omitempty"`
+	CustomerPhone  *string `json:"customer_phone,omitempty"`
+	CustomerNumber *string `json:"customer_number,omitempty"`
 }
 
 // ReturnInvoiceRequest is the optional payload for POST /api/v1/invoices/{id}/return.
@@ -193,6 +198,57 @@ func ToInvoiceResponse(i db.Invoice, assigneeName *string) *InvoiceResponse {
 		CreatedAt: i.CreatedAt,
 		UpdatedAt: i.UpdatedAt,
 	}
+}
+
+// ToInvoiceResponseFromSearch maps a SearchInvoicesRow (invoice + embedded customer) to InvoiceResponse.
+func ToInvoiceResponseFromSearch(r db.SearchInvoicesRow, assigneeName *string) *InvoiceResponse {
+	items := r.Items
+	if items == nil {
+		items = json.RawMessage("[]")
+	}
+	resp := &InvoiceResponse{
+		ID:                 r.ID,
+		CustomerID:         r.CustomerID,
+		ExternalID:         r.ExternalID,
+		Description:        r.Description,
+		Items:              items,
+		Amount:             r.Amount,
+		PaidAmount:         r.PaidAmount,
+		Currency:           r.Currency,
+		Status:             r.Status,
+		Source:             r.Source,
+		PhotoURL:           r.PhotoUrl,
+		DueDate:            r.DueDate,
+		IssuedAt:           r.IssuedAt,
+		PaidAt:             r.PaidAt,
+		CollectionState:    r.CollectionState,
+		LastContactedAt:    r.LastContactedAt,
+		LastResponseAt:     r.LastResponseAt,
+		PromisedAt:         r.PromisedAt,
+		FollowUpCount:      r.FollowUpCount,
+		ConfidenceScore:    r.ConfidenceScore,
+		ConfidenceFactors:  r.ConfidenceFactors,
+		OutcomeText:        r.OutcomeText,
+		OutcomeTimeframe:   r.OutcomeTimeframe,
+		AssignedTo:         r.AssignedTo,
+		AssignedToUsername: assigneeName,
+		DeliveryService:    r.DeliveryService,
+		TrackingNumber:     r.TrackingNumber,
+		ReturnedAt:         r.ReturnedAt,
+		ReturnReason:       r.ReturnReason,
+		ReturnItems: func() json.RawMessage {
+			if r.ReturnItems == nil {
+				return nil
+			}
+			return *r.ReturnItems
+		}(),
+		CreatedAt:      r.CreatedAt,
+		UpdatedAt:      r.UpdatedAt,
+		CustomerName:   &r.CustomerName,
+		CustomerPhone:  r.CustomerPhone,
+		CustomerNumber: r.CustomerNumber,
+	}
+	return resp
 }
 
 // ToReminderResponse maps db.Reminder to a client-facing ReminderResponse.

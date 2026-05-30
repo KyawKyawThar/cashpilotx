@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,13 +60,22 @@ func (s *InvoiceService) resolveAssigneeName(ctx context.Context, id *uuid.UUID)
 }
 
 // resolveAssigneeNames batch-resolves unique assignee UUIDs from a slice of invoices.
-// Returns a map of UUID → display name (username preferred, falls back to name).
 func (s *InvoiceService) resolveAssigneeNames(ctx context.Context, rows []db.Invoice) map[uuid.UUID]string {
-	seen := make(map[uuid.UUID]struct{})
+	ids := make([]uuid.UUID, 0, len(rows))
 	for _, r := range rows {
 		if r.AssignedTo != nil {
-			seen[*r.AssignedTo] = struct{}{}
+			ids = append(ids, *r.AssignedTo)
 		}
+	}
+	return s.resolveAssigneeNamesByIDs(ctx, ids)
+}
+
+// resolveAssigneeNamesByIDs looks up display names for a list of user UUIDs.
+// Returns a map of UUID → display name (username preferred, falls back to name).
+func (s *InvoiceService) resolveAssigneeNamesByIDs(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]string {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		seen[id] = struct{}{}
 	}
 	result := make(map[uuid.UUID]string, len(seen))
 	for id := range seen {
@@ -193,7 +203,32 @@ func (s *InvoiceService) GetInvoice(
 	return dto.ToInvoiceResponse(inv, s.resolveAssigneeName(dbCtx, inv.AssignedTo)), nil
 }
 
+// digitsOnly strips all non-digit characters from s.
+func digitsOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// normalizePhoneQuery converts a raw search string into a digits-only substring
+// suitable for matching against normalized_phone (stored as "+959…").
+// Leading "0" is stripped so "09xxx" matches "+959xxx".
+func normalizePhoneQuery(q string) string {
+	d := digitsOnly(q)
+	if d != "" && d[0] == '0' {
+		d = d[1:]
+	}
+	return d
+}
+
 // ListInvoices returns a paginated list of invoices with optional filters.
+// When filter.Search is set the search is executed against the DB (JOIN customers);
+// for all other filter combinations the existing per-query path is used, with
+// customer name/phone batch-resolved and embedded in the response.
 func (s *InvoiceService) ListInvoices(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -203,25 +238,112 @@ func (s *InvoiceService) ListInvoices(
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
+	if filter != nil && filter.Search != nil && strings.TrimSpace(*filter.Search) != "" {
+		return s.listInvoicesBySearch(dbCtx, userID, *filter.Search, pg)
+	}
+
 	rows, err := s.queryInvoices(dbCtx, userID, filter, pg)
 	if err != nil {
 		return nil, api.FromPgError(err)
 	}
 
 	rows = applyCollectionStateFilter(rows, filter)
-
+	customerMap := s.resolveCustomerData(dbCtx, userID, rows)
 	nameMap := s.resolveAssigneeNames(dbCtx, rows)
+
 	out := make([]*dto.InvoiceResponse, 0, len(rows))
 	for _, r := range rows {
-		var assigneeName *string
-		if r.AssignedTo != nil {
-			if name, ok := nameMap[*r.AssignedTo]; ok {
-				assigneeName = &name
-			}
+		resp := dto.ToInvoiceResponse(r, resolveFromMap(nameMap, r.AssignedTo))
+		if c, ok := customerMap[r.CustomerID]; ok {
+			resp.CustomerName = &c.Name
+			resp.CustomerPhone = c.Phone
+			resp.CustomerNumber = c.CustomerNumber
 		}
-		out = append(out, dto.ToInvoiceResponse(r, assigneeName))
+		out = append(out, resp)
 	}
 	return out, nil
+}
+
+// listInvoicesBySearch handles the search path: joins customers in SQL and
+// batch-resolves assignee names before mapping to response DTOs.
+func (s *InvoiceService) listInvoicesBySearch(
+	ctx context.Context,
+	userID uuid.UUID,
+	rawSearch string,
+	pg *dto.Pagination,
+) ([]*dto.InvoiceResponse, error) {
+	q := strings.ToLower(strings.TrimSpace(rawSearch))
+	rows, err := s.store.SearchInvoices(ctx, db.SearchInvoicesParams{
+		UserID:  userID,
+		Column2: &q,
+		Column3: normalizePhoneQuery(q),
+		Limit:   pg.Limit32(),
+		Offset:  pg.Offset32(),
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	nameMap := s.resolveAssigneeNamesFromSearch(ctx, rows)
+	out := make([]*dto.InvoiceResponse, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dto.ToInvoiceResponseFromSearch(r, resolveFromMap(nameMap, r.AssignedTo)))
+	}
+	return out, nil
+}
+
+// resolveAssigneeNamesFromSearch batch-resolves assignee display names from search result rows.
+func (s *InvoiceService) resolveAssigneeNamesFromSearch(ctx context.Context, rows []db.SearchInvoicesRow) map[uuid.UUID]string {
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, r := range rows {
+		if r.AssignedTo != nil {
+			ids = append(ids, *r.AssignedTo)
+		}
+	}
+	return s.resolveAssigneeNamesByIDs(ctx, ids)
+}
+
+// resolveFromMap looks up a display name pointer from a UUID→name map.
+// Returns nil if id is nil or not present in the map.
+func resolveFromMap(m map[uuid.UUID]string, id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	if name, ok := m[*id]; ok {
+		return &name
+	}
+	return nil
+}
+
+// resolveCustomerData batch-fetches customer name/phone for a page of invoices.
+func (s *InvoiceService) resolveCustomerData(
+	ctx context.Context,
+	userID uuid.UUID,
+	rows []db.Invoice,
+) map[uuid.UUID]db.GetCustomersByIDsRow {
+	seen := make(map[uuid.UUID]struct{}, len(rows))
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, r := range rows {
+		if _, ok := seen[r.CustomerID]; !ok {
+			seen[r.CustomerID] = struct{}{}
+			ids = append(ids, r.CustomerID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	customers, err := s.store.GetCustomersByIDs(ctx, db.GetCustomersByIDsParams{
+		UserID:  userID,
+		Column2: ids,
+	})
+	if err != nil {
+		return nil
+	}
+	m := make(map[uuid.UUID]db.GetCustomersByIDsRow, len(customers))
+	for _, c := range customers {
+		m[c.ID] = c
+	}
+	return m
 }
 
 // queryInvoices selects the right DB query based on the active filter.

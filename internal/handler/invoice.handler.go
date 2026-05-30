@@ -128,7 +128,11 @@ func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.WriteSuccess(w, r, resp)
+	pg.Total = int64(len(resp))
+	if int(pg.Limit32()) > 0 && len(resp) == int(pg.Limit32()) {
+		pg.Total = int64(pg.Page)*int64(pg.PerPage) + 1 // signal has_next
+	}
+	dto.WriteSuccessWithMeta(w, r, resp, pg)
 }
 
 // CancelInvoice godoc
@@ -394,6 +398,9 @@ func invoiceFilterFromQuery(r *http.Request) *dto.ListInvoicesFilter {
 		if id, err := parseUUID(v); err == nil {
 			filter.AssignedTo = &id
 		}
+	}
+	if v := q.Get("search"); v != "" {
+		filter.Search = &v
 	}
 
 	return filter

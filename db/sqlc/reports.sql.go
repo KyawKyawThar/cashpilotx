@@ -479,10 +479,10 @@ SELECT
   COALESCE(ia.total_order,        0)::BIGINT          AS total_order,
   COALESCE(ia.total_value,        0)::BIGINT          AS total_value
 FROM users u
-LEFT JOIN cust_agg          ca ON ca.user_id = u.id
+LEFT JOIN cust_agg         ca ON ca.user_id = u.id
 LEFT JOIN cust_subtotal_agg cs ON cs.user_id = u.id
-LEFT JOIN pay_agg           pa ON pa.user_id = u.id
-LEFT JOIN inv_agg           ia ON ia.user_id = u.id
+LEFT JOIN pay_agg          pa ON pa.user_id = u.id
+LEFT JOIN inv_agg          ia ON ia.user_id = u.id
 WHERE u.org_owner_id = $1
   AND u.role         IN ('cs_team', 'sales')
   AND u.is_active    = true
