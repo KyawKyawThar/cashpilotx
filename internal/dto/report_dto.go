@@ -27,6 +27,7 @@ type SaleRow struct {
 	InvoiceRevenue    int64  `json:"invoice_revenue"`
 	TotalOrder        int64  `json:"total_order"`
 	TotalValue        int64  `json:"total_value"`
+	TotalDefaultValue int64  `json:"total_default_value"`
 }
 
 // SaleReportRow is shared by Recover Cash, Invoice, Schedule, and Payment sections.

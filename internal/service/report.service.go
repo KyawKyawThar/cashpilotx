@@ -293,6 +293,7 @@ func mapSaleRows(rows []db.GetSaleReportRow, allowed map[string]struct{}) (out [
 			InvoiceRevenue:    r.InvoiceRevenue,
 			TotalOrder:        r.TotalOrder,
 			TotalValue:        r.TotalValue,
+			TotalDefaultValue: r.TotalDefaultValue,
 		})
 		total.TotalCustomer += r.TotalCustomer
 		total.CustomersSubtotal += r.CustomersSubtotal
@@ -301,6 +302,7 @@ func mapSaleRows(rows []db.GetSaleReportRow, allowed map[string]struct{}) (out [
 		total.InvoiceRevenue += r.InvoiceRevenue
 		total.TotalOrder += r.TotalOrder
 		total.TotalValue += r.TotalValue
+		total.TotalDefaultValue += r.TotalDefaultValue
 	}
 	return
 }
