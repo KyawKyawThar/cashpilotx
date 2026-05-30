@@ -79,11 +79,12 @@ var rolePermMap = map[db.UserRole]map[permKey]struct{}{
 		"team:view",
 	),
 
-	// sales — can only create and view customers (own scope)
+	// sales — can only create and view customers (own scope) + own report row
 	db.UserRoleSales: buildPermSet(
 		"customer:view", "customer:create",
 		"product:view_selling",
 		"delivery_service:view",
+		"report:view",
 	),
 }
 

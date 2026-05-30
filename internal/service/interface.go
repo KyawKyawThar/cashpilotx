@@ -44,7 +44,7 @@ type InvoiceServicer interface {
 }
 
 type MessageServicer interface {
-	ListMessages(ctx context.Context, invoiceID uuid.UUID) ([]*dto.ChatMessageResponse, error)
+	ListMessages(ctx context.Context, orgUserID uuid.UUID, callerID *uuid.UUID, invoiceID uuid.UUID) ([]*dto.ChatMessageResponse, error)
 	CreateManualMessage(ctx context.Context, userID uuid.UUID, req *dto.CreateManualMessageRequest) (*dto.ChatMessageResponse, error)
 	ApproveMessage(ctx context.Context, messageID uuid.UUID) (*dto.ChatMessageResponse, error)
 	MarkMessageSent(ctx context.Context, messageID uuid.UUID, req *dto.MarkMessageSentRequest) (*dto.ChatMessageResponse, error)
@@ -52,7 +52,7 @@ type MessageServicer interface {
 }
 
 type ReminderServicer interface {
-	ListReminders(ctx context.Context, invoiceID uuid.UUID) ([]*dto.ReminderResponse, error)
+	ListReminders(ctx context.Context, orgUserID uuid.UUID, callerID *uuid.UUID, invoiceID uuid.UUID) ([]*dto.ReminderResponse, error)
 	ListAllReminders(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.ReminderResponse, error)
 	CreateReminder(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.CreateReminderRequest) (*dto.ReminderResponse, error)
 	UpdateReminder(ctx context.Context, reminderID uuid.UUID, req *dto.UpdateReminderRequest) (*dto.ReminderResponse, error)
@@ -97,7 +97,7 @@ type TeamServicer interface {
 }
 
 type ReportServicer interface {
-	GetDailyReport(ctx context.Context, orgOwnerID uuid.UUID, callerRole db.UserRole, teamID *uuid.UUID, filter *dto.ReportFilter) (*dto.DailyReportResponse, error)
+	GetDailyReport(ctx context.Context, orgOwnerID uuid.UUID, callerID uuid.UUID, callerRole db.UserRole, teamID *uuid.UUID, filter *dto.ReportFilter) (*dto.DailyReportResponse, error)
 }
 
 type ProductServicer interface {
@@ -110,13 +110,13 @@ type ProductServicer interface {
 type CustomerServicer interface {
 	// Customer CRUD
 	CreateCustomer(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID, req *dto.CreateCustomerRequest) (*dto.CustomerResponse, error)
-	GetCustomer(ctx context.Context, userID, customerID uuid.UUID) (*dto.CustomerResponse, error)
+	GetCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) (*dto.CustomerResponse, error)
 	ListCustomers(ctx context.Context, userID uuid.UUID, filter *dto.ListCustomersFilter, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	ListAllCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
-	SearchCustomers(ctx context.Context, userID uuid.UUID, query string) ([]*dto.CustomerResponse, error)
-	UpdateCustomer(ctx context.Context, userID, customerID uuid.UUID, req *dto.UpdateCustomerRequest) (*dto.CustomerResponse, error)
-	ArchiveCustomer(ctx context.Context, userID, customerID uuid.UUID) error
-	ReactivateCustomer(ctx context.Context, userID, customerID uuid.UUID) error
+	SearchCustomers(ctx context.Context, userID uuid.UUID, query string, callerID *uuid.UUID) ([]*dto.CustomerResponse, error)
+	UpdateCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID, req *dto.UpdateCustomerRequest) (*dto.CustomerResponse, error)
+	ArchiveCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) error
+	ReactivateCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) error
 
 	// Channel configs (per-user, not per-customer)
 	UpsertChannelConfig(ctx context.Context, userID uuid.UUID, req *dto.UpsertChannelConfigRequest) (*dto.ChannelConfigResponse, error)
@@ -126,5 +126,5 @@ type CustomerServicer interface {
 	SetChannelActive(ctx context.Context, userID uuid.UUID, channel string, active bool) error
 
 	// Customer events timeline
-	ListCustomerEvents(ctx context.Context, userID, customerID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerEventResponse, error)
+	ListCustomerEvents(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerEventResponse, error)
 }

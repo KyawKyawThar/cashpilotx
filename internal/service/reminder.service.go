@@ -13,10 +13,24 @@ import (
 
 func (s *ReminderService) ListReminders(
 	ctx context.Context,
+	orgUserID uuid.UUID,
+	callerID *uuid.UUID,
 	invoiceID uuid.UUID,
 ) ([]*dto.ReminderResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
+
+	// Verify the invoice belongs to this org and, for sales, to this caller.
+	inv, err := s.store.GetInvoiceByID(dbCtx, db.GetInvoiceByIDParams{ID: invoiceID, UserID: orgUserID})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrInvoiceNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+	if callerID != nil && (inv.AssignedTo == nil || *inv.AssignedTo != *callerID) {
+		return nil, api.ErrInvoiceNotFound()
+	}
 
 	rows, err := s.store.ListRemindersByInvoice(dbCtx, invoiceID)
 	if err != nil {

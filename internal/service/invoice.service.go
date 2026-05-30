@@ -239,7 +239,7 @@ func (s *InvoiceService) ListInvoices(
 	defer cancel()
 
 	if filter != nil && filter.Search != nil && strings.TrimSpace(*filter.Search) != "" {
-		return s.listInvoicesBySearch(dbCtx, userID, *filter.Search, pg)
+		return s.listInvoicesBySearch(dbCtx, userID, *filter.Search, filter.AssignedTo, pg)
 	}
 
 	rows, err := s.queryInvoices(dbCtx, userID, filter, pg)
@@ -266,10 +266,12 @@ func (s *InvoiceService) ListInvoices(
 
 // listInvoicesBySearch handles the search path: joins customers in SQL and
 // batch-resolves assignee names before mapping to response DTOs.
+// When assignedTo is non-nil (sales scope) only rows belonging to that user are returned.
 func (s *InvoiceService) listInvoicesBySearch(
 	ctx context.Context,
 	userID uuid.UUID,
 	rawSearch string,
+	assignedTo *uuid.UUID,
 	pg *dto.Pagination,
 ) ([]*dto.InvoiceResponse, error) {
 	q := strings.ToLower(strings.TrimSpace(rawSearch))
@@ -287,6 +289,9 @@ func (s *InvoiceService) listInvoicesBySearch(
 	nameMap := s.resolveAssigneeNamesFromSearch(ctx, rows)
 	out := make([]*dto.InvoiceResponse, 0, len(rows))
 	for _, r := range rows {
+		if assignedTo != nil && (r.AssignedTo == nil || *r.AssignedTo != *assignedTo) {
+			continue
+		}
 		out = append(out, dto.ToInvoiceResponseFromSearch(r, resolveFromMap(nameMap, r.AssignedTo)))
 	}
 	return out, nil

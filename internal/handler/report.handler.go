@@ -1,7 +1,6 @@
 package handler
 
 import (
-	db "cashpilotx/db/sqlc"
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
@@ -21,7 +20,7 @@ func NewReportHandler(svc service.ReportServicer, base *BaseHandler) *ReportHand
 // GetDailyReport godoc
 //
 //	@Summary      Daily report
-//	@Description  Returns all 6 report sections for a date range. sales role is blocked; cs_team sees their own team only.
+//	@Description  Returns all 6 report sections for a date range. sales role sees own rows only; cs_team sees their own team only.
 //	@Tags         reports
 //	@Produce      json
 //	@Param        from_date      query     string  true   "Start date YYYY-MM-DD"
@@ -39,13 +38,6 @@ func NewReportHandler(svc service.ReportServicer, base *BaseHandler) *ReportHand
 func (h *ReportHandler) GetDailyReport(w http.ResponseWriter, r *http.Request) {
 	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
-		return
-	}
-
-	// RequirePermission("report","view") blocks sales before here, but guard
-	// explicitly so the scoping branch below is never reached for that role.
-	if scope.CallerRole == db.UserRoleSales {
-		h.WriteErr(w, r, api.ErrForbidden(""))
 		return
 	}
 
@@ -82,7 +74,7 @@ func (h *ReportHandler) GetDailyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// effectiveUserID == org owner's UUID for all roles (see ScopeContext middleware).
-	resp, svcErr := h.svc.GetDailyReport(r.Context(), effectiveUserID, scope.CallerRole, scope.TeamID, filter)
+	resp, svcErr := h.svc.GetDailyReport(r.Context(), effectiveUserID, scope.CallerID, scope.CallerRole, scope.TeamID, filter)
 	if svcErr != nil {
 		h.HandleErr(w, r, svcErr)
 		return

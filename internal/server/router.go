@@ -231,7 +231,7 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 				Post("/{payment_id}/void", s.handler.Payment.VoidPayment)
 		})
 
-		// Reports — blocked for sales role.
+		// Reports — sales sees own rows only; cs_team sees their team only.
 		r.Route("/api/v1/reports", func(r chi.Router) {
 			r.Use(mw.RequirePermission("report", "view"))
 			r.Get("/daily", s.handler.Report.GetDailyReport)

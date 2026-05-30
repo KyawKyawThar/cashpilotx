@@ -90,8 +90,10 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Failure      500          {object}  dto.ErrorResponse
 //	@Router       /api/v1/customers/{customer_id} [get]
 //	@Security     BearerAuth
+//
+//nolint:dupl // handler shape mirrors ListMessages/ListReminders; different service call makes extraction pointless
 func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -101,7 +103,12 @@ func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.GetCustomer(r.Context(), effectiveUserID, customerID)
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	resp, err := h.svc.GetCustomer(r.Context(), effectiveUserID, customerID, callerID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -167,7 +174,7 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 //	@Router       /api/v1/customers/search [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -178,7 +185,12 @@ func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	customers, err := h.svc.SearchCustomers(r.Context(), effectiveUserID, query)
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	customers, err := h.svc.SearchCustomers(r.Context(), effectiveUserID, query, callerID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -203,10 +215,8 @@ func (h *CustomerHandler) SearchCustomers(w http.ResponseWriter, r *http.Request
 //	@Failure      500          {object}  dto.ErrorResponse
 //	@Router       /api/v1/customers/{customer_id} [patch]
 //	@Security     BearerAuth
-//
-//nolint:dupl // standard decode-validate-call handler pattern; identical structure is intentional
 func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -221,7 +231,12 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.svc.UpdateCustomer(r.Context(), effectiveUserID, customerID, &req)
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	resp, err := h.svc.UpdateCustomer(r.Context(), effectiveUserID, customerID, callerID, &req)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
@@ -243,8 +258,10 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 //	@Failure      500  {object}  dto.ErrorResponse
 //	@Router       /api/v1/customers/{customer_id} [delete]
 //	@Security     BearerAuth
+//
+//nolint:dupl // mirrors ReactivateCustomer; different service method, extraction would add indirection
 func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -254,7 +271,12 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.svc.ArchiveCustomer(r.Context(), effectiveUserID, customerID); err != nil {
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	if err := h.svc.ArchiveCustomer(r.Context(), effectiveUserID, customerID, callerID); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -275,8 +297,10 @@ func (h *CustomerHandler) ArchiveCustomer(w http.ResponseWriter, r *http.Request
 //	@Failure      500  {object}  dto.ErrorResponse
 //	@Router       /api/v1/customers/{customer_id}/reactivate [post]
 //	@Security     BearerAuth
+//
+//nolint:dupl // mirrors ArchiveCustomer; different service method, extraction would add indirection
 func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -286,7 +310,12 @@ func (h *CustomerHandler) ReactivateCustomer(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.svc.ReactivateCustomer(r.Context(), effectiveUserID, customerID); err != nil {
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	if err := h.svc.ReactivateCustomer(r.Context(), effectiveUserID, customerID, callerID); err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
@@ -479,7 +508,7 @@ func (h *CustomerHandler) SetChannelActive(w http.ResponseWriter, r *http.Reques
 //	@Router       /api/v1/customers/{customer_id}/events [get]
 //	@Security     BearerAuth
 func (h *CustomerHandler) ListCustomerEvents(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -489,9 +518,14 @@ func (h *CustomerHandler) ListCustomerEvents(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.ListCustomerEvents(r.Context(), effectiveUserID, customerID, pg)
+	resp, err := h.svc.ListCustomerEvents(r.Context(), effectiveUserID, customerID, callerID, pg)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

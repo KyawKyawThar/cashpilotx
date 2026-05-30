@@ -4,6 +4,8 @@ import (
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 // MessageHandler handles AI-draft and manual message endpoints.
@@ -29,8 +31,10 @@ func NewMessageHandler(svc service.MessageServicer, base *BaseHandler) *MessageH
 //	@Failure      500         {object}  dto.ErrorResponse
 //	@Router       /api/v1/invoices/{invoice_id}/messages [get]
 //	@Security     BearerAuth
+//
+//nolint:dupl // handler shape mirrors GetCustomer/ListReminders; different service call makes extraction pointless
 func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
-	_, ok := h.MustUserID(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -40,7 +44,12 @@ func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.svc.ListMessages(r.Context(), invoiceID)
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	resp, err := h.svc.ListMessages(r.Context(), effectiveUserID, callerID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

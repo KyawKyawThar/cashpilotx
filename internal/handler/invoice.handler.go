@@ -67,7 +67,7 @@ func (h *InvoiceHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 //	@Router       /api/v1/invoices/{invoice_id} [get]
 //	@Security     BearerAuth
 func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
-	_, effectiveUserID, ok := h.MustScope(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -81,6 +81,14 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
+	}
+
+	// sales role: only allow access to invoices assigned to the caller
+	if scope.Scope == scopeOwn {
+		if resp.AssignedTo == nil || *resp.AssignedTo != scope.CallerID {
+			h.WriteErr(w, r, api.ErrInvoiceNotFound())
+			return
+		}
 	}
 
 	h.WriteSuccess(w, r, resp)
@@ -112,14 +120,14 @@ func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	pg := dto.GetPaginationFromRequest(r)
 	filter := invoiceFilterFromQuery(r)
 
-	// sales: enforce current-month-only restriction.
+	// sales: enforce own-data-only and current-month-only restriction.
 	if scope.Scope == scopeOwn {
-		// Reject explicit history queries older than the current month.
 		if r.URL.Query().Get("before") != "" {
 			h.WriteErr(w, r, api.ErrForbidden("Invoice history beyond current month is not available for your role"))
 			return
 		}
 		filter.CurrentMonthOnly = true
+		filter.AssignedTo = &scope.CallerID // override any client-supplied assigned_to
 	}
 
 	resp, err := h.svc.ListInvoices(r.Context(), effectiveUserID, filter, pg)

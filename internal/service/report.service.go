@@ -18,12 +18,22 @@ const totalLabel = "Total"
 func (s *ReportService) GetDailyReport(
 	ctx context.Context,
 	orgOwnerID uuid.UUID,
+	callerID uuid.UUID,
 	callerRole db.UserRole,
 	teamID *uuid.UUID,
 	filter *dto.ReportFilter,
 ) (*dto.DailyReportResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
+
+	// sales role sees only their own rows — force the sale_name filter to their name
+	if callerRole == db.UserRoleSales {
+		caller, err := s.store.GetUserByID(dbCtx, callerID)
+		if err != nil {
+			return nil, api.FromPgError(err)
+		}
+		filter.SaleName = caller.Name
+	}
 
 	var teamNames map[string]struct{}
 	if callerRole == db.UserRoleCsTeam && teamID != nil {

@@ -4,6 +4,8 @@ import (
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 // ReminderHandler handles reminder scheduling and status endpoints.
@@ -28,8 +30,10 @@ func NewReminderHandler(svc service.ReminderServicer, base *BaseHandler) *Remind
 //	@Failure      500         {object}  dto.ErrorResponse
 //	@Router       /api/v1/invoices/{invoice_id}/reminders [get]
 //	@Security     BearerAuth
+//
+//nolint:dupl // handler shape mirrors GetCustomer/ListMessages; different service call makes extraction pointless
 func (h *ReminderHandler) ListReminders(w http.ResponseWriter, r *http.Request) {
-	_, ok := h.MustUserID(w, r)
+	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
 		return
 	}
@@ -39,7 +43,12 @@ func (h *ReminderHandler) ListReminders(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := h.svc.ListReminders(r.Context(), invoiceID)
+	var callerID *uuid.UUID
+	if scope.Scope == scopeOwn {
+		callerID = &scope.CallerID
+	}
+
+	resp, err := h.svc.ListReminders(r.Context(), effectiveUserID, callerID, invoiceID)
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return

@@ -89,6 +89,7 @@ func (s *CustomerService) CreateCustomer(
 func (s *CustomerService) GetCustomer(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
+	callerID *uuid.UUID,
 ) (*dto.CustomerResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
@@ -102,6 +103,11 @@ func (s *CustomerService) GetCustomer(
 			return nil, api.ErrCustomerNotFound()
 		}
 		return nil, api.FromPgError(err)
+	}
+
+	// sales role: only return if the customer is assigned to the caller
+	if callerID != nil && (customer.AssignedTo == nil || *customer.AssignedTo != *callerID) {
+		return nil, api.ErrCustomerNotFound()
 	}
 
 	return dto.ToCustomerResponse(customer), nil
@@ -173,6 +179,7 @@ func (s *CustomerService) SearchCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
 	query string,
+	callerID *uuid.UUID,
 ) ([]*dto.CustomerResponse, error) {
 	if strings.TrimSpace(query) == "" {
 		return []*dto.CustomerResponse{}, nil
@@ -193,16 +200,44 @@ func (s *CustomerService) SearchCustomers(
 
 	out := make([]*dto.CustomerResponse, 0, len(rows))
 	for _, c := range rows {
+		// sales role: skip customers not assigned to the caller
+		if callerID != nil && (c.AssignedTo == nil || *c.AssignedTo != *callerID) {
+			continue
+		}
 		out = append(out, dto.ToCustomerResponse(c))
 	}
 	return out, nil
 }
 
+// verifyCustomerOwner fetches the customer and, when callerID is non-nil,
+// confirms it is assigned to that caller. Returns ErrCustomerNotFound on any failure.
+func (s *CustomerService) verifyCustomerOwner(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) error {
+	c, err := s.store.GetCustomerByID(ctx, db.GetCustomerByIDParams{ID: customerID, UserID: userID})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return api.ErrCustomerNotFound()
+		}
+		return api.FromPgError(err)
+	}
+	if callerID != nil && (c.AssignedTo == nil || *c.AssignedTo != *callerID) {
+		return api.ErrCustomerNotFound()
+	}
+	return nil
+}
+
 func (s *CustomerService) UpdateCustomer(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
+	callerID *uuid.UUID,
 	req *dto.UpdateCustomerRequest,
 ) (*dto.CustomerResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if err := s.verifyCustomerOwner(dbCtx, userID, customerID, callerID); err != nil {
+		return nil, err
+	}
+
 	var normalizedName *string
 	if req.Name != nil {
 		if n := normalizeName(*req.Name); n != "" {
@@ -216,9 +251,6 @@ func (s *CustomerService) UpdateCustomer(
 			normalizedPhone = &np
 		}
 	}
-
-	dbCtx, cancel := withDBTimeout(ctx)
-	defer cancel()
 
 	var tags []string
 	if req.Tags != nil {
@@ -247,24 +279,16 @@ func (s *CustomerService) UpdateCustomer(
 }
 
 // ArchiveCustomer soft-deletes a customer by setting their status to "inactive".
-//
-//nolint:dupl // mirrors ReactivateCustomer structure; extracting a helper adds indirection with no benefit
 func (s *CustomerService) ArchiveCustomer(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
+	callerID *uuid.UUID,
 ) error {
-	// Verify ownership before mutating.
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
-	if _, err := s.store.GetCustomerByID(dbCtx, db.GetCustomerByIDParams{
-		ID:     customerID,
-		UserID: userID,
-	}); err != nil {
-		if api.IsRecordNotFound(err) {
-			return api.ErrCustomerNotFound()
-		}
-		return api.FromPgError(err)
+	if err := s.verifyCustomerOwner(dbCtx, userID, customerID, callerID); err != nil {
+		return err
 	}
 
 	if err := s.store.SetCustomerStatus(dbCtx, db.SetCustomerStatusParams{
@@ -279,23 +303,16 @@ func (s *CustomerService) ArchiveCustomer(
 }
 
 // ReactivateCustomer restores an inactive customer to active status.
-//
-//nolint:dupl // mirrors ArchiveCustomer structure; extracting a helper adds indirection with no benefit
 func (s *CustomerService) ReactivateCustomer(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
+	callerID *uuid.UUID,
 ) error {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
-	if _, err := s.store.GetCustomerByID(dbCtx, db.GetCustomerByIDParams{
-		ID:     customerID,
-		UserID: userID,
-	}); err != nil {
-		if api.IsRecordNotFound(err) {
-			return api.ErrCustomerNotFound()
-		}
-		return api.FromPgError(err)
+	if err := s.verifyCustomerOwner(dbCtx, userID, customerID, callerID); err != nil {
+		return err
 	}
 
 	if err := s.store.SetCustomerStatus(dbCtx, db.SetCustomerStatusParams{
@@ -467,10 +484,15 @@ func (s *CustomerService) SetChannelActive(
 func (s *CustomerService) ListCustomerEvents(
 	ctx context.Context,
 	userID, customerID uuid.UUID,
+	callerID *uuid.UUID,
 	pg *dto.Pagination,
 ) ([]*dto.CustomerEventResponse, error) {
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
+
+	if err := s.verifyCustomerOwner(dbCtx, userID, customerID, callerID); err != nil {
+		return nil, err
+	}
 
 	rows, err := s.store.ListCustomerEvents(dbCtx, db.ListCustomerEventsParams{
 		UserID:     userID,
