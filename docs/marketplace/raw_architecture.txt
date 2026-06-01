@@ -1,0 +1,313 @@
+The Core Shift — Multi-Tenant Marketplace
+
+BEFORE (single vendor):
+  Your warehouse → products → customers
+
+AFTER (multi-vendor):
+  Your warehouse   ┐
+  Distributor A    ├── products → customers
+  Distributor B    │
+  Distributor C    ┘
+Every product, order, inventory, review, and payout now has a seller_id attached.
+
+New Services Required
+#	Service	Responsibility
+15	seller-service	Seller registration, KYC, store profile, bank details, status (pending/approved/suspended)
+16	commission-service	Calculate platform fee per order (e.g. 8%), track earnings per seller
+17	payout-service	Weekly/monthly batch payouts to sellers after delivery confirmed
+18	storefront-service	Each seller gets their own store page, branding, banner, ratings
+Key Architectural Changes to Existing Services
+order-service — biggest change:
+
+
+Customer buys from 3 sellers in 1 cart:
+
+parent_order (ORD-001)
+├── sub_order A  (seller: your warehouse)   → tracking #1
+├── sub_order B  (seller: Distributor A)    → tracking #2
+└── sub_order C  (seller: Distributor B)    → tracking #3
+
+Each sub_order has its own:
+- delivery tracking
+- payment split
+- commission calculation
+- seller notification
+product-service — add seller ownership:
+
+
+products.seller_id  → which seller owns this product
+products.status     → pending_review | approved | rejected (admin must approve)
+inventory-service — per seller:
+
+
+inventory.seller_id → each seller manages their own stock
+chat-service — customer talks to specific seller:
+
+
+chat room types:
+- customer ↔ seller      (pre-purchase questions)
+- customer ↔ support     (platform support)
+review-service — dual reviews:
+
+
+- product review  (this item quality)
+- seller review   (this store service)
+
+New Kafka Topics
+
+seller.registered          → notification-svc (welcome + onboarding steps)
+seller.approved            → notification-svc, storefront-service (activate store)
+seller.suspended           → product-service (hide products), notification-svc
+
+sub_order.paid             → commission-service (calculate fee)
+                           → seller-service (update seller balance)
+                           → delivery-service (per sub_order tracking)
+
+order.delivered            → payout-service (queue payout after hold period)
+commission.calculated      → cashpilotx (platform revenue feed)
+payout.processed           → seller-service (update balance)
+                           → notification-svc (tell seller they got paid)
+
+Money Flow (Critical)
+
+Customer pays 1,000 THB
+        │
+        ▼
+payment-service collects full amount
+        │
+commission-service splits:
+├── Platform fee (8%)     = 80 THB  → cashpilotx revenue
+└── Seller earnings (92%) = 920 THB → held until delivery confirmed
+        │
+order.delivered event
+        │
+        ▼
+payout-service releases 920 THB to seller
+(after 3-7 day hold period for returns)
+Seller Onboarding Flow
+
+1. Seller registers → seller.service → status: pending
+2. Upload KYC docs  → file-service stores docs
+3. Admin reviews    → cashpilotx admin approves/rejects
+4. seller.approved  → store activated, can list products
+5. List products    → product-service (status: pending_review)
+6. Admin approves products → visible to customers
+Updated — Full 18 Services
+
+marketplace/
+├── services/
+│   ├── 1-api-gateway/
+│   ├── 2-auth-service/
+│   ├── 3-user-service/
+│   ├── 4-product-service/
+│   ├── 5-inventory-service/
+│   ├── 6-cart-service/
+│   ├── 7-order-service/          ← parent + sub-orders
+│   ├── 8-payment-service/        ← collect full, split later
+│   ├── 9-delivery-service/       ← per sub-order tracking
+│   ├── 10-notification-service/
+│   ├── 11-search-service/
+│   ├── 12-file-service/
+│   ├── 13-review-service/        ← product + seller reviews
+│   ├── 14-chat-service/          ← customer ↔ seller
+│   ├── 15-seller-service/        ← NEW
+│   ├── 16-commission-service/    ← NEW
+│   ├── 17-payout-service/        ← NEW
+│   └── 18-storefront-service/    ← NEW
+Cashpilotx Gets Richer Too
+Event	Cashpilotx
+commission.calculated	Platform revenue invoice
+payout.processed	Record outgoing payment to seller
+seller.approved	Create seller account in ledger
+order.delivered	Close customer invoice
+This is now a proper marketplace. The good news — the Kafka backbone you're building handles all of this naturally. Each new service just subscribes to the topics already in place.
+
+Want to start scaffolding now? I'd still recommend the same starting order — shared Kafka lib first, then order-service, then build outward.
+
+Full Technology Stack — Why Each One
+Message / Event Layer
+Technology	Purpose	Where Used
+Kafka	Event streaming — things that HAPPENED	order.created, order.paid, delivery.checkpoint, inventory.reserved — high volume, fan-out, replayable
+RabbitMQ	Task queues — things that NEED TO BE DONE	Send email, process payout, resize image, retry failed jobs — one-time work, easier DLQ/retry
+Redis Pub/Sub	In-process fan-out within a service	Chat WebSocket rooms — broadcast message to all connections inside chat-service
+
+Rule of thumb:
+Kafka  = "this event happened, who cares?"  (broadcast, replayable)
+Rabbit = "do this job exactly once"         (task, retry, delay)
+Redis  = "push to live connections now"     (ephemeral, in-memory)
+Realtime Layer
+Technology	Purpose	Where Used
+WebSocket	Bi-directional realtime	Chat messages, live delivery map tracking
+SSE (Server-Sent Events)	One-way server push	Order status updates, notification bell, stock alerts — simpler than WS
+
+WebSocket = customer sends + receives  (chat, driver GPS upload)
+SSE       = server pushes only         (order status bar, notifications)
+Storage Layer
+Technology	Purpose	Where Used
+PostgreSQL	Primary data store	All 18 services — each has its own DB
+Redis	Cache + sessions + rate limiting	API gateway rate limit, cart, token blacklist, online presence
+Elasticsearch	Full-text search	search-service — product search across all sellers
+S3 / MinIO	Object storage	Product photos, KYC docs, review images, delivery proof photos
+Internal Communication
+Technology	Purpose	Where Used
+gRPC	Synchronous service-to-service	order-service calls inventory-service to check stock before accepting order
+REST	External client API	All public endpoints via api-gateway
+
+gRPC = internal, typed, fast (Go generated clients)
+REST = external, browser/mobile friendly
+Observability
+Technology	Purpose
+OpenTelemetry	Instrument all services (traces + metrics)
+Jaeger	Distributed tracing — follow one order across all 18 services
+Prometheus	Metrics collection
+Grafana	Dashboards — orders/min, Kafka lag, delivery SLA
+Loki	Log aggregation (lightweight ELK alternative)
+Infrastructure
+Technology	Purpose
+Docker Compose	Local development — all services + dependencies
+Kubernetes	Production deployment
+Traefik / Nginx	Reverse proxy + SSL termination
+Vault	Secrets management (DB passwords, API keys)
+CDN (Cloudflare)	Static assets, product images at edge
+External / Third Party
+Technology	Purpose
+Stripe / KBZPay / Wave	Payment processing
+Firebase FCM	Mobile push notifications
+SendGrid / SMTP	Email (order confirmation, payout receipt)
+Twilio / local SMS	SMS notifications (SE Asian carriers)
+Google Maps / Mapbox	Delivery route map on frontend
+OAuth2 (Google, Facebook)	Social login for customers + sellers
+Complete Stack Summary
+
+Event Streaming   → Kafka
+Task Queues       → RabbitMQ
+Realtime Push     → WebSocket + SSE
+Cache/Session     → Redis
+Primary DB        → PostgreSQL (per service)
+Search            → Elasticsearch
+File Storage      → S3 / MinIO
+Internal RPC      → gRPC
+External API      → REST
+Tracing           → OpenTelemetry + Jaeger
+Metrics           → Prometheus + Grafana
+Logs              → Loki
+Secrets           → Vault
+Containers        → Docker + Kubernetes
+CDN               → Cloudflare
+What You'll Practice With Each
+
+Kafka      → event fan-out, consumer groups, DLQ, partitioning by order_id
+RabbitMQ   → delayed payout jobs, email retry, image processing queue
+WebSocket  → chat rooms, live delivery map
+SSE        → order status bar updates
+gRPC       → typed inter-service calls with generated Go clients
+Redis      → rate limiting sliding window, cart TTL, presence tracking
+Nothing missing. This is production-grade and matches what Shopee/Lazada actually runs internally. Ready to scaffold the repo?
+
+Why This Project is Senior-Level Interview Gold
+Most candidates show up with a todo app in microservices. You'd show up with this:
+
+
+✓ Real business problem (fraud in SE Asian Facebook commerce)
+✓ Real existing users (18 on CashPilotX)
+✓ Kafka event-driven architecture with consumer groups, DLQ, outbox
+✓ Distributed saga with compensation logic
+✓ WebSocket + GPS tracking at scale
+✓ Multi-tenant marketplace design
+✓ Architecture Decision Records (ADRs) — senior engineers write these
+✓ Event catalog with versioning/governance
+✓ Testing strategy for distributed systems
+✓ gRPC + REST + SSE in one system
+That's a conversation that lasts 2 hours. Most interviews last 45 minutes.
+
+What Interviewers Will Ask You (and you must nail)
+These are the real senior backend questions:
+
+
+"Walk me through your order saga."
+→ You explain orchestration vs choreography, why you chose orchestration,
+  the compensation table, the outbox pattern. ADR-0004 is your answer.
+
+"What happens if your service crashes between DB commit and Kafka publish?"
+→ You say: "That's exactly why we use the transactional outbox —
+  we write the event to an outbox table in the same transaction,
+  a relay publishes to Kafka. The event is never lost."
+
+"How do you prevent double-charging a customer?"
+→ Idempotency-Key header + outbox + payment provider idempotency key.
+
+"How do you guarantee a parcel's timeline is in order?"
+→ Kafka partitioned by tracking_no — all events for one parcel
+  go to the same partition, so they're strictly ordered.
+
+"How do you handle the last-unit inventory race condition?"
+→ SELECT FOR UPDATE on the stock row inside ReserveStockTx.
+
+"Why 6 bounded contexts instead of 18 services from day one?"
+→ ADR-0002. Distributed monolith risk. Modular monolith first.
+If you can answer all of those fluently, you get the offer.
+
+What to Actually Build (be smart about time)
+You do NOT need all 18 running perfectly. You need depth on the hard parts:
+
+Must build (the impressive core)
+Service / Component	Why interviewers care
+shared/events + shared/kafka	Shows you design contracts, not just code
+order-service (saga + outbox)	Most complex distributed pattern
+inventory-service (reservation + FOR UPDATE)	Concurrency handling
+delivery-service (Kafka firehose + WebSocket)	Real-time + high-throughput
+payment-service (outbox + idempotency)	Money safety
+notification-service (Kafka fan-out)	Consumer group design
+Nice to have (shows breadth)
+auth-service, product-service, seller-service, api-gateway
+
+Can be stubs (document them, don't over-build)
+search-service, storefront-service, commission-service, payout-service
+
+The Portfolio Presentation
+This is how you present it:
+
+
+GitHub repo structure:
+bazaar/
+├── docs/marketplace/          ← the architecture docs we wrote
+│   ├── ARCHITECTURE_PRINCIPLES.md
+│   ├── adr/                   ← 5 ADRs showing senior thinking
+│   ├── EVENT_CATALOG.md
+│   └── TESTING_STRATEGY.md
+├── shared/
+│   ├── events/                ← typed event envelopes
+│   └── kafka/                 ← producer/consumer wrappers + DLQ
+├── services/
+│   ├── order/                 ← saga + outbox (deepest work)
+│   ├── delivery/              ← Kafka firehose + WebSocket
+│   └── ...
+└── docker-compose.yml         ← runs the whole thing locally
+The README for the project links to:
+
+The architecture principles doc
+A demo video (order → delivery → live map)
+The ADRs (shows you made decisions consciously)
+Realistic Timeline
+
+Month 1 — shared libs + docker-compose infra
+           Kafka running, shared/events defined, outbox relay working
+
+Month 2 — Commerce context
+           order saga + compensation, payment with idempotency, inventory race
+
+Month 3 — Fulfillment context  
+           delivery checkpoints + GPS + WebSocket live map
+           (this is the most visually impressive for a demo)
+
+Month 4 — Polish + connect remaining services + README + demo video
+
+Month 5 — Apply for jobs
+One More Thing
+The docs we already wrote are themselves part of the portfolio. An ADR folder with 5 records, an event catalog with governance rules, a testing strategy for distributed systems — most senior engineers don't produce this at work, let alone for a personal project.
+
+In the interview, when they ask "how do you approach architecture decisions?", you open the ADR folder.
+
+This project + CashPilotX (with real users) = a stronger portfolio than most candidates with 5 years of experience.
+
+Build it. It's worth the time.
