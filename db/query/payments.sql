@@ -55,22 +55,27 @@ WHERE invoice_id = $1;
 
 
 -- name: SumCollectedThisMonth :one
--- Real-time sum of payments recorded in the current calendar month.
+-- Real-time sum of non-voided payments recorded in the current calendar month.
+-- Uses current_date (DATE) to avoid DATE vs TIMESTAMPTZ timezone cast issues.
 SELECT COALESCE(SUM(amount), 0)::BIGINT AS total_collected
 FROM payments
-WHERE user_id = $1
-  AND date_trunc('month', paid_on) = date_trunc('month', now());
+WHERE user_id   = $1
+  AND voided_at IS NULL
+  AND paid_on  >= date_trunc('month', current_date)::date
+  AND paid_on   < (date_trunc('month', current_date) + interval '1 month')::date;
 
 
 -- name: SumCollectedBetween :one
 -- Collected amount and payment count for a custom date range (to is exclusive).
+-- Cast params to ::date so the comparison is DATE vs DATE regardless of server timezone.
 SELECT
   COALESCE(SUM(amount), 0)::BIGINT AS collected,
   COUNT(*)::INT                     AS payment_count
 FROM payments
-WHERE user_id = $1
-  AND paid_on >= $2
-  AND paid_on <  $3;
+WHERE user_id   = $1
+  AND voided_at IS NULL
+  AND paid_on  >= $2::date
+  AND paid_on   < $3::date;
 
 
 -- name: SetPaymentVoided :one

@@ -443,15 +443,16 @@ SELECT
   COALESCE(SUM(amount), 0)::BIGINT AS collected,
   COUNT(*)::INT                     AS payment_count
 FROM payments
-WHERE user_id = $1
-  AND paid_on >= $2
-  AND paid_on <  $3
+WHERE user_id   = $1
+  AND voided_at IS NULL
+  AND paid_on  >= $2::date
+  AND paid_on   < $3::date
 `
 
 type SumCollectedBetweenParams struct {
-	UserID   uuid.UUID `db:"user_id" json:"user_id"`
-	PaidOn   time.Time `db:"paid_on" json:"paid_on"`
-	PaidOn_2 time.Time `db:"paid_on_2" json:"paid_on_2"`
+	UserID  uuid.UUID `db:"user_id" json:"user_id"`
+	Column2 time.Time `db:"column_2" json:"column_2"`
+	Column3 time.Time `db:"column_3" json:"column_3"`
 }
 
 type SumCollectedBetweenRow struct {
@@ -460,8 +461,9 @@ type SumCollectedBetweenRow struct {
 }
 
 // Collected amount and payment count for a custom date range (to is exclusive).
+// Cast params to ::date so the comparison is DATE vs DATE regardless of server timezone.
 func (q *Queries) SumCollectedBetween(ctx context.Context, arg SumCollectedBetweenParams) (SumCollectedBetweenRow, error) {
-	row := q.db.QueryRow(ctx, sumCollectedBetween, arg.UserID, arg.PaidOn, arg.PaidOn_2)
+	row := q.db.QueryRow(ctx, sumCollectedBetween, arg.UserID, arg.Column2, arg.Column3)
 	var i SumCollectedBetweenRow
 	err := row.Scan(&i.Collected, &i.PaymentCount)
 	return i, err
@@ -470,11 +472,14 @@ func (q *Queries) SumCollectedBetween(ctx context.Context, arg SumCollectedBetwe
 const sumCollectedThisMonth = `-- name: SumCollectedThisMonth :one
 SELECT COALESCE(SUM(amount), 0)::BIGINT AS total_collected
 FROM payments
-WHERE user_id = $1
-  AND date_trunc('month', paid_on) = date_trunc('month', now())
+WHERE user_id   = $1
+  AND voided_at IS NULL
+  AND paid_on  >= date_trunc('month', current_date)::date
+  AND paid_on   < (date_trunc('month', current_date) + interval '1 month')::date
 `
 
-// Real-time sum of payments recorded in the current calendar month.
+// Real-time sum of non-voided payments recorded in the current calendar month.
+// Uses current_date (DATE) to avoid DATE vs TIMESTAMPTZ timezone cast issues.
 func (q *Queries) SumCollectedThisMonth(ctx context.Context, userID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, sumCollectedThisMonth, userID)
 	var total_collected int64

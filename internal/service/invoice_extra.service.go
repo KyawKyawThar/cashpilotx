@@ -58,9 +58,9 @@ func (s *InvoiceService) GetCollectedSummary(
 	defer cancel()
 
 	row, err := s.store.SumCollectedBetween(dbCtx, db.SumCollectedBetweenParams{
-		UserID:   userID,
-		PaidOn:   from,
-		PaidOn_2: to,
+		UserID:  userID,
+		Column2: from,
+		Column3: to,
 	})
 	if err != nil {
 		return nil, api.FromPgError(err)

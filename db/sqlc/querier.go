@@ -286,8 +286,10 @@ type Querier interface {
 	SetPaymentVoided(ctx context.Context, arg SetPaymentVoidedParams) (Payment, error)
 	SubtractCustomerPayment(ctx context.Context, arg SubtractCustomerPaymentParams) (Customer, error)
 	// Collected amount and payment count for a custom date range (to is exclusive).
+	// Cast params to ::date so the comparison is DATE vs DATE regardless of server timezone.
 	SumCollectedBetween(ctx context.Context, arg SumCollectedBetweenParams) (SumCollectedBetweenRow, error)
-	// Real-time sum of payments recorded in the current calendar month.
+	// Real-time sum of non-voided payments recorded in the current calendar month.
+	// Uses current_date (DATE) to avoid DATE vs TIMESTAMPTZ timezone cast issues.
 	SumCollectedThisMonth(ctx context.Context, userID uuid.UUID) (int64, error)
 	SumPaymentsForInvoice(ctx context.Context, invoiceID uuid.UUID) (int64, error)
 	TopDebtors(ctx context.Context, arg TopDebtorsParams) ([]Customer, error)
