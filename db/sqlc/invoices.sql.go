@@ -1270,6 +1270,134 @@ func (q *Queries) SearchInvoices(ctx context.Context, arg SearchInvoicesParams) 
 	return items, nil
 }
 
+const searchRecoveryQueue = `-- name: SearchRecoveryQueue :many
+SELECT
+    i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number, i.returned_at, i.return_reason, i.return_items,
+    c.name  AS customer_name,
+    c.phone AS customer_phone
+FROM invoices i
+JOIN customers c ON i.customer_id = c.id
+WHERE i.user_id = $1
+  AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  AND (
+    i.tracking_number    ILIKE '%' || $2 || '%'
+    OR i.external_id     ILIKE '%' || $2 || '%'
+    OR c.normalized_name ILIKE '%' || $2 || '%'
+  )
+ORDER BY
+    i.confidence_score DESC NULLS LAST,
+    i.due_date ASC
+LIMIT $3 OFFSET $4
+`
+
+type SearchRecoveryQueueParams struct {
+	UserID  uuid.UUID `db:"user_id" json:"user_id"`
+	Column2 *string   `db:"column_2" json:"column_2"`
+	Limit   int32     `db:"limit" json:"limit"`
+	Offset  int32     `db:"offset" json:"offset"`
+}
+
+type SearchRecoveryQueueRow struct {
+	ID                   uuid.UUID        `db:"id" json:"id"`
+	UserID               uuid.UUID        `db:"user_id" json:"user_id"`
+	CustomerID           uuid.UUID        `db:"customer_id" json:"customer_id"`
+	Amount               int64            `db:"amount" json:"amount"`
+	Currency             string           `db:"currency" json:"currency"`
+	PaidAmount           int64            `db:"paid_amount" json:"paid_amount"`
+	PaidAt               *time.Time       `db:"paid_at" json:"paid_at"`
+	Description          *string          `db:"description" json:"description"`
+	DueDate              time.Time        `db:"due_date" json:"due_date"`
+	Status               string           `db:"status" json:"status"`
+	Source               *string          `db:"source" json:"source"`
+	PhotoUrl             *string          `db:"photo_url" json:"photo_url"`
+	ExternalID           *string          `db:"external_id" json:"external_id"`
+	IssuedAt             *time.Time       `db:"issued_at" json:"issued_at"`
+	Items                json.RawMessage  `db:"items" json:"items"`
+	CollectionState      string           `db:"collection_state" json:"collection_state"`
+	LastContactedAt      *time.Time       `db:"last_contacted_at" json:"last_contacted_at"`
+	LastResponseAt       *time.Time       `db:"last_response_at" json:"last_response_at"`
+	FollowUpCount        int32            `db:"follow_up_count" json:"follow_up_count"`
+	ConfidenceScore      *float64         `db:"confidence_score" json:"confidence_score"`
+	ConfidenceFactors    *json.RawMessage `db:"confidence_factors" json:"confidence_factors"`
+	OutcomeText          *string          `db:"outcome_text" json:"outcome_text"`
+	OutcomeTimeframe     *string          `db:"outcome_timeframe" json:"outcome_timeframe"`
+	ConfidenceComputedAt *time.Time       `db:"confidence_computed_at" json:"confidence_computed_at"`
+	CreatedAt            time.Time        `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time        `db:"updated_at" json:"updated_at"`
+	PromisedAt           *time.Time       `db:"promised_at" json:"promised_at"`
+	AssignedTo           *uuid.UUID       `db:"assigned_to" json:"assigned_to"`
+	DeliveryService      *string          `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber       *string          `db:"tracking_number" json:"tracking_number"`
+	ReturnedAt           *time.Time       `db:"returned_at" json:"returned_at"`
+	ReturnReason         *string          `db:"return_reason" json:"return_reason"`
+	ReturnItems          *json.RawMessage `db:"return_items" json:"return_items"`
+	CustomerName         string           `db:"customer_name" json:"customer_name"`
+	CustomerPhone        *string          `db:"customer_phone" json:"customer_phone"`
+}
+
+// Full-text search on recovery queue: tracking number, external_id, or customer name.
+// Pass a lowercased search string as $2 (matched case-insensitively).
+func (q *Queries) SearchRecoveryQueue(ctx context.Context, arg SearchRecoveryQueueParams) ([]SearchRecoveryQueueRow, error) {
+	rows, err := q.db.Query(ctx, searchRecoveryQueue,
+		arg.UserID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchRecoveryQueueRow{}
+	for rows.Next() {
+		var i SearchRecoveryQueueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CustomerID,
+			&i.Amount,
+			&i.Currency,
+			&i.PaidAmount,
+			&i.PaidAt,
+			&i.Description,
+			&i.DueDate,
+			&i.Status,
+			&i.Source,
+			&i.PhotoUrl,
+			&i.ExternalID,
+			&i.IssuedAt,
+			&i.Items,
+			&i.CollectionState,
+			&i.LastContactedAt,
+			&i.LastResponseAt,
+			&i.FollowUpCount,
+			&i.ConfidenceScore,
+			&i.ConfidenceFactors,
+			&i.OutcomeText,
+			&i.OutcomeTimeframe,
+			&i.ConfidenceComputedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
+			&i.ReturnedAt,
+			&i.ReturnReason,
+			&i.ReturnItems,
+			&i.CustomerName,
+			&i.CustomerPhone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setInvoiceContacted = `-- name: SetInvoiceContacted :one
 UPDATE invoices
 SET

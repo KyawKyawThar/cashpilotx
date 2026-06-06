@@ -5,6 +5,7 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -95,6 +96,35 @@ func (s *InvoiceService) GetRecoveryQueue(
 	out := make([]*dto.RecoveryQueueItemResponse, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, dto.ToRecoveryQueueItemResponse(r))
+	}
+	return out, nil
+}
+
+// SearchRecoveryQueue returns open invoices matching the search query (tracking number,
+// external_id, or customer name), ranked by confidence score.
+func (s *InvoiceService) SearchRecoveryQueue(
+	ctx context.Context,
+	userID uuid.UUID,
+	query string,
+	pg *dto.Pagination,
+) ([]*dto.RecoveryQueueItemResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	q := strings.ToLower(strings.TrimSpace(query))
+	rows, err := s.store.SearchRecoveryQueue(dbCtx, db.SearchRecoveryQueueParams{
+		UserID:  userID,
+		Column2: &q,
+		Limit:   pg.Limit32(),
+		Offset:  pg.Offset32(),
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	out := make([]*dto.RecoveryQueueItemResponse, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dto.ToRecoveryQueueItemResponseFromSearch(r))
 	}
 	return out, nil
 }

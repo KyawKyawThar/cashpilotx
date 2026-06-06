@@ -56,27 +56,56 @@ type RecoveryQueueItemResponse struct {
 	CreatedAt        time.Time  `json:"created_at"`
 }
 
-func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemResponse {
+func assembleRecoveryQueueItem(
+	id uuid.UUID, customerID uuid.UUID, customerName string,
+	customerPhone *string, externalID *string, trackingNumber *string,
+	amount, paidAmount int64, currency, status string,
+	dueDate time.Time, collectionState string,
+	confidenceScore *float64, outcomeText *string, outcomeTimeframe *string,
+	lastContactedAt *time.Time, followUpCount int32, createdAt time.Time,
+) *RecoveryQueueItemResponse {
 	return &RecoveryQueueItemResponse{
-		ID:               row.ID,
-		CustomerID:       row.CustomerID,
-		CustomerName:     row.CustomerName,
-		CustomerPhone:    row.CustomerPhone,
-		ExternalID:       row.ExternalID,
-		TrackingNumber:   row.TrackingNumber,
-		Amount:           row.Amount,
-		PaidAmount:       row.PaidAmount,
-		Currency:         row.Currency,
-		Status:           row.Status,
-		DueDate:          row.DueDate,
-		CollectionState:  row.CollectionState,
-		ConfidenceScore:  row.ConfidenceScore,
-		OutcomeText:      row.OutcomeText,
-		OutcomeTimeframe: row.OutcomeTimeframe,
-		LastContactedAt:  row.LastContactedAt,
-		FollowUpCount:    row.FollowUpCount,
-		CreatedAt:        row.CreatedAt,
+		ID:               id,
+		CustomerID:       customerID,
+		CustomerName:     customerName,
+		CustomerPhone:    customerPhone,
+		ExternalID:       externalID,
+		TrackingNumber:   trackingNumber,
+		Amount:           amount,
+		PaidAmount:       paidAmount,
+		Currency:         currency,
+		Status:           status,
+		DueDate:          dueDate,
+		CollectionState:  collectionState,
+		ConfidenceScore:  confidenceScore,
+		OutcomeText:      outcomeText,
+		OutcomeTimeframe: outcomeTimeframe,
+		LastContactedAt:  lastContactedAt,
+		FollowUpCount:    followUpCount,
+		CreatedAt:        createdAt,
 	}
+}
+
+func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemResponse {
+	return assembleRecoveryQueueItem(
+		row.ID, row.CustomerID, row.CustomerName,
+		row.CustomerPhone, row.ExternalID, row.TrackingNumber,
+		row.Amount, row.PaidAmount, row.Currency, row.Status,
+		row.DueDate, row.CollectionState,
+		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,
+		row.LastContactedAt, row.FollowUpCount, row.CreatedAt,
+	)
+}
+
+func ToRecoveryQueueItemResponseFromSearch(row db.SearchRecoveryQueueRow) *RecoveryQueueItemResponse {
+	return assembleRecoveryQueueItem(
+		row.ID, row.CustomerID, row.CustomerName,
+		row.CustomerPhone, row.ExternalID, row.TrackingNumber,
+		row.Amount, row.PaidAmount, row.Currency, row.Status,
+		row.DueDate, row.CollectionState,
+		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,
+		row.LastContactedAt, row.FollowUpCount, row.CreatedAt,
+	)
 }
 
 // =============================================================================

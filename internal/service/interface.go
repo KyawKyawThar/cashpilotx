@@ -41,6 +41,7 @@ type InvoiceServicer interface {
 	GetDashboardStats(ctx context.Context, userID uuid.UUID) (*dto.DashboardResponse, error)
 	GetCollectedSummary(ctx context.Context, userID uuid.UUID, from, to time.Time) (*dto.CollectedSummaryResponse, error)
 	GetRecoveryQueue(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.RecoveryQueueItemResponse, error)
+	SearchRecoveryQueue(ctx context.Context, userID uuid.UUID, query string, pg *dto.Pagination) ([]*dto.RecoveryQueueItemResponse, error)
 }
 
 type MessageServicer interface {

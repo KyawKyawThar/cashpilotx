@@ -273,6 +273,9 @@ type Querier interface {
 	// Full-text search on customer name, invoice external_id, and payment reference.
 	// Pass a lowercased search string as $2 (normalised for ILIKE matching).
 	SearchPaymentsEnriched(ctx context.Context, arg SearchPaymentsEnrichedParams) ([]SearchPaymentsEnrichedRow, error)
+	// Full-text search on recovery queue: tracking number, external_id, or customer name.
+	// Pass a lowercased search string as $2 (matched case-insensitively).
+	SearchRecoveryQueue(ctx context.Context, arg SearchRecoveryQueueParams) ([]SearchRecoveryQueueRow, error)
 	SetChannelActive(ctx context.Context, arg SetChannelActiveParams) error
 	SetCustomerStatus(ctx context.Context, arg SetCustomerStatusParams) error
 	SetForcePinChange(ctx context.Context, arg SetForcePinChangeParams) error

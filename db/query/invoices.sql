@@ -218,6 +218,27 @@ ORDER BY
     i.due_date ASC
 LIMIT $2 OFFSET $3;
 
+-- name: SearchRecoveryQueue :many
+-- Full-text search on recovery queue: tracking number, external_id, or customer name.
+-- Pass a lowercased search string as $2 (matched case-insensitively).
+SELECT
+    i.*,
+    c.name  AS customer_name,
+    c.phone AS customer_phone
+FROM invoices i
+JOIN customers c ON i.customer_id = c.id
+WHERE i.user_id = $1
+  AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  AND (
+    i.tracking_number    ILIKE '%' || $2 || '%'
+    OR i.external_id     ILIKE '%' || $2 || '%'
+    OR c.normalized_name ILIKE '%' || $2 || '%'
+  )
+ORDER BY
+    i.confidence_score DESC NULLS LAST,
+    i.due_date ASC
+LIMIT $3 OFFSET $4;
+
 -- name: ListUnscored :many
 -- Used by RefreshRecoveryQueueTx to find invoices that have never been scored
 -- or whose score is stale (not computed in the last 30 minutes).
