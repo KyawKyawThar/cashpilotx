@@ -128,6 +128,30 @@ func ToPaymentListItem(row db.ListPaymentsEnrichedRow) *PaymentListItem {
 	)
 }
 
+// ToPaymentListItemFromSearch maps a SearchPaymentsEnrichedRow to the enriched list response.
+func ToPaymentListItemFromSearch(row db.SearchPaymentsEnrichedRow) *PaymentListItem {
+	return assemblePaymentListItem(
+		&PaymentResponse{
+			ID:        row.ID,
+			InvoiceID: row.InvoiceID,
+			UserID:    row.UserID,
+			PaidOn:    row.PaidOn,
+			Amount:    row.Amount,
+			Currency:  row.Currency,
+			Method:    row.Method,
+			Reference: row.Reference,
+			ProofURL:  row.ProofUrl,
+			Note:      row.Note,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+			VoidedAt:  row.VoidedAt,
+		},
+		row.CustomerName,
+		row.InvoiceNumber,
+		row.InvoiceStatus,
+	)
+}
+
 // ToPaymentListItemToday maps a ListPaymentsEnrichedTodayRow to the enriched list response.
 func ToPaymentListItemToday(row db.ListPaymentsEnrichedTodayRow) *PaymentListItem {
 	return assemblePaymentListItem(

@@ -115,3 +115,24 @@ JOIN customers c ON c.id = i.customer_id
 WHERE p.user_id = $1
 ORDER BY p.created_at DESC
 LIMIT $2 OFFSET $3;
+
+
+-- name: SearchPaymentsEnriched :many
+-- Full-text search on customer name, invoice external_id, and payment reference.
+-- Pass a lowercased search string as $2 (normalised for ILIKE matching).
+SELECT
+  p.*,
+  c.name        AS customer_name,
+  i.external_id AS invoice_number,
+  i.status      AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id = $1
+  AND (
+    c.normalized_name ILIKE '%' || $2 || '%'
+    OR i.external_id  ILIKE '%' || $2 || '%'
+    OR p.reference    ILIKE '%' || $2 || '%'
+  )
+ORDER BY p.created_at DESC
+LIMIT $3 OFFSET $4;

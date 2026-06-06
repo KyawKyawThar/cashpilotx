@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -146,6 +147,35 @@ func (s *PaymentService) ListPayments(
 	out := make([]*dto.PaymentListItem, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, dto.ToPaymentListItem(r))
+	}
+	return out, nil
+}
+
+// SearchPayments returns a paginated, enriched list of payments matching the search query.
+// The query is matched against customer name, invoice external_id, and payment reference.
+func (s *PaymentService) SearchPayments(
+	ctx context.Context,
+	userID uuid.UUID,
+	query string,
+	pg *dto.Pagination,
+) ([]*dto.PaymentListItem, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	q := strings.ToLower(strings.TrimSpace(query))
+	rows, err := s.store.SearchPaymentsEnriched(dbCtx, db.SearchPaymentsEnrichedParams{
+		UserID:  userID,
+		Column2: &q,
+		Limit:   pg.Limit32(),
+		Offset:  pg.Offset32(),
+	})
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	out := make([]*dto.PaymentListItem, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dto.ToPaymentListItemFromSearch(r))
 	}
 	return out, nil
 }

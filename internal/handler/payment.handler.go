@@ -87,13 +87,26 @@ func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
 
 	pg := dto.GetPaginationFromRequest(r)
 
-	resp, err := h.svc.ListPayments(r.Context(), effectiveUserID, pg)
+	var (
+		resp []*dto.PaymentListItem
+		err  error
+	)
+
+	if search := r.URL.Query().Get("search"); search != "" {
+		resp, err = h.svc.SearchPayments(r.Context(), effectiveUserID, search, pg)
+	} else {
+		resp, err = h.svc.ListPayments(r.Context(), effectiveUserID, pg)
+	}
 	if err != nil {
 		h.HandleErr(w, r, err)
 		return
 	}
 
-	h.WriteSuccess(w, r, resp)
+	pg.Total = int64(len(resp))
+	if int(pg.Limit32()) > 0 && len(resp) == int(pg.Limit32()) {
+		pg.Total = int64(pg.Page)*int64(pg.PerPage) + 1
+	}
+	dto.WriteSuccessWithMeta(w, r, resp, pg)
 }
 
 // GetPayment godoc

@@ -270,6 +270,9 @@ type Querier interface {
 	// SEARCH
 	// ═══════════════════════════════════════════════════════
 	SearchOperatorAuditLogs(ctx context.Context, arg SearchOperatorAuditLogsParams) ([]OperatorAuditLog, error)
+	// Full-text search on customer name, invoice external_id, and payment reference.
+	// Pass a lowercased search string as $2 (normalised for ILIKE matching).
+	SearchPaymentsEnriched(ctx context.Context, arg SearchPaymentsEnrichedParams) ([]SearchPaymentsEnrichedRow, error)
 	SetChannelActive(ctx context.Context, arg SetChannelActiveParams) error
 	SetCustomerStatus(ctx context.Context, arg SetCustomerStatusParams) error
 	SetForcePinChange(ctx context.Context, arg SetForcePinChangeParams) error

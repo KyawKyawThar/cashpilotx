@@ -403,6 +403,95 @@ func (q *Queries) ListPaymentsEnrichedToday(ctx context.Context, userID uuid.UUI
 	return items, nil
 }
 
+const searchPaymentsEnriched = `-- name: SearchPaymentsEnriched :many
+SELECT
+  p.id, p.invoice_id, p.user_id, p.paid_on, p.amount, p.currency, p.method, p.reference, p.proof_url, p.note, p.created_at, p.updated_at, p.voided_at,
+  c.name        AS customer_name,
+  i.external_id AS invoice_number,
+  i.status      AS invoice_status
+FROM payments p
+JOIN invoices  i ON i.id = p.invoice_id
+JOIN customers c ON c.id = i.customer_id
+WHERE p.user_id = $1
+  AND (
+    c.normalized_name ILIKE '%' || $2 || '%'
+    OR i.external_id  ILIKE '%' || $2 || '%'
+    OR p.reference    ILIKE '%' || $2 || '%'
+  )
+ORDER BY p.created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type SearchPaymentsEnrichedParams struct {
+	UserID  uuid.UUID `db:"user_id" json:"user_id"`
+	Column2 *string   `db:"column_2" json:"column_2"`
+	Limit   int32     `db:"limit" json:"limit"`
+	Offset  int32     `db:"offset" json:"offset"`
+}
+
+type SearchPaymentsEnrichedRow struct {
+	ID            uuid.UUID  `db:"id" json:"id"`
+	InvoiceID     uuid.UUID  `db:"invoice_id" json:"invoice_id"`
+	UserID        uuid.UUID  `db:"user_id" json:"user_id"`
+	PaidOn        time.Time  `db:"paid_on" json:"paid_on"`
+	Amount        int64      `db:"amount" json:"amount"`
+	Currency      string     `db:"currency" json:"currency"`
+	Method        string     `db:"method" json:"method"`
+	Reference     *string    `db:"reference" json:"reference"`
+	ProofUrl      *string    `db:"proof_url" json:"proof_url"`
+	Note          *string    `db:"note" json:"note"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at" json:"updated_at"`
+	VoidedAt      *time.Time `db:"voided_at" json:"voided_at"`
+	CustomerName  string     `db:"customer_name" json:"customer_name"`
+	InvoiceNumber *string    `db:"invoice_number" json:"invoice_number"`
+	InvoiceStatus string     `db:"invoice_status" json:"invoice_status"`
+}
+
+// Full-text search on customer name, invoice external_id, and payment reference.
+// Pass a lowercased search string as $2 (normalised for ILIKE matching).
+func (q *Queries) SearchPaymentsEnriched(ctx context.Context, arg SearchPaymentsEnrichedParams) ([]SearchPaymentsEnrichedRow, error) {
+	rows, err := q.db.Query(ctx, searchPaymentsEnriched,
+		arg.UserID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchPaymentsEnrichedRow{}
+	for rows.Next() {
+		var i SearchPaymentsEnrichedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceID,
+			&i.UserID,
+			&i.PaidOn,
+			&i.Amount,
+			&i.Currency,
+			&i.Method,
+			&i.Reference,
+			&i.ProofUrl,
+			&i.Note,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.VoidedAt,
+			&i.CustomerName,
+			&i.InvoiceNumber,
+			&i.InvoiceStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setPaymentVoided = `-- name: SetPaymentVoided :one
 UPDATE payments
 SET voided_at = now()

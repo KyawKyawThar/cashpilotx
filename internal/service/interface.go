@@ -69,6 +69,7 @@ type PaymentServicer interface {
 	RecordPayment(ctx context.Context, userID uuid.UUID, req *dto.RecordPaymentRequest) (*dto.RecordPaymentResponse, error)
 	GetPayment(ctx context.Context, userID, paymentID uuid.UUID) (*dto.PaymentResponse, error)
 	ListPayments(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.PaymentListItem, error)
+	SearchPayments(ctx context.Context, userID uuid.UUID, query string, pg *dto.Pagination) ([]*dto.PaymentListItem, error)
 	ListPaymentsToday(ctx context.Context, userID uuid.UUID) ([]*dto.PaymentListItem, error)
 	ListPaymentsByInvoice(ctx context.Context, userID, invoiceID uuid.UUID) ([]*dto.PaymentResponse, error)
 	VoidPayment(ctx context.Context, userID, paymentID uuid.UUID, customerID uuid.UUID) (*dto.PaymentResponse, error)
