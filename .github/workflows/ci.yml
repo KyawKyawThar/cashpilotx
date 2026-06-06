@@ -291,6 +291,9 @@ jobs:
     needs: [ lint, unit-tests, integration-tests, docker ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     concurrency: deploy-production
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - uses: actions/checkout@v4
@@ -299,6 +302,9 @@ jobs:
 
       - name: Lowercase image name
         run: echo "IMAGE_NAME=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Deploy from pre-built image
         run: flyctl deploy --image ghcr.io/${{ env.IMAGE_NAME }}:main
