@@ -275,8 +275,9 @@ func (q *Queries) GetInvoiceByID(ctx context.Context, arg GetInvoiceByIDParams) 
 const getRecoveryQueue = `-- name: GetRecoveryQueue :many
 SELECT
     i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number, i.returned_at, i.return_reason, i.return_items,
-    c.name  AS customer_name,
-    c.phone AS customer_phone
+    c.name            AS customer_name,
+    c.phone           AS customer_phone,
+    c.customer_number AS customer_number
 FROM invoices i
 JOIN customers c ON i.customer_id = c.id
 WHERE i.user_id = $1
@@ -329,10 +330,11 @@ type GetRecoveryQueueRow struct {
 	ReturnItems          *json.RawMessage `db:"return_items" json:"return_items"`
 	CustomerName         string           `db:"customer_name" json:"customer_name"`
 	CustomerPhone        *string          `db:"customer_phone" json:"customer_phone"`
+	CustomerNumber       *string          `db:"customer_number" json:"customer_number"`
 }
 
 // Powers GET /api/v1/recovery-queue — open invoices ranked by AI confidence score.
-// Returns invoice + joined customer name/phone so the handler needs no second query.
+// Returns invoice + joined customer name/phone/number so the handler needs no second query.
 func (q *Queries) GetRecoveryQueue(ctx context.Context, arg GetRecoveryQueueParams) ([]GetRecoveryQueueRow, error) {
 	rows, err := q.db.Query(ctx, getRecoveryQueue, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
@@ -378,6 +380,7 @@ func (q *Queries) GetRecoveryQueue(ctx context.Context, arg GetRecoveryQueuePara
 			&i.ReturnItems,
 			&i.CustomerName,
 			&i.CustomerPhone,
+			&i.CustomerNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -1273,8 +1276,9 @@ func (q *Queries) SearchInvoices(ctx context.Context, arg SearchInvoicesParams) 
 const searchRecoveryQueue = `-- name: SearchRecoveryQueue :many
 SELECT
     i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number, i.returned_at, i.return_reason, i.return_items,
-    c.name  AS customer_name,
-    c.phone AS customer_phone
+    c.name            AS customer_name,
+    c.phone           AS customer_phone,
+    c.customer_number AS customer_number
 FROM invoices i
 JOIN customers c ON i.customer_id = c.id
 WHERE i.user_id = $1
@@ -1283,6 +1287,7 @@ WHERE i.user_id = $1
     i.tracking_number    ILIKE '%' || $2 || '%'
     OR i.external_id     ILIKE '%' || $2 || '%'
     OR c.normalized_name ILIKE '%' || $2 || '%'
+    OR c.customer_number ILIKE '%' || $2 || '%'
   )
 ORDER BY
     i.confidence_score DESC NULLS LAST,
@@ -1333,9 +1338,10 @@ type SearchRecoveryQueueRow struct {
 	ReturnItems          *json.RawMessage `db:"return_items" json:"return_items"`
 	CustomerName         string           `db:"customer_name" json:"customer_name"`
 	CustomerPhone        *string          `db:"customer_phone" json:"customer_phone"`
+	CustomerNumber       *string          `db:"customer_number" json:"customer_number"`
 }
 
-// Full-text search on recovery queue: tracking number, external_id, or customer name.
+// Full-text search on recovery queue: tracking number, external_id, customer name, or customer number.
 // Pass a lowercased search string as $2 (matched case-insensitively).
 func (q *Queries) SearchRecoveryQueue(ctx context.Context, arg SearchRecoveryQueueParams) ([]SearchRecoveryQueueRow, error) {
 	rows, err := q.db.Query(ctx, searchRecoveryQueue,
@@ -1387,6 +1393,7 @@ func (q *Queries) SearchRecoveryQueue(ctx context.Context, arg SearchRecoveryQue
 			&i.ReturnItems,
 			&i.CustomerName,
 			&i.CustomerPhone,
+			&i.CustomerNumber,
 		); err != nil {
 			return nil, err
 		}

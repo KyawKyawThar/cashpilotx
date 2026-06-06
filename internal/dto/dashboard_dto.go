@@ -40,6 +40,7 @@ type RecoveryQueueItemResponse struct {
 	CustomerID       uuid.UUID  `json:"customer_id"`
 	CustomerName     string     `json:"customer_name"`
 	CustomerPhone    *string    `json:"customer_phone,omitempty"`
+	CustomerNumber   *string    `json:"customer_number,omitempty"`
 	ExternalID       *string    `json:"external_id,omitempty"`
 	TrackingNumber   *string    `json:"tracking_number,omitempty"`
 	Amount           int64      `json:"amount"`
@@ -58,7 +59,7 @@ type RecoveryQueueItemResponse struct {
 
 func assembleRecoveryQueueItem(
 	id uuid.UUID, customerID uuid.UUID, customerName string,
-	customerPhone *string, externalID *string, trackingNumber *string,
+	customerPhone *string, customerNumber *string, externalID *string, trackingNumber *string,
 	amount, paidAmount int64, currency, status string,
 	dueDate time.Time, collectionState string,
 	confidenceScore *float64, outcomeText *string, outcomeTimeframe *string,
@@ -69,6 +70,7 @@ func assembleRecoveryQueueItem(
 		CustomerID:       customerID,
 		CustomerName:     customerName,
 		CustomerPhone:    customerPhone,
+		CustomerNumber:   customerNumber,
 		ExternalID:       externalID,
 		TrackingNumber:   trackingNumber,
 		Amount:           amount,
@@ -89,7 +91,7 @@ func assembleRecoveryQueueItem(
 func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemResponse {
 	return assembleRecoveryQueueItem(
 		row.ID, row.CustomerID, row.CustomerName,
-		row.CustomerPhone, row.ExternalID, row.TrackingNumber,
+		row.CustomerPhone, row.CustomerNumber, row.ExternalID, row.TrackingNumber,
 		row.Amount, row.PaidAmount, row.Currency, row.Status,
 		row.DueDate, row.CollectionState,
 		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,
@@ -100,7 +102,7 @@ func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemR
 func ToRecoveryQueueItemResponseFromSearch(row db.SearchRecoveryQueueRow) *RecoveryQueueItemResponse {
 	return assembleRecoveryQueueItem(
 		row.ID, row.CustomerID, row.CustomerName,
-		row.CustomerPhone, row.ExternalID, row.TrackingNumber,
+		row.CustomerPhone, row.CustomerNumber, row.ExternalID, row.TrackingNumber,
 		row.Amount, row.PaidAmount, row.Currency, row.Status,
 		row.DueDate, row.CollectionState,
 		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,

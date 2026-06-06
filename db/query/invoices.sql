@@ -204,11 +204,12 @@ WHERE id = $1
 
 -- name: GetRecoveryQueue :many
 -- Powers GET /api/v1/recovery-queue — open invoices ranked by AI confidence score.
--- Returns invoice + joined customer name/phone so the handler needs no second query.
+-- Returns invoice + joined customer name/phone/number so the handler needs no second query.
 SELECT
     i.*,
-    c.name  AS customer_name,
-    c.phone AS customer_phone
+    c.name            AS customer_name,
+    c.phone           AS customer_phone,
+    c.customer_number AS customer_number
 FROM invoices i
 JOIN customers c ON i.customer_id = c.id
 WHERE i.user_id = $1
@@ -219,12 +220,13 @@ ORDER BY
 LIMIT $2 OFFSET $3;
 
 -- name: SearchRecoveryQueue :many
--- Full-text search on recovery queue: tracking number, external_id, or customer name.
+-- Full-text search on recovery queue: tracking number, external_id, customer name, or customer number.
 -- Pass a lowercased search string as $2 (matched case-insensitively).
 SELECT
     i.*,
-    c.name  AS customer_name,
-    c.phone AS customer_phone
+    c.name            AS customer_name,
+    c.phone           AS customer_phone,
+    c.customer_number AS customer_number
 FROM invoices i
 JOIN customers c ON i.customer_id = c.id
 WHERE i.user_id = $1
@@ -233,6 +235,7 @@ WHERE i.user_id = $1
     i.tracking_number    ILIKE '%' || $2 || '%'
     OR i.external_id     ILIKE '%' || $2 || '%'
     OR c.normalized_name ILIKE '%' || $2 || '%'
+    OR c.customer_number ILIKE '%' || $2 || '%'
   )
 ORDER BY
     i.confidence_score DESC NULLS LAST,
