@@ -158,6 +158,10 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	pg.Total = int64(len(customers))
+	if int(pg.Limit32()) > 0 && len(customers) == int(pg.Limit32()) {
+		pg.Total = int64(pg.Page)*int64(pg.PerPage) + 1 // signal has_next
+	}
 	dto.WriteSuccessWithMeta(w, r, customers, pg)
 }
 
