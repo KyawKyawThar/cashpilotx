@@ -113,6 +113,33 @@ func (s *CustomerService) GetCustomer(
 	return dto.ToCustomerResponse(customer), nil
 }
 
+func (s *CustomerService) CountCustomers(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID) (int64, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+	if assignedTo != nil {
+		return s.store.CountCustomersAssigned(dbCtx, db.CountCustomersAssignedParams{
+			UserID:     userID,
+			AssignedTo: assignedTo,
+		})
+	}
+	return s.store.CountCustomers(dbCtx, userID)
+}
+
+func (s *CustomerService) CountCustomersByInvoiceFilter(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID, _ string) (hasCount, noCount int64, err error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+	p := db.CountCustomersHasOpenInvoiceParams{UserID: userID, AssignedTo: assignedTo}
+	hasCount, err = s.store.CountCustomersHasOpenInvoice(dbCtx, p)
+	if err != nil {
+		return 0, 0, err
+	}
+	noCount, err = s.store.CountCustomersNoOpenInvoice(dbCtx, db.CountCustomersNoOpenInvoiceParams{UserID: userID, AssignedTo: assignedTo})
+	if err != nil {
+		return 0, 0, err
+	}
+	return hasCount, noCount, nil
+}
+
 func (s *CustomerService) ListCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -125,14 +152,25 @@ func (s *CustomerService) ListCustomers(
 	var rows []db.Customer
 	var err error
 
-	if filter != nil && filter.AssignedTo != nil {
+	switch {
+	case filter != nil && filter.InvoiceFilter == "has":
+		rows, err = s.store.ListCustomersHasOpenInvoice(dbCtx, db.ListCustomersHasOpenInvoiceParams{
+			UserID: userID, AssignedTo: filter.AssignedTo,
+			Limit: pg.Limit32(), Offset: pg.Offset32(),
+		})
+	case filter != nil && filter.InvoiceFilter == "none":
+		rows, err = s.store.ListCustomersNoOpenInvoice(dbCtx, db.ListCustomersNoOpenInvoiceParams{
+			UserID: userID, AssignedTo: filter.AssignedTo,
+			Limit: pg.Limit32(), Offset: pg.Offset32(),
+		})
+	case filter != nil && filter.AssignedTo != nil:
 		rows, err = s.store.ListCustomersAssigned(dbCtx, db.ListCustomersAssignedParams{
 			UserID:     userID,
 			AssignedTo: filter.AssignedTo,
 			Limit:      pg.Limit32(),
 			Offset:     pg.Offset32(),
 		})
-	} else {
+	default:
 		rows, err = s.store.ListCustomers(dbCtx, db.ListCustomersParams{
 			UserID: userID,
 			Limit:  pg.Limit32(),

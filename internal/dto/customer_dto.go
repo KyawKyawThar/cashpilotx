@@ -14,7 +14,8 @@ import (
 
 // ListCustomersFilter holds optional scope filters for GET /api/v1/customers.
 type ListCustomersFilter struct {
-	AssignedTo *uuid.UUID // non-nil when caller is sales (own scope)
+	AssignedTo    *uuid.UUID // non-nil when caller is sales (own scope)
+	InvoiceFilter string     // "has" = has open invoices, "none" = no open invoices, "" = all
 }
 
 // CreateCustomerRequest is the payload for creating a new customer.

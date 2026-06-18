@@ -122,6 +122,75 @@ WHERE id = $1
   AND user_id = $2;
 
 
+-- name: CountCustomers :one
+SELECT COUNT(*)
+FROM customers
+WHERE user_id = $1
+  AND status = 'active';
+
+-- name: CountCustomersAssigned :one
+SELECT COUNT(*)
+FROM customers
+WHERE user_id = $1
+  AND assigned_to = $2
+  AND status = 'active';
+
+-- name: ListCustomersHasOpenInvoice :many
+SELECT c.*
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.last_activity DESC NULLS LAST, c.created_at DESC
+LIMIT $3 OFFSET $4;
+
+-- name: CountCustomersHasOpenInvoice :one
+SELECT COUNT(*)
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  );
+
+-- name: ListCustomersNoOpenInvoice :many
+SELECT c.*
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.last_activity DESC NULLS LAST, c.created_at DESC
+LIMIT $3 OFFSET $4;
+
+-- name: CountCustomersNoOpenInvoice :one
+SELECT COUNT(*)
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  );
+
 -- name: ListCustomersAssigned :many
 SELECT *
 FROM customers

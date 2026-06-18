@@ -181,6 +181,12 @@ type Querier interface {
 	// READ: list all (paginated)
 	// =========================================
 	ListCustomerRiskProfiles(ctx context.Context, arg ListCustomerRiskProfilesParams) ([]CustomerRiskProfile, error)
+	CountCustomers(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountCustomersAssigned(ctx context.Context, arg CountCustomersAssignedParams) (int64, error)
+	CountCustomersHasOpenInvoice(ctx context.Context, arg CountCustomersHasOpenInvoiceParams) (int64, error)
+	CountCustomersNoOpenInvoice(ctx context.Context, arg CountCustomersNoOpenInvoiceParams) (int64, error)
+	ListCustomersHasOpenInvoice(ctx context.Context, arg ListCustomersHasOpenInvoiceParams) ([]Customer, error)
+	ListCustomersNoOpenInvoice(ctx context.Context, arg ListCustomersNoOpenInvoiceParams) ([]Customer, error)
 	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	ListCustomersAssigned(ctx context.Context, arg ListCustomersAssignedParams) ([]Customer, error)
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)

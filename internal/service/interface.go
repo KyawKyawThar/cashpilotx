@@ -113,6 +113,8 @@ type CustomerServicer interface {
 	// Customer CRUD
 	CreateCustomer(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID, req *dto.CreateCustomerRequest) (*dto.CustomerResponse, error)
 	GetCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) (*dto.CustomerResponse, error)
+	CountCustomers(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID) (int64, error)
+	CountCustomersByInvoiceFilter(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID, invoiceFilter string) (int64, int64, error)
 	ListCustomers(ctx context.Context, userID uuid.UUID, filter *dto.ListCustomersFilter, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	ListAllCustomers(ctx context.Context, userID uuid.UUID, pg *dto.Pagination) ([]*dto.CustomerResponse, error)
 	SearchCustomers(ctx context.Context, userID uuid.UUID, query string, callerID *uuid.UUID) ([]*dto.CustomerResponse, error)

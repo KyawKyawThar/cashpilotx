@@ -356,6 +356,154 @@ func (q *Queries) ListAllCustomers(ctx context.Context, arg ListAllCustomersPara
 	return items, nil
 }
 
+const listCustomersHasOpenInvoice = `-- name: ListCustomersHasOpenInvoice :many
+SELECT c.id, c.user_id, c.name, c.normalized_name, c.phone, c.normalized_phone, c.country, c.type, c.status, c.total_owed, c.total_paid, c.credit_limit, c.last_activity, c.notes, c.tags, c.created_at, c.updated_at, c.customer_number, c.assigned_to, c.credit_limit_approved_by
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.last_activity DESC NULLS LAST, c.created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListCustomersHasOpenInvoiceParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+	Limit      int32      `db:"limit" json:"limit"`
+	Offset     int32      `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListCustomersHasOpenInvoice(ctx context.Context, arg ListCustomersHasOpenInvoiceParams) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listCustomersHasOpenInvoice, arg.UserID, arg.AssignedTo, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID, &i.UserID, &i.Name, &i.NormalizedName, &i.Phone, &i.NormalizedPhone,
+			&i.Country, &i.Type, &i.Status, &i.TotalOwed, &i.TotalPaid, &i.CreditLimit,
+			&i.LastActivity, &i.Notes, &i.Tags, &i.CreatedAt, &i.UpdatedAt,
+			&i.CustomerNumber, &i.AssignedTo, &i.CreditLimitApprovedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCustomersHasOpenInvoice = `-- name: CountCustomersHasOpenInvoice :one
+SELECT COUNT(*)
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+`
+
+type CountCustomersHasOpenInvoiceParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+}
+
+func (q *Queries) CountCustomersHasOpenInvoice(ctx context.Context, arg CountCustomersHasOpenInvoiceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomersHasOpenInvoice, arg.UserID, arg.AssignedTo)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const listCustomersNoOpenInvoice = `-- name: ListCustomersNoOpenInvoice :many
+SELECT c.id, c.user_id, c.name, c.normalized_name, c.phone, c.normalized_phone, c.country, c.type, c.status, c.total_owed, c.total_paid, c.credit_limit, c.last_activity, c.notes, c.tags, c.created_at, c.updated_at, c.customer_number, c.assigned_to, c.credit_limit_approved_by
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.last_activity DESC NULLS LAST, c.created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListCustomersNoOpenInvoiceParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+	Limit      int32      `db:"limit" json:"limit"`
+	Offset     int32      `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListCustomersNoOpenInvoice(ctx context.Context, arg ListCustomersNoOpenInvoiceParams) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listCustomersNoOpenInvoice, arg.UserID, arg.AssignedTo, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID, &i.UserID, &i.Name, &i.NormalizedName, &i.Phone, &i.NormalizedPhone,
+			&i.Country, &i.Type, &i.Status, &i.TotalOwed, &i.TotalPaid, &i.CreditLimit,
+			&i.LastActivity, &i.Notes, &i.Tags, &i.CreatedAt, &i.UpdatedAt,
+			&i.CustomerNumber, &i.AssignedTo, &i.CreditLimitApprovedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCustomersNoOpenInvoice = `-- name: CountCustomersNoOpenInvoice :one
+SELECT COUNT(*)
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND ($2::uuid IS NULL OR c.assigned_to = $2)
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+`
+
+type CountCustomersNoOpenInvoiceParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+}
+
+func (q *Queries) CountCustomersNoOpenInvoice(ctx context.Context, arg CountCustomersNoOpenInvoiceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomersNoOpenInvoice, arg.UserID, arg.AssignedTo)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listCustomers = `-- name: ListCustomers :many
 SELECT id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
 FROM customers
@@ -410,6 +558,40 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const countCustomers = `-- name: CountCustomers :one
+SELECT COUNT(*)
+FROM customers
+WHERE user_id = $1
+  AND status = 'active'
+`
+
+func (q *Queries) CountCustomers(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomers, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCustomersAssigned = `-- name: CountCustomersAssigned :one
+SELECT COUNT(*)
+FROM customers
+WHERE user_id = $1
+  AND assigned_to = $2
+  AND status = 'active'
+`
+
+type CountCustomersAssignedParams struct {
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+}
+
+func (q *Queries) CountCustomersAssigned(ctx context.Context, arg CountCustomersAssignedParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomersAssigned, arg.UserID, arg.AssignedTo)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const listCustomersAssigned = `-- name: ListCustomersAssigned :many

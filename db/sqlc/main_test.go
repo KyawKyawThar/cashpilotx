@@ -59,6 +59,13 @@ func TestMain(m *testing.M) {
 
 	log.Println("db migrated successfully")
 
+	// Remove committed rows left by any previously interrupted test run.
+	// reminders_test.go uses newTestStore (transaction rollback) so any
+	// committed reminder rows here are stale and safe to discard.
+	if _, err = testDB.Exec(context.Background(), "TRUNCATE reminders CASCADE"); err != nil {
+		log.Fatal("cannot clean stale reminders:", err)
+	}
+
 	testStore = NewStore(testDB)
 
 	code := m.Run()

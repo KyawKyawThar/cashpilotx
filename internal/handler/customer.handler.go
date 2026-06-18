@@ -4,6 +4,7 @@ import (
 	"cashpilotx/internal/api"
 	"cashpilotx/internal/dto"
 	"cashpilotx/internal/service"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -142,14 +143,20 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		customers []*dto.CustomerResponse
 		err       error
 	)
-	filter := &dto.ListCustomersFilter{}
+	invoiceFilter := r.URL.Query().Get("invoice_filter") // "has" | "none" | ""
+	filter := &dto.ListCustomersFilter{InvoiceFilter: invoiceFilter}
+	var assignedTo *uuid.UUID
 	switch {
 	case scope.Scope == scopeOwn:
-		// sales: always scope to own customers — ignore all=true
 		filter.AssignedTo = &scope.CallerID
+		assignedTo = &scope.CallerID
 		customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
 	case r.URL.Query().Get("all") == queryTrue:
-		customers, err = h.svc.ListAllCustomers(r.Context(), effectiveUserID, pg)
+		if invoiceFilter != "" {
+			customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
+		} else {
+			customers, err = h.svc.ListAllCustomers(r.Context(), effectiveUserID, pg)
+		}
 	default:
 		customers, err = h.svc.ListCustomers(r.Context(), effectiveUserID, filter, pg)
 	}
@@ -158,10 +165,34 @@ func (h *CustomerHandler) ListCustomers(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	pg.Total = int64(len(customers))
-	if int(pg.Limit32()) > 0 && len(customers) == int(pg.Limit32()) {
-		pg.Total = int64(pg.Page)*int64(pg.PerPage) + 1 // signal has_next
+	var total int64
+	if invoiceFilter == "has" || invoiceFilter == "none" {
+		hasCount, noCount, countErr := h.svc.CountCustomersByInvoiceFilter(r.Context(), effectiveUserID, assignedTo, invoiceFilter)
+		if countErr == nil {
+			if invoiceFilter == "has" {
+				total = hasCount
+			} else {
+				total = noCount
+			}
+			// Embed sub-counts in extra meta fields via pg.Total
+			// We send counts for both chips via response headers so frontend can read them
+			w.Header().Set("X-Count-Has-Invoice", fmt.Sprintf("%d", hasCount))
+			w.Header().Set("X-Count-No-Invoice", fmt.Sprintf("%d", noCount))
+		} else {
+			total = int64(len(customers))
+		}
+	} else {
+		total, err = h.svc.CountCustomers(r.Context(), effectiveUserID, assignedTo)
+		if err != nil {
+			total = int64(len(customers))
+		}
+		hasCount, noCount, countErr := h.svc.CountCustomersByInvoiceFilter(r.Context(), effectiveUserID, assignedTo, "")
+		if countErr == nil {
+			w.Header().Set("X-Count-Has-Invoice", fmt.Sprintf("%d", hasCount))
+			w.Header().Set("X-Count-No-Invoice", fmt.Sprintf("%d", noCount))
+		}
 	}
+	pg.Total = total
 	dto.WriteSuccessWithMeta(w, r, customers, pg)
 }
 
