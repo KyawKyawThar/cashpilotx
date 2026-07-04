@@ -37,6 +37,12 @@ type UpdateCustomerRequest struct {
 	Tags    *[]string `json:"tags"    validate:"omitempty,dive,min=1,max=50"`
 }
 
+// AssignCustomerRequest reassigns customer ownership. AssignedTo nil clears
+// the assignment (the customer becomes unassigned / org-visible again).
+type AssignCustomerRequest struct {
+	AssignedTo *uuid.UUID `json:"assigned_to"`
+}
+
 // CustomerResponse is the public representation of a customer.
 type CustomerResponse struct {
 	ID             uuid.UUID  `json:"id"`
@@ -54,6 +60,8 @@ type CustomerResponse struct {
 	LastActivity   *time.Time `json:"last_activity,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	AssignedTo     *uuid.UUID `json:"assigned_to,omitempty"`
+	AssignedToName *string    `json:"assigned_to_name,omitempty"`
 }
 
 // ToCustomerResponse maps db.Customer to a client-facing CustomerResponse.
@@ -78,6 +86,7 @@ func ToCustomerResponse(c db.Customer) *CustomerResponse {
 		LastActivity:   c.LastActivity,
 		CreatedAt:      c.CreatedAt,
 		UpdatedAt:      c.UpdatedAt,
+		AssignedTo:     c.AssignedTo,
 	}
 }
 

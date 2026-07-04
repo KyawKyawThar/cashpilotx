@@ -281,6 +281,47 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 	h.WriteSuccess(w, r, resp)
 }
 
+// AssignCustomer godoc
+//
+//	@Summary      Reassign customer owner
+//	@Description  Reassigns a customer to another team member, or clears the assignment when assigned_to is null. Requires the customer:edit permission.
+//	@Tags         customers
+//	@Accept       json
+//	@Produce      json
+//	@Param        customer_id  path      string                     true  "Customer UUID"
+//	@Param        body         body      dto.AssignCustomerRequest  true  "New owner (or null to unassign)"
+//	@Success      200          {object}  dto.CustomerResponse
+//	@Failure      400          {object}  dto.ErrorResponse
+//	@Failure      401          {object}  dto.ErrorResponse
+//	@Failure      404          {object}  dto.ErrorResponse
+//	@Failure      500          {object}  dto.ErrorResponse
+//	@Router       /api/v1/customers/{customer_id}/assign [patch]
+//	@Security     BearerAuth
+func (h *CustomerHandler) AssignCustomer(w http.ResponseWriter, r *http.Request) {
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	customerID, ok := h.MustUUIDParam(w, r, "customer_id")
+	if !ok {
+		return
+	}
+
+	var req dto.AssignCustomerRequest
+	if !h.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	resp, err := h.svc.AssignCustomer(r.Context(), effectiveUserID, customerID, req.AssignedTo)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // ArchiveCustomer godoc
 //
 //	@Summary      Archive customer

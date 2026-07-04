@@ -110,7 +110,49 @@ func (s *CustomerService) GetCustomer(
 		return nil, api.ErrCustomerNotFound()
 	}
 
-	return dto.ToCustomerResponse(customer), nil
+	resp := dto.ToCustomerResponse(customer)
+	if err := s.attachAssignedToNames(dbCtx, []*dto.CustomerResponse{resp}); err != nil {
+		return nil, api.FromPgError(err)
+	}
+	return resp, nil
+}
+
+// attachAssignedToNames batch-resolves each response's AssignedTo user ID to
+// a display name in a single query, so the caller doesn't join per row.
+func (s *CustomerService) attachAssignedToNames(ctx context.Context, out []*dto.CustomerResponse) error {
+	seen := make(map[uuid.UUID]struct{})
+	var ids []uuid.UUID
+	for _, c := range out {
+		if c.AssignedTo == nil {
+			continue
+		}
+		if _, ok := seen[*c.AssignedTo]; ok {
+			continue
+		}
+		seen[*c.AssignedTo] = struct{}{}
+		ids = append(ids, *c.AssignedTo)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	rows, err := s.store.GetUserNamesByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	names := make(map[uuid.UUID]string, len(rows))
+	for _, r := range rows {
+		names[r.ID] = r.Name
+	}
+	for _, c := range out {
+		if c.AssignedTo == nil {
+			continue
+		}
+		if name, ok := names[*c.AssignedTo]; ok {
+			c.AssignedToName = &name
+		}
+	}
+	return nil
 }
 
 func (s *CustomerService) CountCustomers(ctx context.Context, userID uuid.UUID, assignedTo *uuid.UUID) (int64, error) {
@@ -185,6 +227,9 @@ func (s *CustomerService) ListCustomers(
 	for _, c := range rows {
 		out = append(out, dto.ToCustomerResponse(c))
 	}
+	if err := s.attachAssignedToNames(dbCtx, out); err != nil {
+		return nil, api.FromPgError(err)
+	}
 	return out, nil
 }
 
@@ -209,6 +254,9 @@ func (s *CustomerService) ListAllCustomers(
 	out := make([]*dto.CustomerResponse, 0, len(rows))
 	for _, c := range rows {
 		out = append(out, dto.ToCustomerResponse(c))
+	}
+	if err := s.attachAssignedToNames(dbCtx, out); err != nil {
+		return nil, api.FromPgError(err)
 	}
 	return out, nil
 }
@@ -243,6 +291,9 @@ func (s *CustomerService) SearchCustomers(
 			continue
 		}
 		out = append(out, dto.ToCustomerResponse(c))
+	}
+	if err := s.attachAssignedToNames(dbCtx, out); err != nil {
+		return nil, api.FromPgError(err)
 	}
 	return out, nil
 }
@@ -313,7 +364,56 @@ func (s *CustomerService) UpdateCustomer(
 		return nil, api.FromPgError(err)
 	}
 
-	return dto.ToCustomerResponse(customer), nil
+	resp := dto.ToCustomerResponse(customer)
+	if err := s.attachAssignedToNames(dbCtx, []*dto.CustomerResponse{resp}); err != nil {
+		return nil, api.FromPgError(err)
+	}
+	return resp, nil
+}
+
+// AssignCustomer reassigns a customer's owner to another org member, or
+// clears the assignment when assignedTo is nil. Unlike UpdateCustomer this
+// is gated by the customer:edit permission at the route level, since it
+// changes which sales rep can see/manage the customer under RBAC scoping.
+func (s *CustomerService) AssignCustomer(
+	ctx context.Context,
+	userID, customerID uuid.UUID,
+	assignedTo *uuid.UUID,
+) (*dto.CustomerResponse, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	if assignedTo != nil {
+		target, err := s.store.GetUserByID(dbCtx, *assignedTo)
+		if err != nil {
+			if api.IsRecordNotFound(err) {
+				return nil, api.ErrBadRequest("assigned_to must be an active member of your team")
+			}
+			return nil, api.FromPgError(err)
+		}
+		belongsToOrg := target.ID == userID || (target.OrgOwnerID != nil && *target.OrgOwnerID == userID)
+		if !belongsToOrg {
+			return nil, api.ErrBadRequest("assigned_to must be an active member of your team")
+		}
+	}
+
+	customer, err := s.store.AssignCustomer(dbCtx, db.AssignCustomerParams{
+		ID:         customerID,
+		UserID:     userID,
+		AssignedTo: assignedTo,
+	})
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return nil, api.ErrCustomerNotFound()
+		}
+		return nil, api.FromPgError(err)
+	}
+
+	resp := dto.ToCustomerResponse(customer)
+	if err := s.attachAssignedToNames(dbCtx, []*dto.CustomerResponse{resp}); err != nil {
+		return nil, api.FromPgError(err)
+	}
+	return resp, nil
 }
 
 // ArchiveCustomer soft-deletes a customer by setting their status to "inactive".

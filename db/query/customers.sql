@@ -78,6 +78,18 @@ WHERE id = $1
   AND user_id = $2
 RETURNING *;
 
+-- name: AssignCustomer :one
+-- Reassigns customer ownership to another team member (or clears it when
+-- assigned_to is null). Distinct from UpdateCustomer since it's a
+-- higher-privilege action gated by the customer:edit permission.
+UPDATE customers
+SET
+    assigned_to = $3,
+    updated_at = now()
+WHERE id = $1
+  AND user_id = $2
+RETURNING *;
+
 
 -- name: AddCustomerDebt :one
 UPDATE customers

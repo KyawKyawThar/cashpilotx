@@ -903,3 +903,50 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 	)
 	return i, err
 }
+
+const assignCustomer = `-- name: AssignCustomer :one
+UPDATE customers
+SET
+    assigned_to = $3,
+    updated_at = now()
+WHERE id = $1
+  AND user_id = $2
+RETURNING id, user_id, name, normalized_name, phone, normalized_phone, country, type, status, total_owed, total_paid, credit_limit, last_activity, notes, tags, created_at, updated_at, customer_number, assigned_to, credit_limit_approved_by
+`
+
+type AssignCustomerParams struct {
+	ID         uuid.UUID  `db:"id" json:"id"`
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	AssignedTo *uuid.UUID `db:"assigned_to" json:"assigned_to"`
+}
+
+// Reassigns customer ownership to another team member (or clears it when
+// assigned_to is null). Distinct from UpdateCustomer since it's a
+// higher-privilege action gated by the customer:edit permission.
+func (q *Queries) AssignCustomer(ctx context.Context, arg AssignCustomerParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, assignCustomer, arg.ID, arg.UserID, arg.AssignedTo)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.NormalizedName,
+		&i.Phone,
+		&i.NormalizedPhone,
+		&i.Country,
+		&i.Type,
+		&i.Status,
+		&i.TotalOwed,
+		&i.TotalPaid,
+		&i.CreditLimit,
+		&i.LastActivity,
+		&i.Notes,
+		&i.Tags,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CustomerNumber,
+		&i.AssignedTo,
+		&i.CreditLimitApprovedBy,
+	)
+	return i, err
+}

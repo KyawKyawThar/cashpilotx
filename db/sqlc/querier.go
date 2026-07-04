@@ -16,6 +16,10 @@ type Querier interface {
 	AddCustomerPayment(ctx context.Context, arg AddCustomerPaymentParams) (Customer, error)
 	AddPayment(ctx context.Context, arg AddPaymentParams) (Invoice, error)
 	ApproveMessage(ctx context.Context, id uuid.UUID) (Message, error)
+	// Reassigns customer ownership to another team member (or clears it when
+	// assigned_to is null). Distinct from UpdateCustomer since it's a
+	// higher-privilege action gated by the customer:edit permission.
+	AssignCustomer(ctx context.Context, arg AssignCustomerParams) (Customer, error)
 	CancelInvoice(ctx context.Context, arg CancelInvoiceParams) (Invoice, error)
 	CancelReminder(ctx context.Context, id uuid.UUID) error
 	CancelRemindersForInvoice(ctx context.Context, invoiceID uuid.UUID) error
@@ -161,6 +165,9 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone *string) (User, error)
 	GetUserByUsername(ctx context.Context, username *string) (User, error)
+	// Batch-resolves user IDs to display names, e.g. for showing who a
+	// customer/invoice is assigned to without a per-row join.
+	GetUserNamesByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetUserNamesByIDsRow, error)
 	GetWebhookEvent(ctx context.Context, arg GetWebhookEventParams) (WebhookEvent, error)
 	IncrementMessagesSent(ctx context.Context, arg IncrementMessagesSentParams) error
 	ListActiveOrgUsers(ctx context.Context, orgOwnerID *uuid.UUID) ([]User, error)

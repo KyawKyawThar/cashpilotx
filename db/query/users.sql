@@ -185,3 +185,10 @@ SET
     updated_at       = now()
 WHERE id = $1
   AND is_active = true;
+
+-- name: GetUserNamesByIDs :many
+-- Batch-resolves user IDs to display names, e.g. for showing who a
+-- customer/invoice is assigned to without a per-row join.
+SELECT id, name
+FROM users
+WHERE id = ANY($1::uuid[]);

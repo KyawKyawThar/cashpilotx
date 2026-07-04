@@ -326,6 +326,39 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username *string) (User
 	return i, err
 }
 
+const getUserNamesByIDs = `-- name: GetUserNamesByIDs :many
+SELECT id, name
+FROM users
+WHERE id = ANY($1::uuid[])
+`
+
+type GetUserNamesByIDsRow struct {
+	ID   uuid.UUID `db:"id" json:"id"`
+	Name string    `db:"name" json:"name"`
+}
+
+// Batch-resolves user IDs to display names, e.g. for showing who a
+// customer/invoice is assigned to without a per-row join.
+func (q *Queries) GetUserNamesByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetUserNamesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getUserNamesByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserNamesByIDsRow{}
+	for rows.Next() {
+		var i GetUserNamesByIDsRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActiveOrgUsers = `-- name: ListActiveOrgUsers :many
 SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id FROM users
 WHERE org_owner_id = $1
