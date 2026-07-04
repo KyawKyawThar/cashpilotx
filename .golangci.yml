@@ -151,6 +151,15 @@ linters:
       - staticcheck
       - revive
 
+    # One-off CLI / migration tools: printing to stdout and linear main() flow
+    # are appropriate here, not a code smell.
+    - path: cmd/
+      linters:
+      - forbidigo
+      - gocognit
+      - gocyclo
+      - gocritic
+
     - linters:
       - lll
       source: "^//go:"

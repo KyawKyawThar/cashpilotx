@@ -233,7 +233,6 @@ func (s *CustomerService) ListCustomers(
 	return out, nil
 }
 
-//nolint:dupl // identical paginated-list pattern shared across services; abstraction adds no value
 func (s *CustomerService) ListAllCustomers(
 	ctx context.Context,
 	userID uuid.UUID,
