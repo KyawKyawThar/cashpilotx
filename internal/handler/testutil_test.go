@@ -47,7 +47,11 @@ func newTestEnv(t *testing.T) *testEnv {
 	cfg.ServerHost = "127.0.0.1"
 	cfg.ServerPort = "0"
 
-	pool, err := pgxpool.New(context.Background(), cfg.DBSource)
+	// Isolated test DB — never the dev/prod database (see TestDBSourceOrDerive).
+	testDBSource, err := cfg.TestDBSourceOrDerive()
+	require.NoError(t, err)
+
+	pool, err := pgxpool.New(context.Background(), testDBSource)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
@@ -116,6 +120,7 @@ func (e *testEnv) seedUser(t *testing.T) (user db.User, tok string) {
 		UserID:   user.ID,
 		Duration: time.Hour,
 		Plan:     "pro",
+		Role:     string(user.Role),
 	})
 	require.NoError(t, err)
 

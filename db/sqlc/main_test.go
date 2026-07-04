@@ -31,14 +31,21 @@ func TestMain(m *testing.M) {
 		log.Fatal("cannot load config:", err)
 	}
 
-	testDB, err = pgxpool.New(context.Background(), cfg.DBSource)
+	// Integration tests run against an isolated database (…_test), never the
+	// dev/prod DB, so locally-restored real data cannot pollute test state.
+	testDBSource, err := cfg.TestDBSourceOrDerive()
+	if err != nil {
+		log.Fatal("cannot resolve test database source:", err)
+	}
+
+	testDB, err = pgxpool.New(context.Background(), testDBSource)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	migration, err := migrate.New(
 		"file://../../db/migrations",
-		cfg.DBSource,
+		testDBSource,
 	)
 	if err != nil {
 		log.Fatal("cannot create migrate instance:", err)

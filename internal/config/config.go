@@ -5,6 +5,7 @@ import (
 	"cashpilotx/utils"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ type Config struct {
 
 	// ── PostgreSQL ───────────────────────────────────────────────
 	DBSource          string `mapstructure:"DATABASE_URL"`
+	TestDBSource      string `mapstructure:"TEST_DATABASE_URL"` // integration tests only; see TestDBSourceOrDerive
 	DBPoolMaxConns    int    `mapstructure:"DB_POOL_MAX_CONNS"`
 	DBPoolMinConns    int    `mapstructure:"DB_POOL_MIN_CONNS"`
 	DBPoolMaxConnLife string `mapstructure:"DB_POOL_MAX_CONN_LIFETIME"`
@@ -99,7 +101,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.AutomaticEnv()
 
 	mustBindEnv(
-		"APP_ENV", "DATABASE_URL", "REDIS_URL",
+		"APP_ENV", "DATABASE_URL", "TEST_DATABASE_URL", "REDIS_URL",
 		"S3_BUCKET", "S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_REGION",
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_TTL", "JWT_REFRESH_TOKEN_TTL",
 		"CORS_ALLOWED_ORIGINS",
@@ -117,6 +119,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("REDIS_PORT", 6379)
 	viper.SetDefault("JWT_SECRET", utils.RandomString(32))
 	viper.SetDefault("DATABASE_URL", "")
+	viper.SetDefault("TEST_DATABASE_URL", "")
 	viper.SetDefault("REDIS_URL", "")
 	viper.SetDefault("S3_BUCKET", "")
 	viper.SetDefault("S3_ENDPOINT", "")
@@ -181,6 +184,30 @@ func parseOrigins(s string) []string {
 		}
 	}
 	return result
+}
+
+// TestDBSourceOrDerive returns the DSN that integration tests must use.
+// It prefers an explicit TEST_DATABASE_URL; otherwise it derives one by
+// suffixing the primary database name with "_test" (e.g. cashpilotx →
+// cashpilotx_test). This guarantees tests never run against the dev/prod
+// database, so restoring real data locally can't pollute test results.
+func (c *Config) TestDBSourceOrDerive() (string, error) {
+	if strings.TrimSpace(c.TestDBSource) != "" {
+		return c.TestDBSource, nil
+	}
+	u, err := url.Parse(c.DBSource)
+	if err != nil {
+		return "", fmt.Errorf("parse DATABASE_URL: %w", err)
+	}
+	name := strings.TrimPrefix(u.Path, "/")
+	if name == "" {
+		return "", errors.New("DATABASE_URL has no database name to derive a test DB from")
+	}
+	if strings.HasSuffix(name, "_test") {
+		return c.DBSource, nil // already a test DB
+	}
+	u.Path = "/" + name + "_test"
+	return u.String(), nil
 }
 
 // IsDevelopment returns true if running in development mode.

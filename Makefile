@@ -8,6 +8,11 @@ endif
 
 DB_URL=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 
+# Integration tests run against an isolated database so locally-restored real
+# data can never pollute test state. Mirrors config.TestDBSourceOrDerive.
+TEST_DB_NAME=$(POSTGRES_DB)_test
+TEST_DB_URL=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(TEST_DB_NAME)?sslmode=disable
+
 ## ── Docker Compose ───────────────────────────────────────────────
 
 COMPOSE_FILE := deploy/docker-compose.yml
@@ -117,9 +122,15 @@ lint-new: ## Only lint uncommitted changes (fast iteration)
 test: ## Run short tests only (no DB/Redis required; mirrors CI unit-tests job)
 	go test -v -race -short ./...
 
+.PHONY: test-db
+test-db: ## Create + migrate the isolated integration-test database (idempotent)
+	@$(COMPOSE) exec -T postgres psql -U $(POSTGRES_USER) -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='$(TEST_DB_NAME)'" | grep -q 1 || \
+		$(COMPOSE) exec -T postgres createdb -U $(POSTGRES_USER) $(TEST_DB_NAME)
+	@migrate -path $(MIGRATIONS_PATH) -database "$(TEST_DB_URL)" up
+
 .PHONY: test-integration
-test-integration: ## Run all tests including DB integration (requires running DB)
-	go test -v -race -coverprofile=coverage.out ./...
+test-integration: test-db ## Run all tests including DB integration (isolated test DB)
+	TEST_DATABASE_URL="$(TEST_DB_URL)" go test -v -race -coverprofile=coverage.out ./...
 
 ## ── Dev (live reload) ────────────────────────────────────────────
 

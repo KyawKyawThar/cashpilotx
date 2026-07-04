@@ -94,23 +94,6 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 	h.WriteSuccess(w, r, resp)
 }
 
-// ListInvoices godoc
-//
-//	@Summary      List invoices
-//	@Description  Returns a paginated list of invoices with optional filters.
-//	@Tags         invoices
-//	@Produce      json
-//	@Param        status            query     string  false  "Filter by status: unpaid|partial|paid|canceled"
-//	@Param        overdue           query     bool    false  "Only overdue invoices"
-//	@Param        collection_state  query     string  false  "Filter by collection state"
-//	@Param        customer_id       query     string  false  "Filter by customer UUID"
-//	@Param        page              query     int     false  "Page number (default 1)"
-//	@Param        per_page          query     int     false  "Items per page (default 25, max 100)"
-//	@Success      200               {array}   dto.InvoiceResponse
-//	@Failure      401               {object}  dto.ErrorResponse
-//	@Failure      500               {object}  dto.ErrorResponse
-//	@Router       /api/v1/invoices [get]
-//	@Security     BearerAuth
 // ListDuplicateInvoices godoc
 //
 //	@Summary      List possible duplicate invoices
@@ -137,6 +120,23 @@ func (h *InvoiceHandler) ListDuplicateInvoices(w http.ResponseWriter, r *http.Re
 	h.WriteSuccess(w, r, resp)
 }
 
+// ListInvoices godoc
+//
+//	@Summary      List invoices
+//	@Description  Returns a paginated list of invoices with optional filters.
+//	@Tags         invoices
+//	@Produce      json
+//	@Param        status            query     string  false  "Filter by status: unpaid|partial|paid|canceled"
+//	@Param        overdue           query     bool    false  "Only overdue invoices"
+//	@Param        collection_state  query     string  false  "Filter by collection state"
+//	@Param        customer_id       query     string  false  "Filter by customer UUID"
+//	@Param        page              query     int     false  "Page number (default 1)"
+//	@Param        per_page          query     int     false  "Items per page (default 25, max 100)"
+//	@Success      200               {array}   dto.InvoiceResponse
+//	@Failure      401               {object}  dto.ErrorResponse
+//	@Failure      500               {object}  dto.ErrorResponse
+//	@Router       /api/v1/invoices [get]
+//	@Security     BearerAuth
 func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {
