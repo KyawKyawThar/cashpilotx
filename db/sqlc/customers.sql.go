@@ -664,7 +664,7 @@ WHERE user_id = $1
   AND status = 'active'
   AND (
     normalized_name ILIKE '%' || $2 || '%'
-    OR normalized_phone ILIKE '%' || $2 || '%'
+    OR ($3 <> '' AND normalized_phone ILIKE '%' || $3 || '%')
     OR customer_number ILIKE '%' || $2 || '%'
   )
 ORDER BY last_activity DESC
@@ -672,12 +672,18 @@ LIMIT 20
 `
 
 type SearchCustomersParams struct {
-	UserID  uuid.UUID `db:"user_id" json:"user_id"`
-	Column2 *string   `db:"column_2" json:"column_2"`
+	UserID  uuid.UUID   `db:"user_id" json:"user_id"`
+	Column2 *string     `db:"column_2" json:"column_2"`
+	Column3 interface{} `db:"column_3" json:"column_3"`
 }
 
+// $2 is the lowercased raw query (name / customer_number). $3 is the
+// digits-only, leading-zero-stripped phone query (see normalizePhoneQuery in
+// customer.service.go) — the raw query can't ILIKE-match normalized_phone
+// directly since stored numbers have no spaces/dashes and use +95 while
+// users often type the local 0-prefixed form.
 func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]Customer, error) {
-	rows, err := q.db.Query(ctx, searchCustomers, arg.UserID, arg.Column2)
+	rows, err := q.db.Query(ctx, searchCustomers, arg.UserID, arg.Column2, arg.Column3)
 	if err != nil {
 		return nil, err
 	}

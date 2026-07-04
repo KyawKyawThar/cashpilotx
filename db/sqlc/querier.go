@@ -198,6 +198,13 @@ type Querier interface {
 	ListCustomersAssigned(ctx context.Context, arg ListCustomersAssignedParams) ([]Customer, error)
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)
 	ListDeliveryServices(ctx context.Context, userID uuid.UUID) ([]DeliveryService, error)
+	// Flags active invoices whose customer shares a phone number with another
+	// customer record that also has an active invoice. This is the signature of
+	// two sales reps independently selling to the same real person — reps only
+	// see their own customers (RBAC "own" scope), so nothing stops the second
+	// rep from creating a duplicate. CS/admin resolve by canceling one and
+	// keeping the other.
+	ListDuplicateInvoiceCandidates(ctx context.Context, userID uuid.UUID) ([]ListDuplicateInvoiceCandidatesRow, error)
 	ListEventsByType(ctx context.Context, arg ListEventsByTypeParams) ([]CustomerEvent, error)
 	ListFailedWebhookEvents(ctx context.Context, arg ListFailedWebhookEventsParams) ([]WebhookEvent, error)
 	// =========================================

@@ -8,3 +8,7 @@ cashpilotx_v5.html
 all_function.txt
 cashpilotx_v6_arch_final.md
 
+
+# Production DB dumps — contain PII, never commit
+*.dump
+cashpilotx_prod.dump

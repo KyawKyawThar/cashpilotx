@@ -278,6 +278,7 @@ func (s *CustomerService) SearchCustomers(
 	rows, err := s.store.SearchCustomers(dbCtx, db.SearchCustomersParams{
 		UserID:  userID,
 		Column2: &q,
+		Column3: normalizePhoneQuery(q),
 	})
 	if err != nil {
 		return nil, api.FromPgError(err)

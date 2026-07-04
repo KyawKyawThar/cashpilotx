@@ -176,9 +176,12 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 		r.Route("/api/v1/invoices", func(r chi.Router) {
 			r.Post("/", s.handler.Invoice.CreateInvoice)
 			r.Get("/", s.handler.Invoice.ListInvoices)
+			r.With(mw.RequirePermission("invoice", "view_history")).
+				Get("/duplicates", s.handler.Invoice.ListDuplicateInvoices)
 			r.Get("/{invoice_id}", s.handler.Invoice.GetInvoice)
 			r.Patch("/{invoice_id}", s.handler.Invoice.UpdateInvoice)
-			r.Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
+			r.With(mw.RequirePermission("invoice", "delete")).
+				Post("/{invoice_id}/cancel", s.handler.Invoice.CancelInvoice)
 			r.Post("/{invoice_id}/return", s.handler.Invoice.ReturnInvoice)
 			r.Post("/{invoice_id}/reactivate", s.handler.Invoice.ReactivateInvoice)
 			r.Post("/{invoice_id}/write-off", s.handler.Invoice.WriteOffInvoice)

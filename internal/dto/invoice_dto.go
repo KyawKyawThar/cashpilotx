@@ -251,6 +251,53 @@ func ToInvoiceResponseFromSearch(r db.SearchInvoicesRow, assigneeName *string) *
 	return resp
 }
 
+// ToInvoiceResponseFromDuplicateCandidate maps a
+// db.ListDuplicateInvoiceCandidatesRow to a client-facing InvoiceResponse.
+func ToInvoiceResponseFromDuplicateCandidate(r db.ListDuplicateInvoiceCandidatesRow, assigneeName *string) *InvoiceResponse {
+	items := r.Items
+	if items == nil {
+		items = json.RawMessage("[]")
+	}
+	return &InvoiceResponse{
+		ID:                 r.ID,
+		CustomerID:         r.CustomerID,
+		ExternalID:         r.ExternalID,
+		Description:        r.Description,
+		Items:              items,
+		Amount:             r.Amount,
+		PaidAmount:         r.PaidAmount,
+		Currency:           r.Currency,
+		Status:             r.Status,
+		Source:             r.Source,
+		PhotoURL:           r.PhotoUrl,
+		DueDate:            r.DueDate,
+		IssuedAt:           r.IssuedAt,
+		PaidAt:             r.PaidAt,
+		CollectionState:    r.CollectionState,
+		LastContactedAt:    r.LastContactedAt,
+		LastResponseAt:     r.LastResponseAt,
+		PromisedAt:         r.PromisedAt,
+		FollowUpCount:      r.FollowUpCount,
+		AssignedTo:         r.AssignedTo,
+		AssignedToUsername: assigneeName,
+		DeliveryService:    r.DeliveryService,
+		TrackingNumber:     r.TrackingNumber,
+		CreatedAt:          r.CreatedAt,
+		UpdatedAt:          r.UpdatedAt,
+		CustomerName:       &r.CustomerName,
+		CustomerPhone:      r.CustomerPhone,
+		CustomerNumber:     r.CustomerNumber,
+	}
+}
+
+// DuplicateInvoiceGroup clusters active invoices whose customers share the
+// same phone number — the signature of two sales reps independently
+// creating a customer record for the same real person.
+type DuplicateInvoiceGroup struct {
+	Phone    string             `json:"phone"`
+	Invoices []*InvoiceResponse `json:"invoices"`
+}
+
 // ToReminderResponse maps db.Reminder to a client-facing ReminderResponse.
 func ToReminderResponse(r db.Reminder) *ReminderResponse {
 	return &ReminderResponse{

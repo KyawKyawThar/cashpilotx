@@ -440,6 +440,135 @@ func (q *Queries) GetRecoveryStats(ctx context.Context, userID uuid.UUID) (GetRe
 	return i, err
 }
 
+const listDuplicateInvoiceCandidates = `-- name: ListDuplicateInvoiceCandidates :many
+SELECT
+    i.id, i.user_id, i.customer_id, i.amount, i.currency, i.paid_amount, i.paid_at, i.description, i.due_date, i.status, i.source, i.photo_url, i.external_id, i.issued_at, i.items, i.collection_state, i.last_contacted_at, i.last_response_at, i.follow_up_count, i.confidence_score, i.confidence_factors, i.outcome_text, i.outcome_timeframe, i.confidence_computed_at, i.created_at, i.updated_at, i.promised_at, i.assigned_to, i.delivery_service, i.tracking_number, i.returned_at, i.return_reason, i.return_items,
+    c.name             AS customer_name,
+    c.phone            AS customer_phone,
+    c.normalized_phone AS customer_normalized_phone,
+    c.customer_number  AS customer_number
+FROM invoices i
+JOIN customers c ON c.id = i.customer_id
+WHERE i.user_id = $1
+  AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  AND c.normalized_phone IS NOT NULL
+  AND c.normalized_phone <> ''
+  AND EXISTS (
+    SELECT 1
+    FROM customers c2
+    JOIN invoices i2 ON i2.customer_id = c2.id
+    WHERE c2.user_id = c.user_id
+      AND c2.normalized_phone = c.normalized_phone
+      AND c2.id <> c.id
+      AND i2.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.normalized_phone, i.created_at DESC
+`
+
+type ListDuplicateInvoiceCandidatesRow struct {
+	ID                      uuid.UUID        `db:"id" json:"id"`
+	UserID                  uuid.UUID        `db:"user_id" json:"user_id"`
+	CustomerID              uuid.UUID        `db:"customer_id" json:"customer_id"`
+	Amount                  int64            `db:"amount" json:"amount"`
+	Currency                string           `db:"currency" json:"currency"`
+	PaidAmount              int64            `db:"paid_amount" json:"paid_amount"`
+	PaidAt                  *time.Time       `db:"paid_at" json:"paid_at"`
+	Description             *string          `db:"description" json:"description"`
+	DueDate                 time.Time        `db:"due_date" json:"due_date"`
+	Status                  string           `db:"status" json:"status"`
+	Source                  *string          `db:"source" json:"source"`
+	PhotoUrl                *string          `db:"photo_url" json:"photo_url"`
+	ExternalID              *string          `db:"external_id" json:"external_id"`
+	IssuedAt                *time.Time       `db:"issued_at" json:"issued_at"`
+	Items                   json.RawMessage  `db:"items" json:"items"`
+	CollectionState         string           `db:"collection_state" json:"collection_state"`
+	LastContactedAt         *time.Time       `db:"last_contacted_at" json:"last_contacted_at"`
+	LastResponseAt          *time.Time       `db:"last_response_at" json:"last_response_at"`
+	FollowUpCount           int32            `db:"follow_up_count" json:"follow_up_count"`
+	ConfidenceScore         *float64         `db:"confidence_score" json:"confidence_score"`
+	ConfidenceFactors       *json.RawMessage `db:"confidence_factors" json:"confidence_factors"`
+	OutcomeText             *string          `db:"outcome_text" json:"outcome_text"`
+	OutcomeTimeframe        *string          `db:"outcome_timeframe" json:"outcome_timeframe"`
+	ConfidenceComputedAt    *time.Time       `db:"confidence_computed_at" json:"confidence_computed_at"`
+	CreatedAt               time.Time        `db:"created_at" json:"created_at"`
+	UpdatedAt               time.Time        `db:"updated_at" json:"updated_at"`
+	PromisedAt              *time.Time       `db:"promised_at" json:"promised_at"`
+	AssignedTo              *uuid.UUID       `db:"assigned_to" json:"assigned_to"`
+	DeliveryService         *string          `db:"delivery_service" json:"delivery_service"`
+	TrackingNumber          *string          `db:"tracking_number" json:"tracking_number"`
+	ReturnedAt              *time.Time       `db:"returned_at" json:"returned_at"`
+	ReturnReason            *string          `db:"return_reason" json:"return_reason"`
+	ReturnItems             *json.RawMessage `db:"return_items" json:"return_items"`
+	CustomerName            string           `db:"customer_name" json:"customer_name"`
+	CustomerPhone           *string          `db:"customer_phone" json:"customer_phone"`
+	CustomerNormalizedPhone *string          `db:"customer_normalized_phone" json:"customer_normalized_phone"`
+	CustomerNumber          *string          `db:"customer_number" json:"customer_number"`
+}
+
+// Flags active invoices whose customer shares a phone number with another
+// customer record that also has an active invoice. This is the signature of
+// two sales reps independently selling to the same real person — reps only
+// see their own customers (RBAC "own" scope), so nothing stops the second
+// rep from creating a duplicate. CS/admin resolve by canceling one and
+// keeping the other.
+func (q *Queries) ListDuplicateInvoiceCandidates(ctx context.Context, userID uuid.UUID) ([]ListDuplicateInvoiceCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listDuplicateInvoiceCandidates, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDuplicateInvoiceCandidatesRow{}
+	for rows.Next() {
+		var i ListDuplicateInvoiceCandidatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CustomerID,
+			&i.Amount,
+			&i.Currency,
+			&i.PaidAmount,
+			&i.PaidAt,
+			&i.Description,
+			&i.DueDate,
+			&i.Status,
+			&i.Source,
+			&i.PhotoUrl,
+			&i.ExternalID,
+			&i.IssuedAt,
+			&i.Items,
+			&i.CollectionState,
+			&i.LastContactedAt,
+			&i.LastResponseAt,
+			&i.FollowUpCount,
+			&i.ConfidenceScore,
+			&i.ConfidenceFactors,
+			&i.OutcomeText,
+			&i.OutcomeTimeframe,
+			&i.ConfidenceComputedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PromisedAt,
+			&i.AssignedTo,
+			&i.DeliveryService,
+			&i.TrackingNumber,
+			&i.ReturnedAt,
+			&i.ReturnReason,
+			&i.ReturnItems,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.CustomerNormalizedPhone,
+			&i.CustomerNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInvoices = `-- name: ListInvoices :many
 SELECT id, user_id, customer_id, amount, currency, paid_amount, paid_at, description, due_date, status, source, photo_url, external_id, issued_at, items, collection_state, last_contacted_at, last_response_at, follow_up_count, confidence_score, confidence_factors, outcome_text, outcome_timeframe, confidence_computed_at, created_at, updated_at, promised_at, assigned_to, delivery_service, tracking_number, returned_at, return_reason, return_items
 FROM invoices

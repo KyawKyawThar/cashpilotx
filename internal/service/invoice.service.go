@@ -264,6 +264,45 @@ func (s *InvoiceService) ListInvoices(
 	return out, nil
 }
 
+// ListDuplicateInvoices finds active invoices whose customer shares a phone
+// number with another customer that also has an active invoice — the
+// signature of two sales reps independently creating a customer record (and
+// invoice) for the same real person, since each only sees their own scoped
+// customers. Results are grouped by phone so CS/admin can review each
+// cluster and cancel the duplicate.
+func (s *InvoiceService) ListDuplicateInvoices(ctx context.Context, userID uuid.UUID) ([]*dto.DuplicateInvoiceGroup, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	rows, err := s.store.ListDuplicateInvoiceCandidates(dbCtx, userID)
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, r := range rows {
+		if r.AssignedTo != nil {
+			ids = append(ids, *r.AssignedTo)
+		}
+	}
+	nameMap := s.resolveAssigneeNamesByIDs(dbCtx, ids)
+
+	groups := make([]*dto.DuplicateInvoiceGroup, 0)
+	var current *dto.DuplicateInvoiceGroup
+	for _, r := range rows {
+		phone := ""
+		if r.CustomerNormalizedPhone != nil {
+			phone = *r.CustomerNormalizedPhone
+		}
+		if current == nil || current.Phone != phone {
+			current = &dto.DuplicateInvoiceGroup{Phone: phone}
+			groups = append(groups, current)
+		}
+		current.Invoices = append(current.Invoices, dto.ToInvoiceResponseFromDuplicateCandidate(r, resolveFromMap(nameMap, r.AssignedTo)))
+	}
+	return groups, nil
+}
+
 // listInvoicesBySearch handles the search path: joins customers in SQL and
 // batch-resolves assignee names before mapping to response DTOs.
 // When assignedTo is non-nil (sales scope) only rows belonging to that user are returned.

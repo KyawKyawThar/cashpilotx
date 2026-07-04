@@ -328,3 +328,33 @@ WHERE user_id = $1
   AND due_date = CURRENT_DATE
   AND status NOT IN ('cancelled', 'paid', 'returned', 'written_off')
 ORDER BY due_date ASC;
+
+-- name: ListDuplicateInvoiceCandidates :many
+-- Flags active invoices whose customer shares a phone number with another
+-- customer record that also has an active invoice. This is the signature of
+-- two sales reps independently selling to the same real person — reps only
+-- see their own customers (RBAC "own" scope), so nothing stops the second
+-- rep from creating a duplicate. CS/admin resolve by canceling one and
+-- keeping the other.
+SELECT
+    i.*,
+    c.name             AS customer_name,
+    c.phone            AS customer_phone,
+    c.normalized_phone AS customer_normalized_phone,
+    c.customer_number  AS customer_number
+FROM invoices i
+JOIN customers c ON c.id = i.customer_id
+WHERE i.user_id = $1
+  AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  AND c.normalized_phone IS NOT NULL
+  AND c.normalized_phone <> ''
+  AND EXISTS (
+    SELECT 1
+    FROM customers c2
+    JOIN invoices i2 ON i2.customer_id = c2.id
+    WHERE c2.user_id = c.user_id
+      AND c2.normalized_phone = c.normalized_phone
+      AND c2.id <> c.id
+      AND i2.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+ORDER BY c.normalized_phone, i.created_at DESC;

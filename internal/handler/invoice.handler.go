@@ -111,6 +111,32 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 //	@Failure      500               {object}  dto.ErrorResponse
 //	@Router       /api/v1/invoices [get]
 //	@Security     BearerAuth
+// ListDuplicateInvoices godoc
+//
+//	@Summary      List possible duplicate invoices
+//	@Description  Groups active invoices whose customer shares a phone number with another customer that also has an active invoice — the signature of two sales reps independently creating a customer record for the same real person. Requires the invoice:view_history permission (cs_team and above).
+//	@Tags         invoices
+//	@Produce      json
+//	@Success      200  {array}   dto.DuplicateInvoiceGroup
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
+//	@Router       /api/v1/invoices/duplicates [get]
+//	@Security     BearerAuth
+func (h *InvoiceHandler) ListDuplicateInvoices(w http.ResponseWriter, r *http.Request) {
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.ListDuplicateInvoices(r.Context(), effectiveUserID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	scope, effectiveUserID, ok := h.MustScope(w, r)
 	if !ok {

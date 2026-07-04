@@ -31,6 +31,7 @@ type InvoiceServicer interface {
 	CreateInvoice(ctx context.Context, userID uuid.UUID, req *dto.CreateInvoiceRequest) (*dto.CreateInvoiceResponse, error)
 	GetInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	ListInvoices(ctx context.Context, userID uuid.UUID, filter *dto.ListInvoicesFilter, pg *dto.Pagination) ([]*dto.InvoiceResponse, error)
+	ListDuplicateInvoices(ctx context.Context, userID uuid.UUID) ([]*dto.DuplicateInvoiceGroup, error)
 	CancelInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
 	ReturnInvoice(ctx context.Context, userID, invoiceID uuid.UUID, req *dto.ReturnInvoiceRequest) (*dto.InvoiceResponse, error)
 	ReactivateInvoice(ctx context.Context, userID, invoiceID uuid.UUID) (*dto.InvoiceResponse, error)
