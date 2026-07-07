@@ -327,18 +327,21 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username *string) (User
 }
 
 const getUserNamesByIDs = `-- name: GetUserNamesByIDs :many
-SELECT id, name
+SELECT id, name, username
 FROM users
 WHERE id = ANY($1::uuid[])
 `
 
 type GetUserNamesByIDsRow struct {
-	ID   uuid.UUID `db:"id" json:"id"`
-	Name string    `db:"name" json:"name"`
+	ID       uuid.UUID `db:"id" json:"id"`
+	Name     string    `db:"name" json:"name"`
+	Username *string   `db:"username" json:"username"`
 }
 
 // Batch-resolves user IDs to display names, e.g. for showing who a
-// customer/invoice is assigned to without a per-row join.
+// customer/invoice is assigned to without a per-row join. Callers should
+// prefer username (short) over name (full), same as resolveAssigneeNamesByIDs
+// in invoice.service.go.
 func (q *Queries) GetUserNamesByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetUserNamesByIDsRow, error) {
 	rows, err := q.db.Query(ctx, getUserNamesByIDs, dollar_1)
 	if err != nil {
@@ -348,7 +351,7 @@ func (q *Queries) GetUserNamesByIDs(ctx context.Context, dollar_1 []uuid.UUID) (
 	items := []GetUserNamesByIDsRow{}
 	for rows.Next() {
 		var i GetUserNamesByIDsRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Username); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

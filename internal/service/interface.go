@@ -121,6 +121,7 @@ type CustomerServicer interface {
 	SearchCustomers(ctx context.Context, userID uuid.UUID, query string, callerID *uuid.UUID) ([]*dto.CustomerResponse, error)
 	UpdateCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID, req *dto.UpdateCustomerRequest) (*dto.CustomerResponse, error)
 	AssignCustomer(ctx context.Context, userID, customerID uuid.UUID, assignedTo *uuid.UUID) (*dto.CustomerResponse, error)
+	ListDuplicateCustomersNoInvoice(ctx context.Context, userID uuid.UUID) ([]*dto.DuplicateCustomerGroup, error)
 	ArchiveCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) error
 	ReactivateCustomer(ctx context.Context, userID, customerID uuid.UUID, callerID *uuid.UUID) error
 

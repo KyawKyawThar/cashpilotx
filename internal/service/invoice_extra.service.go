@@ -75,7 +75,6 @@ func (s *InvoiceService) GetCollectedSummary(
 	}, nil
 }
 
-//nolint:dupl // identical paginated-list pattern shared across services; abstraction adds no value
 func (s *InvoiceService) GetRecoveryQueue(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -97,7 +96,24 @@ func (s *InvoiceService) GetRecoveryQueue(
 	for _, r := range rows {
 		out = append(out, dto.ToRecoveryQueueItemResponse(r))
 	}
+	s.attachRecoveryQueueAssigneeNames(dbCtx, out)
 	return out, nil
+}
+
+// attachRecoveryQueueAssigneeNames batch-resolves each item's AssignedTo user
+// ID to a display name, e.g. for showing who a queue invoice is assigned to
+// without a per-row join.
+func (s *InvoiceService) attachRecoveryQueueAssigneeNames(ctx context.Context, out []*dto.RecoveryQueueItemResponse) {
+	ids := make([]uuid.UUID, 0, len(out))
+	for _, o := range out {
+		if o.AssignedTo != nil {
+			ids = append(ids, *o.AssignedTo)
+		}
+	}
+	nameMap := s.resolveAssigneeNamesByIDs(ctx, ids)
+	for _, o := range out {
+		o.AssignedToUsername = resolveFromMap(nameMap, o.AssignedTo)
+	}
 }
 
 // SearchRecoveryQueue returns open invoices matching the search query (tracking number,
@@ -126,5 +142,6 @@ func (s *InvoiceService) SearchRecoveryQueue(
 	for _, r := range rows {
 		out = append(out, dto.ToRecoveryQueueItemResponseFromSearch(r))
 	}
+	s.attachRecoveryQueueAssigneeNames(dbCtx, out)
 	return out, nil
 }

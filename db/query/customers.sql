@@ -231,3 +231,29 @@ FROM customers
 WHERE user_id = $1
   AND id = ANY($2::uuid[])
 ORDER BY name;
+
+-- name: ListDuplicateCustomerCandidatesNoInvoice :many
+-- Flags customers with no open invoice whose phone number is shared by
+-- another customer record in the same org — the signature of the same real
+-- person being entered twice (e.g. by two sales reps who can't see each
+-- other's customers). Surfaced on the "No Invoice" tab so these can be
+-- reviewed/deactivated before any order work happens.
+SELECT c.*
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND c.normalized_phone IS NOT NULL
+  AND c.normalized_phone <> ''
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+  AND EXISTS (
+    SELECT 1 FROM customers c2
+    WHERE c2.user_id = c.user_id
+      AND c2.normalized_phone = c.normalized_phone
+      AND c2.id <> c.id
+  )
+ORDER BY c.normalized_phone, c.created_at DESC;

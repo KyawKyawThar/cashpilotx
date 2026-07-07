@@ -36,30 +36,34 @@ type CollectedSummaryResponse struct {
 // =============================================================================
 
 type RecoveryQueueItemResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	CustomerID       uuid.UUID  `json:"customer_id"`
-	CustomerName     string     `json:"customer_name"`
-	CustomerPhone    *string    `json:"customer_phone,omitempty"`
-	CustomerNumber   *string    `json:"customer_number,omitempty"`
-	ExternalID       *string    `json:"external_id,omitempty"`
-	TrackingNumber   *string    `json:"tracking_number,omitempty"`
-	Amount           int64      `json:"amount"`
-	PaidAmount       int64      `json:"paid_amount"`
-	Currency         string     `json:"currency"`
-	Status           string     `json:"status"`
-	DueDate          time.Time  `json:"due_date"`
-	CollectionState  string     `json:"collection_state"`
-	ConfidenceScore  *float64   `json:"confidence_score,omitempty"`
-	OutcomeText      *string    `json:"outcome_text,omitempty"`
-	OutcomeTimeframe *string    `json:"outcome_timeframe,omitempty"`
-	LastContactedAt  *time.Time `json:"last_contacted_at,omitempty"`
-	FollowUpCount    int32      `json:"follow_up_count"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID                 uuid.UUID       `json:"id"`
+	CustomerID         uuid.UUID       `json:"customer_id"`
+	CustomerName       string          `json:"customer_name"`
+	CustomerPhone      *string         `json:"customer_phone,omitempty"`
+	CustomerNumber     *string         `json:"customer_number,omitempty"`
+	ExternalID         *string         `json:"external_id,omitempty"`
+	TrackingNumber     *string         `json:"tracking_number,omitempty"`
+	Items              json.RawMessage `json:"items,omitempty" swaggertype:"array,object"`
+	Amount             int64           `json:"amount"`
+	PaidAmount         int64           `json:"paid_amount"`
+	Currency           string          `json:"currency"`
+	Status             string          `json:"status"`
+	DueDate            time.Time       `json:"due_date"`
+	CollectionState    string          `json:"collection_state"`
+	ConfidenceScore    *float64        `json:"confidence_score,omitempty"`
+	OutcomeText        *string         `json:"outcome_text,omitempty"`
+	OutcomeTimeframe   *string         `json:"outcome_timeframe,omitempty"`
+	LastContactedAt    *time.Time      `json:"last_contacted_at,omitempty"`
+	FollowUpCount      int32           `json:"follow_up_count"`
+	CreatedAt          time.Time       `json:"created_at"`
+	AssignedTo         *uuid.UUID      `json:"assigned_to,omitempty"`
+	AssignedToUsername *string         `json:"assigned_to_username,omitempty"`
 }
 
 func assembleRecoveryQueueItem(
 	id uuid.UUID, customerID uuid.UUID, customerName string,
 	customerPhone *string, customerNumber *string, externalID *string, trackingNumber *string,
+	items json.RawMessage, assignedTo *uuid.UUID,
 	amount, paidAmount int64, currency, status string,
 	dueDate time.Time, collectionState string,
 	confidenceScore *float64, outcomeText *string, outcomeTimeframe *string,
@@ -73,6 +77,8 @@ func assembleRecoveryQueueItem(
 		CustomerNumber:   customerNumber,
 		ExternalID:       externalID,
 		TrackingNumber:   trackingNumber,
+		Items:            items,
+		AssignedTo:       assignedTo,
 		Amount:           amount,
 		PaidAmount:       paidAmount,
 		Currency:         currency,
@@ -92,6 +98,7 @@ func ToRecoveryQueueItemResponse(row db.GetRecoveryQueueRow) *RecoveryQueueItemR
 	return assembleRecoveryQueueItem(
 		row.ID, row.CustomerID, row.CustomerName,
 		row.CustomerPhone, row.CustomerNumber, row.ExternalID, row.TrackingNumber,
+		row.Items, row.AssignedTo,
 		row.Amount, row.PaidAmount, row.Currency, row.Status,
 		row.DueDate, row.CollectionState,
 		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,
@@ -103,6 +110,7 @@ func ToRecoveryQueueItemResponseFromSearch(row db.SearchRecoveryQueueRow) *Recov
 	return assembleRecoveryQueueItem(
 		row.ID, row.CustomerID, row.CustomerName,
 		row.CustomerPhone, row.CustomerNumber, row.ExternalID, row.TrackingNumber,
+		row.Items, row.AssignedTo,
 		row.Amount, row.PaidAmount, row.Currency, row.Status,
 		row.DueDate, row.CollectionState,
 		row.ConfidenceScore, row.OutcomeText, row.OutcomeTimeframe,

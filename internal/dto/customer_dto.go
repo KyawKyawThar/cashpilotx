@@ -64,6 +64,14 @@ type CustomerResponse struct {
 	AssignedToName *string    `json:"assigned_to_name,omitempty"`
 }
 
+// DuplicateCustomerGroup clusters customers (with no open invoice) whose
+// phone number is shared by another customer record — the signature of the
+// same real person being entered twice by different sales reps.
+type DuplicateCustomerGroup struct {
+	Phone     string              `json:"phone"`
+	Customers []*CustomerResponse `json:"customers"`
+}
+
 // ToCustomerResponse maps db.Customer to a client-facing CustomerResponse.
 func ToCustomerResponse(c db.Customer) *CustomerResponse {
 	tags := c.Tags

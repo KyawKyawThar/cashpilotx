@@ -322,6 +322,32 @@ func (h *CustomerHandler) AssignCustomer(w http.ResponseWriter, r *http.Request)
 	h.WriteSuccess(w, r, resp)
 }
 
+// ListDuplicateCustomersNoInvoice godoc
+//
+//	@Summary      List possible duplicate customers with no open invoice
+//	@Description  Groups customers with no open invoice whose phone number is shared by another customer record — the signature of the same real person being entered twice by different sales reps. Requires the customer:edit permission (cs_team and above).
+//	@Tags         customers
+//	@Produce      json
+//	@Success      200  {array}   dto.DuplicateCustomerGroup
+//	@Failure      401  {object}  dto.ErrorResponse
+//	@Failure      500  {object}  dto.ErrorResponse
+//	@Router       /api/v1/customers/duplicates [get]
+//	@Security     BearerAuth
+func (h *CustomerHandler) ListDuplicateCustomersNoInvoice(w http.ResponseWriter, r *http.Request) {
+	_, effectiveUserID, ok := h.MustScope(w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := h.svc.ListDuplicateCustomersNoInvoice(r.Context(), effectiveUserID)
+	if err != nil {
+		h.HandleErr(w, r, err)
+		return
+	}
+
+	h.WriteSuccess(w, r, resp)
+}
+
 // ArchiveCustomer godoc
 //
 //	@Summary      Archive customer

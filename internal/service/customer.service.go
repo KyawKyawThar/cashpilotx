@@ -142,7 +142,11 @@ func (s *CustomerService) attachAssignedToNames(ctx context.Context, out []*dto.
 	}
 	names := make(map[uuid.UUID]string, len(rows))
 	for _, r := range rows {
-		names[r.ID] = r.Name
+		if r.Username != nil && *r.Username != "" {
+			names[r.ID] = *r.Username
+		} else {
+			names[r.ID] = r.Name
+		}
 	}
 	for _, c := range out {
 		if c.AssignedTo == nil {
@@ -414,6 +418,44 @@ func (s *CustomerService) AssignCustomer(
 		return nil, api.FromPgError(err)
 	}
 	return resp, nil
+}
+
+// ListDuplicateCustomersNoInvoice finds customers with no open invoice whose
+// phone number is shared by another customer record — the signature of the
+// same real person being entered twice by different sales reps, since each
+// only sees their own scoped customers. Results are grouped by phone so
+// CS/admin can review each cluster and deactivate the duplicate.
+func (s *CustomerService) ListDuplicateCustomersNoInvoice(ctx context.Context, userID uuid.UUID) ([]*dto.DuplicateCustomerGroup, error) {
+	dbCtx, cancel := withDBTimeout(ctx)
+	defer cancel()
+
+	rows, err := s.store.ListDuplicateCustomerCandidatesNoInvoice(dbCtx, userID)
+	if err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	responses := make([]*dto.CustomerResponse, 0, len(rows))
+	for _, c := range rows {
+		responses = append(responses, dto.ToCustomerResponse(c))
+	}
+	if err := s.attachAssignedToNames(dbCtx, responses); err != nil {
+		return nil, api.FromPgError(err)
+	}
+
+	groups := make([]*dto.DuplicateCustomerGroup, 0)
+	var current *dto.DuplicateCustomerGroup
+	for i, c := range rows {
+		phone := ""
+		if c.NormalizedPhone != nil {
+			phone = *c.NormalizedPhone
+		}
+		if current == nil || current.Phone != phone {
+			current = &dto.DuplicateCustomerGroup{Phone: phone}
+			groups = append(groups, current)
+		}
+		current.Customers = append(current.Customers, responses[i])
+	}
+	return groups, nil
 }
 
 // ArchiveCustomer soft-deletes a customer by setting their status to "inactive".

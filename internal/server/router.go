@@ -154,11 +154,14 @@ func (s *Server) setupProtectedRoutes(r chi.Router) {
 			r.Post("/", s.handler.Customer.CreateCustomer)
 			r.Get("/", s.handler.Customer.ListCustomers)
 			r.Get("/search", s.handler.Customer.SearchCustomers)
+			r.With(mw.RequirePermission("customer", "edit")).
+				Get("/duplicates", s.handler.Customer.ListDuplicateCustomersNoInvoice)
 			r.Get("/{customer_id}", s.handler.Customer.GetCustomer)
 			r.Patch("/{customer_id}", s.handler.Customer.UpdateCustomer)
 			r.With(mw.RequirePermission("customer", "edit")).
 				Patch("/{customer_id}/assign", s.handler.Customer.AssignCustomer)
-			r.Delete("/{customer_id}", s.handler.Customer.ArchiveCustomer)
+			r.With(mw.RequirePermission("customer", "delete")).
+				Delete("/{customer_id}", s.handler.Customer.ArchiveCustomer)
 			r.Post("/{customer_id}/reactivate", s.handler.Customer.ReactivateCustomer)
 			r.Get("/{customer_id}/events", s.handler.Customer.ListCustomerEvents)
 		})

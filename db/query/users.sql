@@ -188,7 +188,9 @@ WHERE id = $1
 
 -- name: GetUserNamesByIDs :many
 -- Batch-resolves user IDs to display names, e.g. for showing who a
--- customer/invoice is assigned to without a per-row join.
-SELECT id, name
+-- customer/invoice is assigned to without a per-row join. Callers should
+-- prefer username (short) over name (full), same as resolveAssigneeNamesByIDs
+-- in invoice.service.go.
+SELECT id, name, username
 FROM users
 WHERE id = ANY($1::uuid[]);

@@ -194,6 +194,12 @@ type Querier interface {
 	CountCustomersNoOpenInvoice(ctx context.Context, arg CountCustomersNoOpenInvoiceParams) (int64, error)
 	ListCustomersHasOpenInvoice(ctx context.Context, arg ListCustomersHasOpenInvoiceParams) ([]Customer, error)
 	ListCustomersNoOpenInvoice(ctx context.Context, arg ListCustomersNoOpenInvoiceParams) ([]Customer, error)
+	// Flags customers with no open invoice whose phone number is shared by
+	// another customer record in the same org — the signature of the same real
+	// person being entered twice (e.g. by two sales reps who can't see each
+	// other's customers). Surfaced on the "No Invoice" tab so these can be
+	// reviewed/deactivated before any order work happens.
+	ListDuplicateCustomerCandidatesNoInvoice(ctx context.Context, userID uuid.UUID) ([]Customer, error)
 	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	ListCustomersAssigned(ctx context.Context, arg ListCustomersAssignedParams) ([]Customer, error)
 	ListDailyStatsRange(ctx context.Context, arg ListDailyStatsRangeParams) ([]DailyStat, error)

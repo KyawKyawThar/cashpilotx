@@ -956,3 +956,71 @@ func (q *Queries) AssignCustomer(ctx context.Context, arg AssignCustomerParams) 
 	)
 	return i, err
 }
+
+const listDuplicateCustomerCandidatesNoInvoice = `-- name: ListDuplicateCustomerCandidatesNoInvoice :many
+SELECT c.id, c.user_id, c.name, c.normalized_name, c.phone, c.normalized_phone, c.country, c.type, c.status, c.total_owed, c.total_paid, c.credit_limit, c.last_activity, c.notes, c.tags, c.created_at, c.updated_at, c.customer_number, c.assigned_to, c.credit_limit_approved_by
+FROM customers c
+WHERE c.user_id = $1
+  AND c.status = 'active'
+  AND c.normalized_phone IS NOT NULL
+  AND c.normalized_phone <> ''
+  AND NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.customer_id = c.id
+      AND i.user_id = c.user_id
+      AND i.status NOT IN ('paid', 'cancelled', 'returned')
+  )
+  AND EXISTS (
+    SELECT 1 FROM customers c2
+    WHERE c2.user_id = c.user_id
+      AND c2.normalized_phone = c.normalized_phone
+      AND c2.id <> c.id
+  )
+ORDER BY c.normalized_phone, c.created_at DESC
+`
+
+// Flags customers with no open invoice whose phone number is shared by
+// another customer record in the same org — the signature of the same real
+// person being entered twice (e.g. by two sales reps who can't see each
+// other's customers). Surfaced on the "No Invoice" tab so these can be
+// reviewed/deactivated before any order work happens.
+func (q *Queries) ListDuplicateCustomerCandidatesNoInvoice(ctx context.Context, userID uuid.UUID) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listDuplicateCustomerCandidatesNoInvoice, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.NormalizedName,
+			&i.Phone,
+			&i.NormalizedPhone,
+			&i.Country,
+			&i.Type,
+			&i.Status,
+			&i.TotalOwed,
+			&i.TotalPaid,
+			&i.CreditLimit,
+			&i.LastActivity,
+			&i.Notes,
+			&i.Tags,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerNumber,
+			&i.AssignedTo,
+			&i.CreditLimitApprovedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
