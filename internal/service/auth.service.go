@@ -244,7 +244,10 @@ func (s *AuthService) RefreshToken(
 		return nil, api.FromPgError(err)
 	}
 
-	user, err := s.store.GetUserByID(dbCtx, session.UserID)
+	// AnyStatus so a deactivated account hits the explicit is_active check
+	// below with its specific error, rather than looking indistinguishable
+	// from a stale/invalid session — see lookupUserForLogin.
+	user, err := s.store.GetUserByIDAnyStatus(dbCtx, session.UserID)
 	if err != nil {
 		if api.IsRecordNotFound(err) {
 			return nil, api.ErrInvalidCredentials()
@@ -460,8 +463,12 @@ func (s *AuthService) lookupUserForLogin(ctx context.Context, identifier string)
 	dbCtx, cancel := withDBTimeout(ctx)
 	defer cancel()
 
+	// AnyStatus variants: a deactivated account must still be found here so
+	// the caller's explicit is_active check can return the specific
+	// "deactivated" error, instead of falling through to the generic
+	// "invalid credentials" message a true not-found produces below.
 	if isPhoneIdentifier(identifier) {
-		user, err := s.store.GetUserByPhone(dbCtx, &identifier)
+		user, err := s.store.GetUserByPhoneAnyStatus(dbCtx, &identifier)
 		if err != nil {
 			if api.IsRecordNotFound(err) {
 				return db.User{}, "", api.ErrInvalidCredentials()
@@ -471,7 +478,7 @@ func (s *AuthService) lookupUserForLogin(ctx context.Context, identifier string)
 		return user, loginTypePhone, nil
 	}
 
-	user, err := s.store.GetUserByUsername(dbCtx, &identifier)
+	user, err := s.store.GetUserByUsernameAnyStatus(dbCtx, &identifier)
 	if err != nil {
 		if api.IsRecordNotFound(err) {
 			return db.User{}, "", api.ErrInvalidCredentials()

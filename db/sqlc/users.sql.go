@@ -246,6 +246,49 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const getUserByIDAnyStatus = `-- name: GetUserByIDAnyStatus :one
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+FROM users
+WHERE id = $1
+LIMIT 1
+`
+
+// Same as GetUserByID but does not filter is_active. Used only by the
+// login/refresh flows so a deactivated account gets the specific "your
+// account has been deactivated" error instead of being indistinguishable
+// from a session/credential that never existed.
+func (q *Queries) GetUserByIDAnyStatus(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIDAnyStatus, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
 const getUserByPhone = `-- name: GetUserByPhone :one
 SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 FROM users
@@ -286,6 +329,48 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone *string) (User, erro
 	return i, err
 }
 
+const getUserByPhoneAnyStatus = `-- name: GetUserByPhoneAnyStatus :one
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+FROM users
+WHERE phone = $1
+LIMIT 1
+`
+
+// Same as GetUserByPhone but does not filter is_active — see GetUserByIDAnyStatus.
+// Only used by the login lookup, never by ForgotPIN (which must keep treating
+// inactive accounts as "not found" to avoid confirming their existence).
+func (q *Queries) GetUserByPhoneAnyStatus(ctx context.Context, phone *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByPhoneAnyStatus, phone)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
 FROM users
@@ -296,6 +381,46 @@ LIMIT 1
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username *string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PinHash,
+		&i.Name,
+		&i.BusinessName,
+		&i.Locale,
+		&i.Plan,
+		&i.HomeCurrency,
+		&i.StreakDays,
+		&i.StreakBest,
+		&i.InvoiceSequence,
+		&i.OnboardingStep,
+		&i.OnboardingDoneAt,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.CustomerSequence,
+		&i.Username,
+		&i.ForcePinChange,
+		&i.Role,
+		&i.TeamID,
+		&i.CreatedBy,
+		&i.OrgOwnerID,
+	)
+	return i, err
+}
+
+const getUserByUsernameAnyStatus = `-- name: GetUserByUsernameAnyStatus :one
+SELECT id, phone, pin_hash, name, business_name, locale, plan, home_currency, streak_days, streak_best, invoice_sequence, onboarding_step, onboarding_done_at, is_active, created_at, updated_at, email, customer_sequence, username, force_pin_change, role, team_id, created_by, org_owner_id
+FROM users
+WHERE username = $1
+LIMIT 1
+`
+
+// Same as GetUserByUsername but does not filter is_active — see GetUserByIDAnyStatus.
+func (q *Queries) GetUserByUsernameAnyStatus(ctx context.Context, username *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsernameAnyStatus, username)
 	var i User
 	err := row.Scan(
 		&i.ID,

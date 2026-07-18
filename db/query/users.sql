@@ -19,11 +19,30 @@ WHERE id = $1
   AND is_active = true
 LIMIT 1;
 
+-- name: GetUserByIDAnyStatus :one
+-- Same as GetUserByID but does not filter is_active. Used only by the
+-- login/refresh flows so a deactivated account gets the specific "your
+-- account has been deactivated" error instead of being indistinguishable
+-- from a session/credential that never existed.
+SELECT *
+FROM users
+WHERE id = $1
+LIMIT 1;
+
 -- name: GetUserByPhone :one
 SELECT *
 FROM users
 WHERE phone = $1
   AND is_active = true
+LIMIT 1;
+
+-- name: GetUserByPhoneAnyStatus :one
+-- Same as GetUserByPhone but does not filter is_active — see GetUserByIDAnyStatus.
+-- Only used by the login lookup, never by ForgotPIN (which must keep treating
+-- inactive accounts as "not found" to avoid confirming their existence).
+SELECT *
+FROM users
+WHERE phone = $1
 LIMIT 1;
 
 -- name: GetUserByEmail :one
@@ -129,6 +148,13 @@ SELECT *
 FROM users
 WHERE username = $1
   AND is_active = true
+LIMIT 1;
+
+-- name: GetUserByUsernameAnyStatus :one
+-- Same as GetUserByUsername but does not filter is_active — see GetUserByIDAnyStatus.
+SELECT *
+FROM users
+WHERE username = $1
 LIMIT 1;
 
 -- name: UpdateUserPINAndClearForce :exec

@@ -163,8 +163,19 @@ type Querier interface {
 	GetTopOverdueCustomers(ctx context.Context, arg GetTopOverdueCustomersParams) ([]GetTopOverdueCustomersRow, error)
 	GetUserByEmail(ctx context.Context, email *string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	// Same as GetUserByID but does not filter is_active. Used only by the
+	// login/refresh flows so a deactivated account gets the specific "your
+	// account has been deactivated" error instead of being indistinguishable
+	// from a session/credential that never existed.
+	GetUserByIDAnyStatus(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone *string) (User, error)
+	// Same as GetUserByPhone but does not filter is_active — see GetUserByIDAnyStatus.
+	// Only used by the login lookup, never by ForgotPIN (which must keep treating
+	// inactive accounts as "not found" to avoid confirming their existence).
+	GetUserByPhoneAnyStatus(ctx context.Context, phone *string) (User, error)
 	GetUserByUsername(ctx context.Context, username *string) (User, error)
+	// Same as GetUserByUsername but does not filter is_active — see GetUserByIDAnyStatus.
+	GetUserByUsernameAnyStatus(ctx context.Context, username *string) (User, error)
 	// Batch-resolves user IDs to display names, e.g. for showing who a
 	// customer/invoice is assigned to without a per-row join.
 	GetUserNamesByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetUserNamesByIDsRow, error)
