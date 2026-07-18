@@ -135,7 +135,7 @@ func (s *AuthService) Register(
 		return nil, api.FromPgError(err)
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(result.User, s.config.AccessTokenDuration, loginTypePhone))
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(result.User, result.User.Plan, s.config.AccessTokenDuration, loginTypePhone))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -174,6 +174,13 @@ func (s *AuthService) Login(
 		return nil, api.ErrForbidden("Account has been deactivated")
 	}
 
+	loginDBCtx, loginCancel := withDBTimeout(ctx)
+	effectivePlan, err := s.resolveEffectivePlan(loginDBCtx, user)
+	loginCancel()
+	if err != nil {
+		return nil, err
+	}
+
 	if err = utils.CheckPassword(req.PIN, user.PinHash); err != nil {
 		result, _ := s.cache.RecordLoginAttempt(ctx, req.Identifier, false) //nolint:errcheck // best-effort rate-limit tracking
 		if result != nil && !result.Allowed && result.LockoutDuration > 0 {
@@ -205,7 +212,7 @@ func (s *AuthService) Login(
 		return nil, api.FromPgError(err)
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, effectivePlan, s.config.AccessTokenDuration, loginType))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -248,6 +255,11 @@ func (s *AuthService) RefreshToken(
 		return nil, api.ErrForbidden("Account has been deactivated")
 	}
 
+	effectivePlan, err := s.resolveEffectivePlan(dbCtx, user)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, deleteErr := s.store.DeleteSessionByRefreshToken(dbCtx, req.RefreshToken); deleteErr != nil {
 		return nil, api.FromPgError(deleteErr)
 	}
@@ -277,7 +289,7 @@ func (s *AuthService) RefreshToken(
 		loginType = loginTypeUsername
 	}
 
-	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, effectivePlan, s.config.AccessTokenDuration, loginType))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
@@ -393,19 +405,42 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID uuid.UUID, sessi
 	return nil
 }
 
-// tokenParamsFromUser builds CreateTokenParams from a db.User row.
-func tokenParamsFromUser(user db.User, duration time.Duration, loginType string) token.CreateTokenParams {
+// tokenParamsFromUser builds CreateTokenParams from a db.User row. plan is
+// passed explicitly rather than read from user.Plan because team members
+// carry a stale plan snapshot from account creation — callers must resolve
+// the org owner's current plan via resolveEffectivePlan first.
+func tokenParamsFromUser(user db.User, plan string, duration time.Duration, loginType string) token.CreateTokenParams {
 	p := token.CreateTokenParams{
 		UserID:         user.ID,
 		Duration:       duration,
 		ForcePinChange: user.ForcePinChange,
 		LoginType:      loginType,
-		Plan:           user.Plan,
+		Plan:           plan,
 		Role:           string(user.Role),
 		TeamID:         user.TeamID,
 		OrgOwnerID:     user.OrgOwnerID,
 	}
 	return p
+}
+
+// resolveEffectivePlan returns the plan that should gate this user's access.
+// Team members carry their own plan/is_active columns as a snapshot from
+// account creation, but billing lives on the org owner — so a plan
+// downgrade or deactivation on the owner must lock out the whole team
+// immediately, without a cascading write to every member row. For the
+// owner (OrgOwnerID == own ID, or unset on legacy rows) this is a no-op.
+func (s *AuthService) resolveEffectivePlan(ctx context.Context, user db.User) (string, error) {
+	if user.OrgOwnerID == nil || *user.OrgOwnerID == user.ID {
+		return user.Plan, nil
+	}
+	owner, err := s.store.GetUserByID(ctx, *user.OrgOwnerID)
+	if err != nil {
+		if api.IsRecordNotFound(err) {
+			return "", api.ErrForbidden("Your organization's account has been deactivated")
+		}
+		return "", api.FromPgError(err)
+	}
+	return owner.Plan, nil
 }
 
 // generateOTP creates a cryptographically random 6-digit numeric code.
@@ -582,7 +617,7 @@ func (s *AuthService) ChangePIN(ctx context.Context, userID uuid.UUID, req *dto.
 
 	// force_pin_change is already cleared by UpdateUserPINAndClearForce above.
 	user.ForcePinChange = false
-	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, s.config.AccessTokenDuration, loginType))
+	accessToken, _, err := s.tokenMaker.CreateToken(tokenParamsFromUser(user, user.Plan, s.config.AccessTokenDuration, loginType))
 	if err != nil {
 		return nil, api.ErrInternal(fmt.Errorf("create access token: %w", err))
 	}
